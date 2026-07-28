@@ -10,7 +10,7 @@ const PUBLIC_ROUTES = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow Next.js internal files and APIs
+  // Allow Next.js internals, APIs and static files
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
@@ -19,7 +19,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Read auth cookie (will be used in future backend integration)
   const token = request.cookies.get('ridegrid-token')?.value;
 
   // Public routes
@@ -31,9 +30,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Protected routes
+  // Protect all other routes
   if (!token) {
-    return NextResponse.next(); // Temporary for Sprint 3.1
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   return NextResponse.next();

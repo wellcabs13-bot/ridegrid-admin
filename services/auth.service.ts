@@ -1,34 +1,40 @@
-import { LoginRequest, RegisterRequest, UserRole } from '@/types/auth';
-
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+import { LoginRequest, RegisterRequest } from '@/types/auth';
 
 export const AuthService = {
   async login(data: LoginRequest) {
-    await delay(800);
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Login failed');
+    }
 
     return {
-      token: 'ridegrid-demo-token',
-      user: {
-        id: '1',
-        name: 'RideGrid Admin',
-        email: data.email,
-        mobile: '9999999999',
-        role: UserRole.SUPER_ADMIN,
-        isVerified: true,
-      },
+      token: result.token,
+      user: result.user,
     };
   },
 
   async register(data: RegisterRequest) {
-    await delay(800);
-
+    // Placeholder for upcoming Sprint 3.3
     return {
       success: true,
-      message: 'Registration Successful',
+      message: 'Registration endpoint coming soon.',
     };
   },
 
-  logout() {
+  async logout() {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+    });
+
     localStorage.removeItem('ridegrid-auth');
   },
 };
