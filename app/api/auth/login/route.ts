@@ -1,54 +1,99 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcrypt";
+
+import prisma from "@/lib/prisma";
+import { generateToken } from "@/lib/auth-server";
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
 
-    // Temporary demo validation
     if (!email || !password) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Email and password are required.',
+          message: "Email and password are required.",
         },
         { status: 400 }
       );
     }
 
-    // TODO: Replace with database authentication
-    const token = 'ridegrid-demo-token';
+    const user = await prisma.user.findUnique({
+      where: {
+        email: email.toLowerCase().trim(),
+      },
+    });
 
-    const user = {
-      id: '1',
-      name: 'RideGrid Admin',
-      email,
-      mobile: '9999999999',
-      role: 'SUPER_ADMIN',
-      isVerified: true,
-    };
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid email or password.",
+        },
+        { status: 401 }
+      );
+    }
+
+    if (!user.isActive) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Your account has been disabled.",
+        },
+        { status: 403 }
+      );
+    }
+
+    const passwordMatched = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatched) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid email or password.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const token = generateToken({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
 
     const response = NextResponse.json({
       success: true,
-      token,
-      user,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        isActive: user.isActive,
+        isVerified: user.isVerified,
+      },
     });
 
     response.cookies.set({
-      name: 'ridegrid-token',
+      name: "ridegrid-token",
       value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
     });
 
     return response;
   } catch (error) {
+    console.error("Login Error:", error);
+
     return NextResponse.json(
       {
         success: false,
-        message: 'Invalid request.',
+        message: "Internal server error.",
       },
       { status: 500 }
     );

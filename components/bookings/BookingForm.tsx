@@ -3,14 +3,14 @@
 import { useState } from 'react';
 
 import CustomerSelect from './CustomerSelect';
-import DriverSelect from './DriverSelect';
-import VehicleSelect from './VehicleSelect';
+import VehicleAssignmentCard from './VehicleAssignmentCard';
 import FareSummary from './FareSummary';
 
 export interface BookingFormData {
   customer: string;
-  driver: string;
+  vendor: string;
   vehicle: string;
+  driver: string;
   pickup: string;
   drop: string;
   journeyDate: string;
@@ -26,10 +26,15 @@ interface BookingFormProps {
   onCancel: () => void;
 }
 
-export default function BookingForm({ onSave, onCancel }: BookingFormProps) {
+export default function BookingForm({
+  onSave,
+  onCancel,
+}: BookingFormProps) {
   const [customer, setCustomer] = useState('');
-  const [driver, setDriver] = useState('');
+
+  const [vendor, setVendor] = useState('');
   const [vehicle, setVehicle] = useState('');
+  const [driver, setDriver] = useState('');
 
   const [pickup, setPickup] = useState('');
   const [drop, setDrop] = useState('');
@@ -50,8 +55,9 @@ export default function BookingForm({ onSave, onCancel }: BookingFormProps) {
 
     if (
       !customer ||
-      !driver ||
+      !vendor ||
       !vehicle ||
+      !driver ||
       !pickup ||
       !drop ||
       !journeyDate ||
@@ -64,8 +70,9 @@ export default function BookingForm({ onSave, onCancel }: BookingFormProps) {
 
     onSave({
       customer,
-      driver,
+      vendor,
       vehicle,
+      driver,
       pickup,
       drop,
       journeyDate,
@@ -77,34 +84,50 @@ export default function BookingForm({ onSave, onCancel }: BookingFormProps) {
     });
 
     setCustomer('');
-    setDriver('');
+
+    setVendor('');
     setVehicle('');
+    setDriver('');
+
     setPickup('');
     setDrop('');
+
     setJourneyDate('');
     setJourneyTime('');
+
     setTripType('One Way');
+
     setFare('');
+
     setPaymentMethod('Cash');
+
     setNotes('');
-  }
-
-  return (
+  }  return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <CustomerSelect value={customer} onChange={setCustomer} />
+      <CustomerSelect
+        value={customer}
+        onChange={setCustomer}
+      />
 
-        <DriverSelect value={driver} onChange={setDriver} />
+      <VehicleAssignmentCard
+        vendor={vendor}
+        vehicle={vehicle}
+        driver={driver}
+        onVendorChange={setVendor}
+        onVehicleChange={setVehicle}
+        onDriverChange={setDriver}
+      />
 
-        <VehicleSelect value={vehicle} onChange={setVehicle} />
-
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-semibold mb-2">Trip Type</label>
+          <label className="mb-2 block text-sm font-semibold">
+            Trip Type
+          </label>
 
           <select
             value={tripType}
             onChange={(e) => setTripType(e.target.value)}
-            className="w-full border rounded-xl px-4 py-3"
+            className="w-full rounded-xl border px-4 py-3"
           >
             <option>One Way</option>
             <option>Round Trip</option>
@@ -114,78 +137,14 @@ export default function BookingForm({ onSave, onCancel }: BookingFormProps) {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold mb-2">
-            Pickup Location
-          </label>
-
-          <input
-            value={pickup}
-            onChange={(e) => setPickup(e.target.value)}
-            placeholder="Enter Pickup Location"
-            className="w-full border rounded-xl px-4 py-3"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold mb-2">
-            Drop Location
-          </label>
-
-          <input
-            value={drop}
-            onChange={(e) => setDrop(e.target.value)}
-            placeholder="Enter Drop Location"
-            className="w-full border rounded-xl px-4 py-3"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold mb-2">
-            Journey Date
-          </label>
-
-          <input
-            type="date"
-            value={journeyDate}
-            onChange={(e) => setJourneyDate(e.target.value)}
-            className="w-full border rounded-xl px-4 py-3"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold mb-2">
-            Journey Time
-          </label>
-
-          <input
-            type="time"
-            value={journeyTime}
-            onChange={(e) => setJourneyTime(e.target.value)}
-            className="w-full border rounded-xl px-4 py-3"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold mb-2">Fare (₹)</label>
-
-          <input
-            type="number"
-            value={fare}
-            onChange={(e) => setFare(e.target.value)}
-            placeholder="Enter Fare"
-            className="w-full border rounded-xl px-4 py-3"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold mb-2">
+          <label className="mb-2 block text-sm font-semibold">
             Payment Method
           </label>
 
           <select
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
-            className="w-full border rounded-xl px-4 py-3"
+            className="w-full rounded-xl border px-4 py-3"
           >
             <option>Cash</option>
             <option>UPI</option>
@@ -193,17 +152,85 @@ export default function BookingForm({ onSave, onCancel }: BookingFormProps) {
             <option>Bank Transfer</option>
           </select>
         </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Pickup Location
+          </label>
+
+          <input
+            value={pickup}
+            onChange={(e) => setPickup(e.target.value)}
+            placeholder="Enter Pickup Location"
+            className="w-full rounded-xl border px-4 py-3"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Drop Location
+          </label>
+
+          <input
+            value={drop}
+            onChange={(e) => setDrop(e.target.value)}
+            placeholder="Enter Drop Location"
+            className="w-full rounded-xl border px-4 py-3"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Journey Date
+          </label>
+
+          <input
+            type="date"
+            value={journeyDate}
+            onChange={(e) => setJourneyDate(e.target.value)}
+            className="w-full rounded-xl border px-4 py-3"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Journey Time
+          </label>
+
+          <input
+            type="time"
+            value={journeyTime}
+            onChange={(e) => setJourneyTime(e.target.value)}
+            className="w-full rounded-xl border px-4 py-3"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Fare (₹)
+          </label>
+
+          <input
+            type="number"
+            value={fare}
+            onChange={(e) => setFare(e.target.value)}
+            placeholder="Enter Fare"
+            className="w-full rounded-xl border px-4 py-3"
+          />
+        </div>
       </div>
 
       <div>
-        <label className="block text-sm font-semibold mb-2">Notes</label>
+        <label className="mb-2 block text-sm font-semibold">
+          Notes
+        </label>
 
         <textarea
           rows={4}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Additional Notes"
-          className="w-full border rounded-xl px-4 py-3"
+          className="w-full rounded-xl border px-4 py-3"
         />
       </div>
 
@@ -213,14 +240,14 @@ export default function BookingForm({ onSave, onCancel }: BookingFormProps) {
         <button
           type="button"
           onClick={onCancel}
-          className="px-6 py-3 rounded-xl border border-slate-300 hover:bg-slate-100"
+          className="rounded-xl border border-slate-300 px-6 py-3 hover:bg-slate-100"
         >
           Cancel
         </button>
 
         <button
           type="submit"
-          className="px-6 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700"
+          className="rounded-xl bg-blue-600 px-6 py-3 text-white hover:bg-blue-700"
         >
           Save Booking
         </button>

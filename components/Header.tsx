@@ -1,58 +1,131 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import {
+  Bell,
+  Search,
+  Settings,
+  Plus,
+  ChevronDown,
+} from "lucide-react";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Header() {
   const pathname = usePathname();
 
-  const pageTitle = () => {
-    if (pathname === '/') return 'Dashboard';
-    if (pathname.startsWith('/bookings')) return 'Bookings';
-    if (pathname.startsWith('/customers')) return 'Customers';
-    if (pathname.startsWith('/drivers')) return 'Drivers';
-    if (pathname.startsWith('/vehicles')) return 'Vehicles';
-    if (pathname.startsWith('/vendors')) return 'Vendors';
-    if (pathname.startsWith('/finance')) return 'Finance';
-    if (pathname.startsWith('/analytics')) return 'Analytics';
-    if (pathname.startsWith('/reports')) return 'Reports';
-    if (pathname.startsWith('/notifications')) return 'Notifications';
-    if (pathname.startsWith('/support')) return 'CRM & Support';
-    if (pathname.startsWith('/settings')) return 'Settings';
-
-    return 'RideGrid';
-  };
+  const pageName =
+    pathname === "/"
+      ? "Dashboard"
+      : pathname
+          .split("/")
+          .filter(Boolean)
+          .map(
+            (item) =>
+              item.charAt(0).toUpperCase() + item.slice(1)
+          )
+          .join(" / ");
 
   return (
-    <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800">{pageTitle()}</h1>
+    <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white px-8">
 
-        <p className="text-sm text-slate-500">Welcome back, Akshay 👋</p>
+      {/* Left */}
+
+      <div>
+
+        <p className="text-sm text-slate-500">
+          Welcome back 👋
+        </p>
+
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+          {pageName}
+        </h1>
+
       </div>
 
-      <div className="flex items-center gap-5">
-        <input
-          type="text"
-          placeholder="Search..."
-          className="w-80 rounded-xl border border-slate-300 px-4 py-2 outline-none focus:border-blue-500"
-        />
+      {/* Right */}
 
-        <button className="w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 transition">
-          🔔
+      <div className="flex items-center gap-4">
+
+        {/* Search */}
+
+        <div className="relative hidden lg:block">
+
+          <Search
+            size={18}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+          />
+
+          <input
+            type="text"
+            placeholder="Search bookings, customers..."
+            className="w-80 rounded-xl border border-slate-300 bg-slate-50 py-3 pl-11 pr-4 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+          />
+
+        </div>
+
+        {/* New Booking */}
+
+        <Link
+          href="/bookings/new"
+          className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+        >
+
+          <Plus size={18} />
+
+          New Booking
+
+        </Link>
+
+        {/* Settings */}
+
+        <button className="rounded-xl border border-slate-200 p-3 transition hover:bg-slate-100">
+
+          <Settings size={20} />
+
         </button>
 
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+        {/* Notifications */}
+
+        <button className="relative rounded-xl border border-slate-200 p-3 transition hover:bg-slate-100">
+
+          <Bell size={20} />
+
+          <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-red-500"></span>
+
+        </button>
+
+        {/* Profile */}
+
+        <button className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 transition hover:bg-slate-100">
+
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-sm font-bold text-white">
+
             A
+
           </div>
 
-          <div>
-            <h3 className="font-semibold">Akshay</h3>
+          <div className="hidden text-left xl:block">
 
-            <p className="text-xs text-slate-500">Administrator</p>
+            <p className="text-sm font-semibold text-slate-900">
+              Administrator
+            </p>
+
+            <p className="text-xs text-slate-500">
+              Super Admin
+            </p>
+
           </div>
-        </div>
+
+          <ChevronDown
+            size={18}
+            className="text-slate-500"
+          />
+
+        </button>
+
       </div>
+
     </header>
   );
 }

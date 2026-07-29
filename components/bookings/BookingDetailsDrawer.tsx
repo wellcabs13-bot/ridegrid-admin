@@ -1,5 +1,7 @@
 'use client';
 
+import { X, Receipt, Printer } from 'lucide-react';
+
 import BookingInfoCard from './BookingInfoCard';
 import TripInfoCard from './TripInfoCard';
 import PaymentInfoCard from './PaymentInfoCard';
@@ -20,25 +22,66 @@ export default function BookingDetailsDrawer({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      {/* Overlay */}
 
-      <div className="fixed right-0 top-0 z-50 h-screen w-full max-w-xl overflow-y-auto bg-white shadow-2xl">
-        <div className="sticky top-0 flex items-center justify-between border-b bg-white px-6 py-4">
-          <div>
-            <h2 className="text-2xl font-bold">Booking Details</h2>
+      <div
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
-            <p className="text-sm text-slate-500">{booking.id}</p>
+      {/* Drawer */}
+
+      <div className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-2xl flex-col bg-slate-50 shadow-2xl">
+
+        {/* Header */}
+
+        <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-8 py-6">
+          <div className="flex items-start justify-between">
+
+            <div>
+              <p className="text-sm font-medium text-blue-600">
+                Booking Details
+              </p>
+
+              <h2 className="mt-1 text-3xl font-bold text-slate-900">
+                {booking.id}
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-500">
+                View complete booking information.
+              </p>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="rounded-xl border border-slate-200 bg-white p-3 transition hover:bg-slate-100"
+            >
+              <X size={20} />
+            </button>
+
           </div>
 
-          <button
-            onClick={onClose}
-            className="rounded-lg border px-4 py-2 hover:bg-slate-100"
-          >
-            Close
-          </button>
+          {/* Action Buttons */}
+
+          <div className="mt-6 flex flex-wrap gap-3">
+
+            <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100">
+              <Printer size={16} />
+              Print
+            </button>
+
+            <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100">
+              <Receipt size={16} />
+              Invoice
+            </button>
+
+          </div>
         </div>
 
-        <div className="space-y-6 p-6">
+        {/* Content */}
+
+        <div className="flex-1 space-y-6 overflow-y-auto p-8">
+
           <BookingInfoCard booking={booking} />
 
           <TripInfoCard booking={booking} />
@@ -46,6 +89,7 @@ export default function BookingDetailsDrawer({
           <PaymentInfoCard booking={booking} />
 
           <StatusTimeline />
+
         </div>
       </div>
     </>

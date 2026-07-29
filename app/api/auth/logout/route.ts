@@ -1,19 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
 export async function POST() {
   const response = NextResponse.json({
     success: true,
-    message: 'Logged out successfully.',
+    message: "Logged out successfully.",
   });
 
   response.cookies.set({
-    name: 'ridegrid-token',
-    value: '',
+    name: "ridegrid-token",
+    value: "",
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 0,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: new Date(0),
   });
 
   return response;

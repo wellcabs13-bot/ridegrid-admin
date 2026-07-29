@@ -1,6 +1,7 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
+import { X } from 'lucide-react';
 
 interface AddBookingModalProps {
   isOpen: boolean;
@@ -11,24 +12,68 @@ interface AddBookingModalProps {
 
 export default function AddBookingModal({
   isOpen,
-  title = 'Add Booking',
+  title = 'Create New Booking',
   children,
   onClose,
 }: AddBookingModalProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6">
-      <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <h2 className="text-2xl font-bold text-slate-800">{title}</h2>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="booking-modal-title"
+        className="w-full max-w-6xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/95 px-8 py-5 backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
+          <div>
+            <h2
+              id="booking-modal-title"
+              className="text-2xl font-bold text-slate-900 dark:text-white"
+            >
+              {title}
+            </h2>
 
-          <button onClick={onClose} className="text-xl hover:text-red-600">
-            ✕
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Fill in the booking details to create a new RideGrid booking.
+            </p>
+          </div>
+
+          <button
+            onClick={onClose}
+            aria-label="Close modal"
+            className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-red-600 dark:hover:bg-slate-800"
+          >
+            <X size={22} />
           </button>
         </div>
 
-        <div className="max-h-[80vh] overflow-y-auto p-6">{children}</div>
+        <div className="max-h-[82vh] overflow-y-auto px-8 py-6">
+          {children}
+        </div>
       </div>
     </div>
   );

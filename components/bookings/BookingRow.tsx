@@ -1,5 +1,13 @@
 'use client';
 
+import {
+  CalendarDays,
+  CarFront,
+  Eye,
+  MapPin,
+  User,
+} from 'lucide-react';
+
 import StatusBadge from './StatusBadge';
 import PaymentBadge from './PaymentBadge';
 import ActionMenu from './ActionMenu';
@@ -21,41 +29,138 @@ interface BookingRowProps {
   onView?: (booking: Booking) => void;
 }
 
-export default function BookingRow({ booking, onView }: BookingRowProps) {
+export default function BookingRow({
+  booking,
+  onView,
+}: BookingRowProps) {
   return (
-    <tr className="border-b hover:bg-slate-50 transition">
-      <td className="px-4 py-4 font-semibold">{booking.id}</td>
+    <tr className="group border-b border-slate-100 transition-all hover:bg-slate-50">
+      {/* Booking ID */}
 
-      <td className="px-4 py-4">{booking.customer}</td>
+      <td className="whitespace-nowrap px-6 py-5">
+        <div>
+          <p className="font-semibold text-slate-900">
+            {booking.id}
+          </p>
 
-      <td className="px-4 py-4">{booking.vehicle}</td>
+          <p className="mt-1 text-xs text-slate-500">
+            RideGrid Booking
+          </p>
+        </div>
+      </td>
 
-      <td className="px-4 py-4">{booking.pickup || '-'}</td>
+      {/* Customer */}
 
-      <td className="px-4 py-4">{booking.drop || '-'}</td>
+      <td className="px-6 py-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-700">
+            {booking.customer.charAt(0).toUpperCase()}
+          </div>
 
-      <td className="px-4 py-4">{booking.date}</td>
+          <div>
+            <p className="font-medium text-slate-900">
+              {booking.customer}
+            </p>
 
-      <td className="px-4 py-4 font-semibold">{booking.amount}</td>
+            <div className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+              <User size={13} />
+              Customer
+            </div>
+          </div>
+        </div>
+      </td>
 
-      <td className="px-4 py-4">
+      {/* Vehicle */}
+
+      <td className="px-6 py-5">
+        <div className="flex items-center gap-2">
+          <CarFront
+            size={16}
+            className="text-slate-400"
+          />
+
+          <span className="font-medium text-slate-700">
+            {booking.vehicle}
+          </span>
+        </div>
+      </td>
+
+      {/* Pickup */}
+
+      <td className="px-6 py-5">
+        <div className="flex items-center gap-2">
+          <MapPin
+            size={15}
+            className="text-green-600"
+          />
+
+          <span className="text-slate-700">
+            {booking.pickup || '-'}
+          </span>
+        </div>
+      </td>
+
+      {/* Drop */}
+
+      <td className="px-6 py-5">
+        <div className="flex items-center gap-2">
+          <MapPin
+            size={15}
+            className="text-red-600"
+          />
+
+          <span className="text-slate-700">
+            {booking.drop || '-'}
+          </span>
+        </div>
+      </td>
+
+      {/* Journey Date */}
+
+      <td className="whitespace-nowrap px-6 py-5">
+        <div className="flex items-center gap-2">
+          <CalendarDays
+            size={16}
+            className="text-slate-400"
+          />
+
+          <span>{booking.date}</span>
+        </div>
+      </td>
+
+      {/* Amount */}
+
+      <td className="whitespace-nowrap px-6 py-5">
+        <span className="text-lg font-bold text-slate-900">
+          {booking.amount}
+        </span>
+      </td>
+
+      {/* Status */}
+
+      <td className="px-6 py-5">
         <StatusBadge status={booking.status} />
       </td>
 
-      <td className="px-4 py-4">
+      {/* Payment */}
+
+      <td className="px-6 py-5">
         <PaymentBadge payment={booking.payment} />
       </td>
 
-      <td className="px-4 py-4">
+      {/* Actions */}
+
+      <td className="px-6 py-5">
         <div className="flex items-center gap-2">
           <button
             onClick={() => onView?.(booking)}
-            className="rounded-lg border border-blue-500 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
           >
+            <Eye size={15} />
             View
           </button>
 
-          <ActionMenu booking={booking} />
+          <ActionMenu bookingId={booking.id} />
         </div>
       </td>
     </tr>
