@@ -3,12 +3,25 @@
 export interface Transaction {
   id: string;
   date: string;
-  title: string;
-  category: string;
-  type: string;
+
+  details: string;
+
+  type:
+    | 'Income'
+    | 'Expense'
+    | 'Vendor Payment'
+    | 'Driver Salary'
+    | 'Refund'
+    | 'Commission';
+
   paymentMethod: string;
+
   amount: number;
-  status: string;
+
+  status:
+    | 'Completed'
+    | 'Pending'
+    | 'Failed';
 }
 
 interface TransactionRowProps {
@@ -36,41 +49,41 @@ export default function TransactionRow({
   };
 
   return (
-    <tr className="border-b border-slate-100 transition hover:bg-slate-50">
-      <td className="px-6 py-4 font-semibold text-slate-900">
+    <tr className="border-b border-slate-100 hover:bg-slate-50 transition">
+      <td className="px-6 py-4 font-semibold">
         {transaction.id}
       </td>
 
-      <td className="px-6 py-4 text-slate-600">{transaction.date}</td>
-
       <td className="px-6 py-4">
-        <div className="font-semibold text-slate-900">{transaction.title}</div>
+        {transaction.date}
+      </td>
 
-        <div className="text-sm text-slate-500">{transaction.category}</div>
+      <td className="px-6 py-4 font-medium">
+        {transaction.details}
       </td>
 
       <td className="px-6 py-4">
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            typeStyle[transaction.type as keyof typeof typeStyle] ||
-            'bg-slate-100 text-slate-700'
+            typeStyle[transaction.type]
           }`}
         >
           {transaction.type}
         </span>
       </td>
 
-      <td className="px-6 py-4 text-slate-700">{transaction.paymentMethod}</td>
+      <td className="px-6 py-4">
+        {transaction.paymentMethod}
+      </td>
 
-      <td className="px-6 py-4 font-bold text-slate-900">
+      <td className="px-6 py-4 font-bold">
         ₹{transaction.amount.toLocaleString()}
       </td>
 
       <td className="px-6 py-4">
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            statusStyle[transaction.status as keyof typeof statusStyle] ||
-            'bg-slate-100 text-slate-700'
+            statusStyle[transaction.status]
           }`}
         >
           {transaction.status}
@@ -80,7 +93,7 @@ export default function TransactionRow({
       <td className="px-6 py-4">
         <button
           onClick={() => onView(transaction)}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
         >
           View
         </button>

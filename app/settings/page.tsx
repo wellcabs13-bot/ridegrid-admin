@@ -1,7 +1,12 @@
+'use client';
+
+import { useState } from 'react';
+
 import DashboardLayout from '@/components/DashboardLayout';
 
 import SettingsHeader from '@/components/settings/SettingsHeader';
 import SettingsNavigation from '@/components/settings/SettingsNavigation';
+
 import CompanySettings from '@/components/settings/CompanySettings';
 import BrandingSettings from '@/components/settings/BrandingSettings';
 import UserManagement from '@/components/settings/UserManagement';
@@ -28,60 +33,103 @@ import Preferences from '@/components/settings/Preferences';
 import SaveSettingsCard from '@/components/settings/SaveSettingsCard';
 
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState('company');
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'company':
+        return <CompanySettings />;
+
+      case 'branding':
+        return <BrandingSettings />;
+
+      case 'users':
+        return <UserManagement />;
+
+      case 'roles':
+        return <RolePermissions />;
+
+      case 'notifications':
+        return <NotificationSettings />;
+
+      case 'email':
+        return <EmailSettings />;
+
+      case 'sms':
+        return <SMSSettings />;
+
+      case 'whatsapp':
+        return <WhatsAppSettings />;
+
+      case 'payment':
+        return <PaymentGatewaySettings />;
+
+      case 'tax':
+        return <TaxGSTSettings />;
+
+      case 'commission':
+        return <CommissionSettings />;
+
+      case 'vehicle-category':
+        return <VehicleCategorySettings />;
+
+      case 'city':
+        return <CitySettings />;
+
+      case 'fare':
+        return <FareSettings />;
+
+      case 'booking':
+        return <BookingSettings />;
+
+      case 'cancellation':
+        return <CancellationPolicy />;
+
+      case 'coupon':
+        return <CouponSettings />;
+
+      case 'security':
+        return <SecuritySettings />;
+
+      case 'api':
+        return <APISettings />;
+
+      case 'backup':
+        return <BackupRestore />;
+
+      case 'system-logs':
+        return <SystemLogs />;
+
+      case 'activity-logs':
+        return <ActivityLogs />;
+
+      case 'preferences':
+        return <Preferences />;
+
+      default:
+        return <CompanySettings />;
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <SettingsHeader />
 
-        <SettingsNavigation />
+        <div className="grid gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-3">
+            <SettingsNavigation
+              activeTab={activeTab}
+              onChange={setActiveTab}
+            />
+          </div>
 
-        <CompanySettings />
+          <div className="space-y-6 lg:col-span-9">
+            {renderContent()}
 
-        <BrandingSettings />
-
-        <UserManagement />
-
-        <RolePermissions />
-
-        <NotificationSettings />
-
-        <EmailSettings />
-
-        <SMSSettings />
-
-        <WhatsAppSettings />
-
-        <PaymentGatewaySettings />
-
-        <TaxGSTSettings />
-
-        <CommissionSettings />
-
-        <VehicleCategorySettings />
-
-        <CitySettings />
-
-        <FareSettings />
-
-        <BookingSettings />
-
-        <CancellationPolicy />
-
-        <CouponSettings />
-
-        <SecuritySettings />
-
-        <APISettings />
-
-        <BackupRestore />
-
-        <SystemLogs />
-
-        <ActivityLogs />
-
-        <Preferences />
-
-        <SaveSettingsCard />
+            <SaveSettingsCard />
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

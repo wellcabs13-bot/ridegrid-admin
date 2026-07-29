@@ -2,9 +2,21 @@
 
 import { useState } from 'react';
 
-import CustomerSelect from './CustomerSelect';
-import VehicleAssignmentCard from './VehicleAssignmentCard';
-import FareSummary from './FareSummary';
+import CustomerSection from './sections/CustomerSection';
+import VehicleSection from './sections/VehicleSection';
+import TripSection from './sections/TripSection';
+import PaymentSection from './sections/PaymentSection';
+import NotesSection from './sections/NotesSection';
+
+import LocationSection from './location/LocationSection';
+
+import FareInputSection from './fare/FareInputSection';
+import ExtraChargesCard from './fare/ExtraChargesCard';
+import PackageCard from './fare/PackageCard';
+import FareCalculator from './fare/FareCalculator';
+import FareSummaryCard from './fare/FareSummaryCard';
+
+import { ExtraCharges, FareOutput } from './fare/types';
 
 export interface BookingFormData {
   customer: string;
@@ -42,29 +54,64 @@ export default function BookingForm({
   const [journeyDate, setJourneyDate] = useState('');
   const [journeyTime, setJourneyTime] = useState('');
 
-  const [tripType, setTripType] = useState('One Way');
+  const [tripType, setTripType] = useState(
+    'Outstation One Way'
+  );
 
-  const [fare, setFare] = useState('');
-
-  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [paymentMethod, setPaymentMethod] =
+    useState('Cash');
 
   const [notes, setNotes] = useState('');
 
-  function handleSubmit(e: React.FormEvent) {
+  const [baseFare, setBaseFare] = useState(0);
+
+  const [totalDistance, setTotalDistance] =
+    useState(0);
+
+  const [totalDays, setTotalDays] =
+    useState(1);
+
+  const [vendorRatePerKm, setVendorRatePerKm] =
+    useState(18);
+
+  const [packageHours, setPackageHours] =
+    useState(8);
+
+  const [packageKm, setPackageKm] =
+    useState(80);
+
+  const [extraKm, setExtraKm] =
+    useState(0);
+
+  const [extraKmRate, setExtraKmRate] =
+    useState(18);
+
+  const [extraHours, setExtraHours] =
+    useState(0);
+
+  const [extraHourRate, setExtraHourRate] =
+    useState(200);
+
+  const [extras, setExtras] =
+    useState<ExtraCharges>({
+      toll: 0,
+      parking: 0,
+      permit: 0,
+      stateTax: 0,
+      driverAllowance: 0,
+      other: 0,
+    });
+
+  const [fare, setFare] =
+    useState<FareOutput | null>(null);
+
+  function handleSubmit(
+    e: React.FormEvent
+  ) {
     e.preventDefault();
 
-    if (
-      !customer ||
-      !vendor ||
-      !vehicle ||
-      !driver ||
-      !pickup ||
-      !drop ||
-      !journeyDate ||
-      !journeyTime ||
-      !fare
-    ) {
-      alert('Please fill all required fields.');
+    if (!fare) {
+      alert('Fare not calculated.');
       return;
     }
 
@@ -78,163 +125,144 @@ export default function BookingForm({
       journeyDate,
       journeyTime,
       tripType,
-      fare,
+      fare: String(fare.finalFare),
       paymentMethod,
       notes,
     });
+  }
 
-    setCustomer('');
-
-    setVendor('');
-    setVehicle('');
-    setDriver('');
-
-    setPickup('');
-    setDrop('');
-
-    setJourneyDate('');
-    setJourneyTime('');
-
-    setTripType('One Way');
-
-    setFare('');
-
-    setPaymentMethod('Cash');
-
-    setNotes('');
-  }  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <CustomerSelect
-        value={customer}
-        onChange={setCustomer}
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+    >
+      <CustomerSection
+        customer={customer}
+        setCustomer={setCustomer}
       />
 
-      <VehicleAssignmentCard
+      <VehicleSection
         vendor={vendor}
         vehicle={vehicle}
         driver={driver}
-        onVendorChange={setVendor}
-        onVehicleChange={setVehicle}
-        onDriverChange={setDriver}
+        setVendor={setVendor}
+        setVehicle={setVehicle}
+        setDriver={setDriver}
       />
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Trip Type
-          </label>
+      <TripSection
+        tripType={tripType}
+        setTripType={setTripType}
+        journeyDate={journeyDate}
+        setJourneyDate={setJourneyDate}
+        journeyTime={journeyTime}
+        setJourneyTime={setJourneyTime}
+      />
 
-          <select
-            value={tripType}
-            onChange={(e) => setTripType(e.target.value)}
-            className="w-full rounded-xl border px-4 py-3"
-          >
-            <option>One Way</option>
-            <option>Round Trip</option>
-            <option>Rental</option>
-            <option>Airport Transfer</option>
-          </select>
-        </div>
+      <LocationSection
+        tripType={tripType}
+        pickup={pickup}
+        setPickup={setPickup}
+        drop={drop}
+        setDrop={setDrop}
+      />
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Payment Method
-          </label>
+      <FareInputSection
+        tripType={tripType}
+        baseFare={baseFare}
+        setBaseFare={setBaseFare}
+        totalDistance={totalDistance}
+        setTotalDistance={setTotalDistance}
+        totalDays={totalDays}
+        setTotalDays={setTotalDays}
+        vendorRatePerKm={vendorRatePerKm}
+        setVendorRatePerKm={
+          setVendorRatePerKm
+        }
+      />
 
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            className="w-full rounded-xl border px-4 py-3"
-          >
-            <option>Cash</option>
-            <option>UPI</option>
-            <option>Card</option>
-            <option>Bank Transfer</option>
-          </select>
-        </div>
+      <ExtraChargesCard
+        extras={extras}
+        setExtras={setExtras}
+      />
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Pickup Location
-          </label>
-
-          <input
-            value={pickup}
-            onChange={(e) => setPickup(e.target.value)}
-            placeholder="Enter Pickup Location"
-            className="w-full rounded-xl border px-4 py-3"
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Drop Location
-          </label>
-
-          <input
-            value={drop}
-            onChange={(e) => setDrop(e.target.value)}
-            placeholder="Enter Drop Location"
-            className="w-full rounded-xl border px-4 py-3"
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Journey Date
-          </label>
-
-          <input
-            type="date"
-            value={journeyDate}
-            onChange={(e) => setJourneyDate(e.target.value)}
-            className="w-full rounded-xl border px-4 py-3"
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Journey Time
-          </label>
-
-          <input
-            type="time"
-            value={journeyTime}
-            onChange={(e) => setJourneyTime(e.target.value)}
-            className="w-full rounded-xl border px-4 py-3"
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Fare (₹)
-          </label>
-
-          <input
-            type="number"
-            value={fare}
-            onChange={(e) => setFare(e.target.value)}
-            placeholder="Enter Fare"
-            className="w-full rounded-xl border px-4 py-3"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-2 block text-sm font-semibold">
-          Notes
-        </label>
-
-        <textarea
-          rows={4}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Additional Notes"
-          className="w-full rounded-xl border px-4 py-3"
+      {tripType ===
+        'Hourly Rental' && (
+        <PackageCard
+          packageHours={packageHours}
+          setPackageHours={
+            setPackageHours
+          }
+          packageKm={packageKm}
+          setPackageKm={setPackageKm}
+          extraKm={extraKm}
+          setExtraKm={setExtraKm}
+          extraKmRate={extraKmRate}
+          setExtraKmRate={
+            setExtraKmRate
+          }
+          extraHours={extraHours}
+          setExtraHours={
+            setExtraHours
+          }
+          extraHourRate={
+            extraHourRate
+          }
+          setExtraHourRate={
+            setExtraHourRate
+          }
         />
-      </div>
+      )}
 
-      <FareSummary fare={fare} />
+      <FareCalculator
+        data={{
+          tripType:
+            tripType as any,
+          baseFare,
+          totalDistance,
+          totalDays,
+          packageHours,
+          packageKm,
+          extraKm,
+          extraHours,
+          vendorRatePerKm,
+          extraKmRate,
+          extraHourRate,
+          platformFeePercentage:
+            12,
+          discount: 0,
+          extras,
+        }}
+        onChange={setFare}
+      />
+
+      {fare && (
+        <FareSummaryCard
+          fare={fare}
+        />
+      )}
+
+      <PaymentSection
+        paymentMethod={
+          paymentMethod
+        }
+        setPaymentMethod={
+          setPaymentMethod
+        }
+        fare={
+          fare
+            ? String(
+                fare.finalFare
+              )
+            : ''
+        }
+        setFare={() => {}}
+      />
+
+      <NotesSection
+        notes={notes}
+        setNotes={setNotes}
+      />
 
       <div className="flex justify-end gap-4 border-t pt-6">
         <button
