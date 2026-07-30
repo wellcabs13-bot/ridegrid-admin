@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { ReactNode } from 'react';
 import { Driver } from '../../data/drivers';
 
@@ -33,18 +34,25 @@ export default function DriverDetailsDrawer({
           <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-6 py-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <img
-                  src={driver.photo}
-                  alt={driver.name}
-                  className="h-16 w-16 rounded-full border object-cover"
-                />
+                <div className="relative h-16 w-16 overflow-hidden rounded-full border">
+                  <Image
+                    src={driver.photo}
+                    alt={driver.name}
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                    priority
+                  />
+                </div>
 
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">
                     {driver.name}
                   </h2>
 
-                  <p className="text-sm text-slate-500">{driver.mobile}</p>
+                  <p className="text-sm text-slate-500">
+                    {driver.mobile}
+                  </p>
 
                   <div className="mt-2 flex gap-2">
                     <span
@@ -52,8 +60,8 @@ export default function DriverDetailsDrawer({
                         driver.status === 'Active'
                           ? 'bg-green-100 text-green-700'
                           : driver.status === 'Inactive'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-red-100 text-red-700'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-red-100 text-red-700'
                       }`}
                     >
                       {driver.status}
@@ -64,8 +72,8 @@ export default function DriverDetailsDrawer({
                         driver.availability === 'Available'
                           ? 'bg-blue-100 text-blue-700'
                           : driver.availability === 'On Trip'
-                          ? 'bg-orange-100 text-orange-700'
-                          : 'bg-slate-200 text-slate-700'
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-slate-200 text-slate-700'
                       }`}
                     >
                       {driver.availability}
@@ -85,7 +93,9 @@ export default function DriverDetailsDrawer({
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto bg-slate-50 p-6">
-            <div className="space-y-6">{children}</div>
+            <div className="space-y-6">
+              {children}
+            </div>
           </div>
         </div>
       </div>

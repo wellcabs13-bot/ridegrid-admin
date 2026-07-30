@@ -21,15 +21,15 @@ export default function AgentPerformance() {
               </th>
 
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase">
-                Tickets
+                Resolved
               </th>
 
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase">
-                Avg Response
+                Pending
               </th>
 
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase">
-                Rating
+                SLA
               </th>
             </tr>
           </thead>
@@ -37,13 +37,13 @@ export default function AgentPerformance() {
           <tbody>
             {agentPerformance.map((agent) => (
               <tr key={agent.id} className="border-t hover:bg-slate-50">
-                <td className="px-6 py-4 font-medium">{agent.name}</td>
+                <td className="px-6 py-4 font-medium">{agent.agent}</td>
 
-                <td className="px-6 py-4">{agent.ticketsHandled}</td>
+                <td className="px-6 py-4">{agent.resolved}</td>
 
-                <td className="px-6 py-4">{agent.averageResponseTime}</td>
+                <td className="px-6 py-4">{agent.pending}</td>
 
-                <td className="px-6 py-4">⭐ {agent.rating}</td>
+                <td className="px-6 py-4">{agent.sla}</td>
               </tr>
             ))}
           </tbody>

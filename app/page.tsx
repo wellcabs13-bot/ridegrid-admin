@@ -27,7 +27,7 @@ export default function Home() {
             </h1>
 
             <p className="mt-2 text-slate-500">
-              Welcome back. Here's what's happening across your business today.
+              Welcome back. Here&apos;s what&apos;s happening across your business today.
             </p>
           </div>
 

@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 interface UserAvatarProps {
   name: string;
   role?: string;
@@ -23,33 +25,44 @@ export default function UserAvatar({
 
   const sizes = {
     sm: {
-      avatar: 'w-10 h-10',
+      avatar: 'h-10 w-10',
       text: 'text-sm',
-      status: 'w-2.5 h-2.5',
+      status: 'h-2.5 w-2.5',
+      image: 40,
     },
     md: {
-      avatar: 'w-12 h-12',
+      avatar: 'h-12 w-12',
       text: 'text-base',
-      status: 'w-3 h-3',
+      status: 'h-3 w-3',
+      image: 48,
     },
     lg: {
-      avatar: 'w-16 h-16',
+      avatar: 'h-16 w-16',
       text: 'text-xl',
-      status: 'w-4 h-4',
+      status: 'h-4 w-4',
+      image: 64,
     },
   };
 
+  const currentSize = sizes[size];
+
   return (
-    <div className="relative">
+    <div className="relative inline-flex">
       {image ? (
-        <img
-          src={image}
-          alt={name}
-          className={`${sizes[size].avatar} rounded-full object-cover border-2 border-white shadow-md`}
-        />
+        <div
+          className={`relative overflow-hidden rounded-full border-2 border-white shadow-md ${currentSize.avatar}`}
+        >
+          <Image
+            src={image}
+            alt={name}
+            fill
+            sizes={`${currentSize.image}px`}
+            className="object-cover"
+          />
+        </div>
       ) : (
         <div
-          className={`${sizes[size].avatar} rounded-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold shadow-md ${sizes[size].text}`}
+          className={`flex items-center justify-center rounded-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 font-bold text-white shadow-md ${currentSize.avatar} ${currentSize.text}`}
         >
           {initials}
         </div>
@@ -57,7 +70,7 @@ export default function UserAvatar({
 
       {online && (
         <span
-          className={`absolute bottom-0 right-0 ${sizes[size].status} rounded-full bg-emerald-500 border-2 border-white`}
+          className={`absolute bottom-0 right-0 rounded-full border-2 border-white bg-emerald-500 ${currentSize.status}`}
         />
       )}
     </div>

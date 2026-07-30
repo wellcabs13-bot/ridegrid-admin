@@ -31,62 +31,65 @@ export default function FinancePage() {
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
 
-  const transactions: Transaction[] = [
-    {
-      id: 'TXN-1001',
-      date: '26 Jul 2026',
-      details: 'Mumbai Airport Transfer',
-      type: 'Income',
-      paymentMethod: 'UPI',
-      amount: 3500,
-      status: 'Completed',
-    },
-    {
-      id: 'TXN-1002',
-      date: '26 Jul 2026',
-      details: 'Vendor Settlement',
-      type: 'Expense',
-      paymentMethod: 'Bank',
-      amount: 5200,
-      status: 'Completed',
-    },
-    {
-      id: 'TXN-1003',
-      date: '25 Jul 2026',
-      details: 'Driver Salary',
-      type: 'Expense',
-      paymentMethod: 'Bank',
-      amount: 18000,
-      status: 'Pending',
-    },
-    {
-      id: 'TXN-1004',
-      date: '25 Jul 2026',
-      details: 'Corporate Booking',
-      type: 'Income',
-      paymentMethod: 'Card',
-      amount: 15600,
-      status: 'Completed',
-    },
-    {
-      id: 'TXN-1005',
-      date: '24 Jul 2026',
-      details: 'Fuel Expense',
-      type: 'Expense',
-      paymentMethod: 'Cash',
-      amount: 2400,
-      status: 'Completed',
-    },
-    {
-      id: 'TXN-1006',
-      date: '24 Jul 2026',
-      details: 'Outstation Booking',
-      type: 'Income',
-      paymentMethod: 'UPI',
-      amount: 9800,
-      status: 'Completed',
-    },
-  ];
+  const transactions = useMemo<Transaction[]>(
+    () => [
+      {
+        id: 'TXN-1001',
+        date: '26 Jul 2026',
+        details: 'Mumbai Airport Transfer',
+        type: 'Income',
+        paymentMethod: 'UPI',
+        amount: 3500,
+        status: 'Completed',
+      },
+      {
+        id: 'TXN-1002',
+        date: '26 Jul 2026',
+        details: 'Vendor Settlement',
+        type: 'Expense',
+        paymentMethod: 'Bank',
+        amount: 5200,
+        status: 'Completed',
+      },
+      {
+        id: 'TXN-1003',
+        date: '25 Jul 2026',
+        details: 'Driver Salary',
+        type: 'Expense',
+        paymentMethod: 'Bank',
+        amount: 18000,
+        status: 'Pending',
+      },
+      {
+        id: 'TXN-1004',
+        date: '25 Jul 2026',
+        details: 'Corporate Booking',
+        type: 'Income',
+        paymentMethod: 'Card',
+        amount: 15600,
+        status: 'Completed',
+      },
+      {
+        id: 'TXN-1005',
+        date: '24 Jul 2026',
+        details: 'Fuel Expense',
+        type: 'Expense',
+        paymentMethod: 'Cash',
+        amount: 2400,
+        status: 'Completed',
+      },
+      {
+        id: 'TXN-1006',
+        date: '24 Jul 2026',
+        details: 'Outstation Booking',
+        type: 'Income',
+        paymentMethod: 'UPI',
+        amount: 9800,
+        status: 'Completed',
+      },
+    ],
+    []
+  );
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((item) => {
@@ -95,7 +98,6 @@ export default function FinancePage() {
         item.id.toLowerCase().includes(search.toLowerCase());
 
       const typeMatch = type === 'All' || item.type === type;
-
       const statusMatch = status === 'All' || item.status === status;
 
       return searchMatch && typeMatch && statusMatch;
@@ -157,7 +159,10 @@ export default function FinancePage() {
         onClose={() => setExpenseModalOpen(false)}
       />
 
-      <InvoiceDrawer open={invoiceOpen} onClose={() => setInvoiceOpen(false)} />
+      <InvoiceDrawer
+        open={invoiceOpen}
+        onClose={() => setInvoiceOpen(false)}
+      />
     </DashboardLayout>
   );
 }
