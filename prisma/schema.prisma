@@ -18,16 +18,379 @@ enum UserRole {
 }
 
 model User {
-  id       String   @id @default(cuid())
-  name     String
-  email    String   @unique
-  mobile   String?  @unique
+  id String @id @default(cuid())
+
+  name   String
+  email  String  @unique
+  mobile String? @unique
+
   password String
-  role     UserRole @default(CUSTOMER)
+
+  role UserRole @default(CUSTOMER)
 
   isActive   Boolean @default(true)
   isVerified Boolean @default(false)
 
+  customer Customer?
+  vendor   Vendor?
+  driver   Driver?
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id String @id @default(cuid())
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  firstName String
+  lastName  String
+
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Vendor {
+  id String @id @default(cuid())
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyName String
+
+  isApproved Boolean @default(false)
+
+  vehicles Vehicle[]
+
+  bookings Booking[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  vendorDocuments VendorDocument[]
+}
+
+model Driver {
+  id String @id @default(cuid())
+
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  firstName String
+  lastName  String
+
+  licenseNumber String @unique
+
+  vehicles Vehicle[]
+  bookings Booking[]
+  trips    Trip[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  driverDocuments DriverDocument[]
+}
+
+// ==========================================
+// VEHICLE MODULE
+// ==========================================
+
+enum VehicleCategory {
+  HATCHBACK
+  SEDAN
+  SUV
+  MUV
+  LUXURY
+  TEMPO_TRAVELLER
+  MINI_BUS
+  BUS
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  CNG
+  ELECTRIC
+  HYBRID
+}
+
+enum TransmissionType {
+  MANUAL
+  AUTOMATIC
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  RESERVED
+  ON_TRIP
+  MAINTENANCE
+  BLOCKED
+}
+
+model Vehicle {
+  id String @id @default(cuid())
+
+  vendorId String
+
+  driverId String?
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  driver Driver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  registrationNumber String @unique
+
+  make String
+
+  model String
+
+  variant String?
+
+  year Int?
+
+  color String?
+
+  category VehicleCategory
+
+  fuelType FuelType
+
+  transmission TransmissionType
+
+  seatingCapacity Int
+
+  luggageCapacity Int?
+
+  homeCity String
+
+  status VehicleStatus @default(AVAILABLE)
+
+  baseFare Decimal @db.Decimal(10, 2)
+
+  pricePerKm Decimal? @db.Decimal(10, 2)
+
+  waitingCharge Decimal? @db.Decimal(10, 2)
+
+  nightCharge Decimal? @db.Decimal(10, 2)
+
+  rating Float @default(0)
+
+  totalTrips Int @default(0)
+
+  isVerified Boolean @default(false)
+
+  bookings Booking[]
+  trips    Trip[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt        DateTime          @updatedAt
+  vehicleDocuments VehicleDocument[]
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  DRIVER_ASSIGNED
+  TRIP_STARTED
+  TRIP_COMPLETED
+  CANCELLED
+}
+
+enum TripStatus {
+  ASSIGNED
+  STARTED
+  ARRIVED_AT_PICKUP
+  PASSENGER_ONBOARD
+  COMPLETED
+  CANCELLED
+}
+
+enum DocumentType {
+  RC
+  INSURANCE
+  FITNESS
+  PERMIT
+  TAX
+  POLLUTION
+  DRIVING_LICENSE
+  AADHAAR
+  PAN
+  GST
+  UDYAM
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+model Booking {
+  id String @id @default(cuid())
+
+  bookingNumber String @unique @default(uuid())
+
+  customerId String
+
+  vendorId String
+
+  vehicleId String
+
+  driverId String?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  driver Driver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  pickupLocation String
+
+  dropLocation String
+
+  pickupDateTime DateTime
+
+  status BookingStatus @default(PENDING)
+
+  estimatedFare Decimal @db.Decimal(10, 2)
+
+  trip Trip?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+}
+
+model Trip {
+  id String @id @default(cuid())
+
+  bookingId String @unique
+
+  driverId String
+
+  vehicleId String
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  status TripStatus @default(ASSIGNED)
+
+  startTime DateTime?
+
+  endTime DateTime?
+
+  startKm Int?
+
+  endKm Int?
+
+  totalDistance Decimal? @db.Decimal(10, 2)
+
+  totalDuration Int?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+}
+
+model VehicleDocument {
+  id String @id @default(cuid())
+
+  vehicleId String
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  documentType DocumentType
+
+  documentNumber String?
+
+  fileUrl String
+
+  issueDate DateTime?
+
+  expiryDate DateTime?
+
+  status DocumentStatus @default(PENDING)
+
+  remarks String?
+
+  verifiedBy String?
+
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+}
+
+model DriverDocument {
+  id String @id @default(cuid())
+
+  driverId String
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  documentType DocumentType
+
+  documentNumber String?
+
+  fileUrl String
+
+  issueDate DateTime?
+
+  expiryDate DateTime?
+
+  status DocumentStatus @default(PENDING)
+
+  remarks String?
+
+  verifiedBy String?
+
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+}
+
+model VendorDocument {
+  id String @id @default(cuid())
+
+  vendorId String
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  documentType DocumentType
+
+  documentNumber String?
+
+  fileUrl String
+
+  issueDate DateTime?
+
+  expiryDate DateTime?
+
+  status DocumentStatus @default(PENDING)
+
+  remarks String?
+
+  verifiedBy String?
+
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+
   updatedAt DateTime @updatedAt
 }
