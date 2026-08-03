@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(req: NextRequest) {
+export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
 
     const {
+      bookingId,
       customerId,
       vendorId,
       vehicleId,
@@ -16,24 +17,19 @@ export async function POST(req: NextRequest) {
       estimatedFare,
     } = body;
 
-    const booking = await prisma.booking.create({
+    const booking = await prisma.booking.update({
+      where: {
+        id: bookingId,
+      },
       data: {
         customerId,
         vendorId,
         vehicleId,
-        driverId: driverId || null,
+        driverId,
         pickupLocation,
         dropLocation,
         pickupDateTime: new Date(pickupDateTime),
         estimatedFare,
-      },
-    });
-
-    await prisma.bookingStatusHistory.create({
-      data: {
-        bookingId: booking.id,
-        currentStatus: "PENDING",
-        action: "CREATED",
       },
     });
 
@@ -47,7 +43,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "Booking creation failed",
+        message: "Booking update failed",
       },
       { status: 500 }
     );

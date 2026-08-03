@@ -3,13 +3,13 @@
 import CustomerSelect from '../CustomerSelect';
 
 interface CustomerSectionProps {
-  customer: string;
-  setCustomer: (value: string) => void;
+  customerId: string;
+  setCustomerId: (value: string) => void;
 }
 
 export default function CustomerSection({
-  customer,
-  setCustomer,
+  customerId,
+  setCustomerId,
 }: CustomerSectionProps) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -18,8 +18,8 @@ export default function CustomerSection({
       </h2>
 
       <CustomerSelect
-        value={customer}
-        onChange={setCustomer}
+        value={customerId}
+        onChange={setCustomerId}
       />
     </div>
   );

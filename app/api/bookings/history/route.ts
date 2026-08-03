@@ -1,35 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   try {
-    const customerId = req.nextUrl.searchParams.get("customerId");
-    const vendorId = req.nextUrl.searchParams.get("vendorId");
+    const bookingId = req.nextUrl.searchParams.get("bookingId");
 
-    if (!customerId && !vendorId) {
+    if (!bookingId) {
       return NextResponse.json(
         {
           success: false,
-          message: "customerId or vendorId is required.",
+          message: "bookingId is required.",
         },
         { status: 400 }
       );
     }
 
-    const bookings = await prisma.booking.findMany({
+    const history = await prisma.bookingStatusHistory.findMany({
       where: {
-        ...(customerId ? { customerId } : {}),
-        ...(vendorId ? { vendorId } : {}),
+        bookingId,
       },
-
-      include: {
-        customer: true,
-        vendor: true,
-        vehicle: true,
-        driver: true,
-        trip: true,
-      },
-
       orderBy: {
         createdAt: "desc",
       },
@@ -37,17 +26,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      total: bookings.length,
-      data: bookings,
+      data: history,
     });
-
   } catch (error) {
     console.error(error);
 
     return NextResponse.json(
       {
         success: false,
-        message: "Unable to fetch booking history.",
+        message: "Failed to fetch booking history.",
       },
       { status: 500 }
     );

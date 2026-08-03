@@ -1,27 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
-export async function GET(req:NextRequest){
+export async function GET(req: NextRequest) {
+  try {
+    const driverId = req.nextUrl.searchParams.get("driverId");
 
-const driverId=req.nextUrl.searchParams.get("driverId");
+    if (!driverId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Driver ID is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
-const driver=await prisma.driver.findUnique({
+    const driver = await prisma.driver.findUnique({
+      where: {
+        id: driverId,
+      },
+      include: {
+        user: true,
+        vehicles: true,
+        documents: true,
+      },
+    });
 
-where:{id:driverId!},
+    return NextResponse.json({
+      success: true,
+      data: driver,
+    });
+  } catch (error) {
+    console.error(error);
 
-include:{
-vendor:true,
-vehicle:true
-}
-
-});
-
-return NextResponse.json({
-
-success:true,
-
-data:driver
-
-});
-
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to load profile.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }

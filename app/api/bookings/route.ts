@@ -1,20 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const driverId = req.nextUrl.searchParams.get("driverId");
-
     const bookings = await prisma.booking.findMany({
-      where: {
-        driverId: driverId || "",
-      },
       include: {
         customer: true,
+        vendor: true,
         vehicle: true,
+        driver: true,
       },
       orderBy: {
-        pickupDateTime: "asc",
+        createdAt: "desc",
       },
     });
 
@@ -28,11 +25,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "Failed.",
+        message: "Failed to fetch bookings",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }

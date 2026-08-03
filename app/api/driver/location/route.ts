@@ -1,62 +1,73 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
-export async function POST(req:NextRequest){
+export async function POST(req: NextRequest) {
+  try {
+    const {
+      tripId,
+      driverId,
+      vehicleId,
+      latitude,
+      longitude,
+      speed,
+      heading,
+      accuracy,
+      source,
+    } = await req.json();
 
-const body=await req.json();
+    const location = await prisma.tripLocation.create({
+      data: {
+        trip: {
+          connect: {
+            id: tripId,
+          },
+        },
 
-const{
+        driver: driverId
+          ? {
+              connect: {
+                id: driverId,
+              },
+            }
+          : undefined,
 
-tripId,
+        vehicle: vehicleId
+          ? {
+              connect: {
+                id: vehicleId,
+              },
+            }
+          : undefined,
 
-latitude,
+        latitude,
 
-longitude,
+        longitude,
 
-speed,
+        speed: speed ?? null,
+        heading: heading ?? null,
+        accuracy: accuracy ?? null,
 
-heading
+        source,
 
-}=body;
+        recordedAt: new Date(),
+      },
+    });
 
-await prisma.tripTracking.create({
+    return NextResponse.json({
+      success: true,
+      data: location,
+    });
+  } catch (error) {
+    console.error(error);
 
-data:{
-
-tripId,
-
-latitude,
-
-longitude,
-
-speed,
-
-heading
-
-}
-
-});
-
-await prisma.trip.update({
-
-where:{id:tripId},
-
-data:{
-
-currentLatitude:latitude,
-
-currentLongitude:longitude
-
-}
-
-});
-
-return NextResponse.json({
-
-success:true,
-
-message:"Location Updated"
-
-});
-
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Location update failed.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }

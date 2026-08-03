@@ -1,22 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
-export async function POST(req:NextRequest){
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
 
-const body=await req.json();
+    const {
+      driverId,
+      vehicleId,
+      tripId,
+      latitude,
+      longitude,
+      remarks,
+      status,
+    } = body;
 
-await prisma.emergencySOS.create({
+    const sos = await prisma.sOSEvent.create({
+      data: {
+        driverId: driverId || null,
+        vehicleId: vehicleId || null,
+        tripId: tripId || null,
 
-data:body
+        latitude: latitude || null,
+        longitude: longitude || null,
 
-});
+        remarks: remarks || null,
 
-return NextResponse.json({
+        status: status || "OPEN",
+      },
+    });
 
-success:true,
+    return NextResponse.json({
+      success: true,
+      data: sos,
+    });
+  } catch (error) {
+    console.error(error);
 
-message:"Emergency Alert Sent"
-
-});
-
+    return NextResponse.json(
+      {
+        success: false,
+        message: "SOS request failed.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }

@@ -1,56 +1,52 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-
-    const driverId = req.nextUrl.searchParams.get("driverId");
-
-    const [
-      todayTrips,
-      completedTrips,
-      activeTrip
-    ] = await Promise.all([
-
-      prisma.booking.count({
-        where:{
-          driverId,
-          status:"TRIP_STARTED"
-        }
-      }),
-
-      prisma.booking.count({
-        where:{
-          driverId,
-          status:"TRIP_COMPLETED"
-        }
-      }),
-
-      prisma.trip.findFirst({
-        where:{
-          booking:{
-            driverId,
-            status:"TRIP_STARTED"
-          }
-        }
-      })
-
-    ]);
-
-    return NextResponse.json({
-      success:true,
-      data:{
-        todayTrips,
-        completedTrips,
-        activeTrip
-      }
+    const totalDrivers = await prisma.driver.count({
+      where: {
+        deletedAt: null,
+      },
     });
 
-  } catch {
+    const availableDrivers = await prisma.driver.count({
+      where: {
+        deletedAt: null,
+        bookings: {
+          none: {
+            status: {
+              in: ["TRIP_STARTED"],
+            },
+          },
+        },
+      },
+    });
+
+    const runningTrips = await prisma.trip.count({
+      where: {
+        status: "STARTED",
+      },
+    });
 
     return NextResponse.json({
-      success:false
-    },{status:500});
+      success: true,
+      data: {
+        totalDrivers,
+        availableDrivers,
+        runningTrips,
+      },
+    });
+  } catch (error) {
+    console.error(error);
 
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to load dashboard.",
+      },
+      {
+        status: 500,
+      }
+    );
   }
 }

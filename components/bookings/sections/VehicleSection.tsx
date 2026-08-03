@@ -3,22 +3,22 @@
 import VehicleAssignmentCard from '../VehicleAssignmentCard';
 
 interface VehicleSectionProps {
-  vendor: string;
-  vehicle: string;
-  driver: string;
+  vendorId: string;
+  vehicleId: string;
+  driverId: string;
 
-  setVendor: (value: string) => void;
-  setVehicle: (value: string) => void;
-  setDriver: (value: string) => void;
+  setVendorId: (value: string) => void;
+  setVehicleId: (value: string) => void;
+  setDriverId: (value: string) => void;
 }
 
 export default function VehicleSection({
-  vendor,
-  vehicle,
-  driver,
-  setVendor,
-  setVehicle,
-  setDriver,
+  vendorId,
+  vehicleId,
+  driverId,
+  setVendorId,
+  setVehicleId,
+  setDriverId,
 }: VehicleSectionProps) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -27,12 +27,12 @@ export default function VehicleSection({
       </h2>
 
       <VehicleAssignmentCard
-        vendor={vendor}
-        vehicle={vehicle}
-        driver={driver}
-        onVendorChange={setVendor}
-        onVehicleChange={setVehicle}
-        onDriverChange={setDriver}
+        vendorId={vendorId}
+        vehicleId={vehicleId}
+        driverId={driverId}
+        onVendorChange={setVendorId}
+        onVehicleChange={setVehicleId}
+        onDriverChange={setDriverId}
       />
     </div>
   );

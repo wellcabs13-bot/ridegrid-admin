@@ -75,13 +75,13 @@ export default function CustomerSelect({
         <option value="">Select Customer</option>
 
         {customers.map((customer) => (
-          <option
-            key={customer.id}
-            value={customer.name}
-          >
-            {customer.name} • {customer.phone}
-          </option>
-        ))}
+  <option
+    key={customer.id}
+    value={customer.id}
+  >
+    {customer.name} • {customer.phone}
+  </option>
+))}
       </select>
 
       {error && (

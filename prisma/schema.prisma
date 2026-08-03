@@ -221,100 +221,100 @@ enum VehicleStatus {
   BLOCKED
 }
 
-model Vehicle {
-  id String @id @default(cuid())
+  model Vehicle {
+    id String @id @default(cuid())
 
-  vendorId String
+    vendorId String
 
-  driverId String?
+    driverId String?
 
-  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+    vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 
-  driver Driver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+    driver Driver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
-  registrationNumber String @unique
+    registrationNumber String @unique
 
-  make String
+    make String
 
-  model String
+    model String
 
-  variant String?
+    variant String?
 
-  year Int?
+    year Int?
 
-  color String?
+    color String?
 
-  category VehicleCategory
+    category VehicleCategory
 
-  fuelType FuelType
+    fuelType FuelType
 
-  transmission TransmissionType
+    transmission TransmissionType
 
-  seatingCapacity Int
+    seatingCapacity Int
 
-  luggageCapacity Int?
+    luggageCapacity Int?
 
-  homeCity String
+    homeCity String
 
-  status VehicleStatus @default(AVAILABLE)
+    status VehicleStatus @default(AVAILABLE)
 
-  baseFare Decimal @db.Decimal(10, 2)
+    baseFare Decimal @db.Decimal(10, 2)
 
-  pricePerKm Decimal? @db.Decimal(10, 2)
+    pricePerKm Decimal? @db.Decimal(10, 2)
 
-  waitingCharge Decimal? @db.Decimal(10, 2)
+    waitingCharge Decimal? @db.Decimal(10, 2)
 
-  nightCharge Decimal? @db.Decimal(10, 2)
+    nightCharge Decimal? @db.Decimal(10, 2)
 
-  rating Float @default(0)
+    rating Float @default(0)
 
-  totalTrips Int @default(0)
+    totalTrips Int @default(0)
 
-  isVerified Boolean @default(false)
+    isVerified Boolean @default(false)
 
-  bookings           Booking[]
-  trips              Trip[]
-  documents          VehicleDocument[]
-  reviews            Review[]
-  performanceReports VehiclePerformance[]
-  analytics          VehicleAnalytics[]
+    bookings           Booking[]
+    trips              Trip[]
+    documents          VehicleDocument[]
+    reviews            Review[]
+    performanceReports VehiclePerformance[]
+    analytics          VehicleAnalytics[]
 
-  maintenanceRecords VehicleMaintenance[]
+    maintenanceRecords VehicleMaintenance[]
 
-  fuelLogs FuelLog[]
+    fuelLogs FuelLog[]
 
-  serviceSchedules ServiceSchedule[]
+    serviceSchedules ServiceSchedule[]
 
-  breakdowns VehicleBreakdown[]
+    breakdowns VehicleBreakdown[]
 
-  dometerLogs OdometerLog[]
+    dometerLogs OdometerLog[]
 
-  gpsDevice GPSDevice?
+    gpsDevice GPSDevice?
 
-  tripLocations TripLocation[]
+    tripLocations TripLocation[]
 
-  routeDeviations RouteDeviation[]
+    routeDeviations RouteDeviation[]
 
-  sosEvents SOSEvent[]
+    sosEvents SOSEvent[]
 
-  deletedAt DateTime?
+    deletedAt DateTime?
 
-  createdAt DateTime @default(now())
+    createdAt DateTime @default(now())
 
-  updatedAt      DateTime        @updatedAt
-  geofenceEvents GeofenceEvent[]
+    updatedAt      DateTime        @updatedAt
+    geofenceEvents GeofenceEvent[]
 
-  @@index([vendorId])
-  @@index([driverId])
-  @@index([status])
-  @@index([category])
-  @@index([homeCity])
-  @@index([isVerified])
-  @@index([createdAt])
-  @@index([vendorId, status])
-  @@index([category, status])
-  @@index([homeCity, category])
-}
+    @@index([vendorId])
+    @@index([driverId])
+    @@index([status])
+    @@index([category])
+    @@index([homeCity])
+    @@index([isVerified])
+    @@index([createdAt])
+    @@index([vendorId, status])
+    @@index([category, status])
+    @@index([homeCity, category])
+  }
 
 enum BookingStatus {
   PENDING

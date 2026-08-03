@@ -1,42 +1,111 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   try {
     const vendorId = req.nextUrl.searchParams.get("vendorId");
 
+    if (!vendorId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor ID is required.",
+        },
+        { status: 400 }
+      );
+    }
+
     const [
-      vehicles,
-      drivers,
-      bookings,
+      vendor,
+      totalVehicles,
+      activeVehicles,
+      totalDrivers,
+      totalBookings,
       wallet,
-      settlements
+      settlements,
     ] = await Promise.all([
-      prisma.vehicle.count({ where: { vendorId } }),
-      prisma.driver.count({ where: { vendorId } }),
-      prisma.booking.count({ where: { vendorId } }),
-      prisma.wallet.findFirst({ where: { vendorId } }),
-      prisma.settlement.aggregate({
-        where: { vendorId },
-        _sum: { payableAmount: true }
-      })
+      prisma.vendor.findUnique({
+        where: {
+          id: vendorId,
+        },
+        include: {
+          user: true,
+        },
+      }),
+
+      prisma.vehicle.count({
+        where: {
+          vendorId,
+          deletedAt: null,
+        },
+      }),
+
+      prisma.vehicle.count({
+        where: {
+          vendorId,
+          deletedAt: null,
+          status: "AVAILABLE",
+        },
+      }),
+
+      prisma.driver.count({
+        where: {
+          vehicles: {
+            some: {
+              vendorId,
+            },
+          },
+          deletedAt: null,
+        },
+      }),
+
+      prisma.booking.count({
+        where: {
+          vendorId,
+          deletedAt: null,
+        },
+      }),
+
+      prisma.vendorWallet.findUnique({
+        where: {
+          vendorId,
+        },
+      }),
+
+      prisma.vendorSettlement.findMany({
+        where: {
+          vendorId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 10,
+      }),
     ]);
 
     return NextResponse.json({
       success: true,
       data: {
-        vehicles,
-        drivers,
-        bookings,
+        vendor,
+        statistics: {
+          totalVehicles,
+          activeVehicles,
+          totalDrivers,
+          totalBookings,
+        },
         wallet,
-        settlements
-      }
+        settlements,
+      },
     });
-
   } catch (error) {
+    console.error(error);
+
     return NextResponse.json(
-      { success:false, message:"Unable to load dashboard."},
-      {status:500}
+      {
+        success: false,
+        message: "Failed to load vendor dashboard.",
+      },
+      { status: 500 }
     );
   }
 }

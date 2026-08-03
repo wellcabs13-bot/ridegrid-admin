@@ -42,11 +42,11 @@ export default function BookingForm({
   onSave,
   onCancel,
 }: BookingFormProps) {
-  const [customer, setCustomer] = useState('');
+  const [customerId, setCustomerId] = useState('');
 
-  const [vendor, setVendor] = useState('');
-  const [vehicle, setVehicle] = useState('');
-  const [driver, setDriver] = useState('');
+  const [vendorId, setVendorId] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
+  const [driverId, setDriverId] = useState('');
 
   const [pickup, setPickup] = useState('');
   const [drop, setDrop] = useState('');
@@ -116,10 +116,10 @@ export default function BookingForm({
     }
 
     onSave({
-      customer,
-      vendor,
-      vehicle,
-      driver,
+      customer: customerId,
+      vendor: vendorId,
+      vehicle: vehicleId,
+      driver: driverId,
       pickup,
       drop,
       journeyDate,
@@ -137,18 +137,18 @@ export default function BookingForm({
       className="space-y-6"
     >
       <CustomerSection
-        customer={customer}
-        setCustomer={setCustomer}
+        customerId={customerId}
+        setCustomerId={setCustomerId}
       />
 
       <VehicleSection
-        vendor={vendor}
-        vehicle={vehicle}
-        driver={driver}
-        setVendor={setVendor}
-        setVehicle={setVehicle}
-        setDriver={setDriver}
-      />
+  vendorId={vendorId}
+  vehicleId={vehicleId}
+  driverId={driverId}
+  setVendorId={setVendorId}
+  setVehicleId={setVehicleId}
+  setDriverId={setDriverId}
+/>
 
       <TripSection
         tripType={tripType}

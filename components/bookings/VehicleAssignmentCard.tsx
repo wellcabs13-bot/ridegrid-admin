@@ -6,18 +6,19 @@ import VehicleSelect from './VehicleSelect';
 import DriverSelect from './DriverSelect';
 
 interface VehicleAssignmentCardProps {
-  vendor: string;
-  vehicle: string;
-  driver: string;
+  vendorId: string;
+  vehicleId: string;
+  driverId: string;
+
   onVendorChange: (value: string) => void;
   onVehicleChange: (value: string) => void;
   onDriverChange: (value: string) => void;
 }
 
 export default function VehicleAssignmentCard({
-  vendor,
-  vehicle,
-  driver,
+  vendorId,
+  vehicleId,
+  driverId,
   onVendorChange,
   onVehicleChange,
   onDriverChange,
@@ -25,11 +26,11 @@ export default function VehicleAssignmentCard({
   useEffect(() => {
     onVehicleChange('');
     onDriverChange('');
-  }, [vendor, onVehicleChange, onDriverChange]);
+  }, [vendorId, onVehicleChange, onDriverChange]);
 
   useEffect(() => {
     onDriverChange('');
-  }, [vehicle, onDriverChange]);
+  }, [vehicleId, onDriverChange]);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -51,19 +52,19 @@ export default function VehicleAssignmentCard({
 
       <div className="grid gap-5 md:grid-cols-3">
         <VendorSelect
-          value={vendor}
+          value={vendorId}
           onChange={onVendorChange}
         />
 
         <VehicleSelect
-          vendorId={vendor}
-          value={vehicle}
+          vendorId={vendorId}
+          value={vehicleId}
           onChange={onVehicleChange}
         />
 
         <DriverSelect
-          vehicleId={vehicle}
-          value={driver}
+          vehicleId={vehicleId}
+          value={driverId}
           onChange={onDriverChange}
         />
       </div>
@@ -76,31 +77,31 @@ export default function VehicleAssignmentCard({
         <div className="grid gap-4 md:grid-cols-3">
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-500">
-              Vendor
+              Vendor ID
             </p>
 
             <p className="mt-1 font-medium text-slate-900 dark:text-white">
-              {vendor || '--'}
+              {vendorId || '--'}
             </p>
           </div>
 
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-500">
-              Vehicle
+              Vehicle ID
             </p>
 
             <p className="mt-1 font-medium text-slate-900 dark:text-white">
-              {vehicle || '--'}
+              {vehicleId || '--'}
             </p>
           </div>
 
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-500">
-              Driver
+              Driver ID
             </p>
 
             <p className="mt-1 font-medium text-slate-900 dark:text-white">
-              {driver || '--'}
+              {driverId || '--'}
             </p>
           </div>
         </div>

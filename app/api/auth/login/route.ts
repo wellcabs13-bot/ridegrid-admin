@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { generateToken } from "@/lib/auth-server";
 
 export async function POST(request: NextRequest) {
@@ -64,17 +64,18 @@ export async function POST(request: NextRequest) {
     });
 
     const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        mobile: user.mobile,
-        role: user.role,
-        isActive: user.isActive,
-        isVerified: user.isVerified,
-      },
-    });
+    success: true,
+    message: "Login successful.",
+    user: {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    mobile: user.mobile,
+    role: user.role,
+    isActive: user.isActive,
+    isVerified: user.isVerified,
+  },
+});
 
     response.cookies.set({
       name: "ridegrid-token",

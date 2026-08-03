@@ -1,43 +1,63 @@
 'use client';
 
-import { createContext, useEffect, useState, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
 
-import { AuthState, LoginRequest, User } from '@/types/auth';
 import { AuthService } from '@/services/auth.service';
-import { AUTH_STORAGE_KEY } from '@/lib/auth';
 
-interface AuthContextType extends AuthState {
-  login: (data: LoginRequest) => Promise<void>;
-  logout: () => void;
-  setUser: (user: User) => void;
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  mobile?: string;
+  role: string;
 }
 
-const initialState: AuthState = {
-  user: null,
-  token: null,
-  loading: true,
-  isAuthenticated: false,
-};
+interface AuthState {
+  user: User | null;
+  token: string;
+  isAuthenticated: boolean;
+  loading: boolean;
+}
 
-export const AuthContext = createContext<AuthContextType>({
-  ...initialState,
-  login: async () => {},
-  logout: () => {},
-  setUser: () => {},
-});
+interface AuthContextType extends AuthState {
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  setUser: (user: User | null) => void;
+}
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [auth, setAuth] = useState<AuthState>(initialState);
+const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
+
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const [auth, setAuth] = useState<AuthState>({
+    user: null,
+    token: '',
+    isAuthenticated: false,
+    loading: true,
+  });
 
   useEffect(() => {
-    const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (typeof window === 'undefined') return;
+
+    const saved = localStorage.getItem('ridegrid-auth');
 
     if (saved) {
-      const parsed = JSON.parse(saved);
+      const user = JSON.parse(saved);
 
       setAuth({
-        user: parsed.user,
-        token: parsed.token,
+        user,
+        token: '',
         isAuthenticated: true,
         loading: false,
       });
@@ -49,36 +69,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (data: LoginRequest) => {
-    const result = await AuthService.login(data);
+  async function login(
+    email: string,
+    password: string
+  ) {
+    const result = await AuthService.login({
+      email,
+      password,
+    });
 
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(result));
+    localStorage.setItem(
+      'ridegrid-auth',
+      JSON.stringify(result.user)
+    );
 
     setAuth({
       user: result.user,
-      token: result.token,
+      token: '',
       isAuthenticated: true,
       loading: false,
     });
-  };
+  }
 
-  const logout = () => {
-    AuthService.logout();
+  async function logout() {
+    await AuthService.logout();
+
+    localStorage.removeItem('ridegrid-auth');
 
     setAuth({
       user: null,
-      token: null,
+      token: '',
       isAuthenticated: false,
       loading: false,
     });
-  };
+  }
 
-  const setUser = (user: User) => {
+  function setUser(user: User | null) {
     setAuth((prev) => ({
       ...prev,
       user,
     }));
-  };
+  }
 
   return (
     <AuthContext.Provider
@@ -92,4 +123,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error(
+      'useAuth must be used within AuthProvider'
+    );
+  }
+
+  return context;
 }

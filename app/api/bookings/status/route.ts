@@ -1,27 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(req: NextRequest) {
+export async function PATCH(req: NextRequest) {
   try {
-    const { bookingId, reason, cancelledBy } = await req.json();
+    const { bookingId, status } = await req.json();
 
     const booking = await prisma.booking.update({
       where: {
         id: bookingId,
       },
       data: {
-        status: "CANCELLED",
-        cancelReason: reason,
-        cancelledBy,
-        cancelledAt: new Date(),
+        status,
       },
     });
 
     await prisma.bookingStatusHistory.create({
       data: {
         bookingId,
-        currentStatus: "CANCELLED",
-        action: "CANCELLED",
+        currentStatus: status,
+        action: "STATUS_CHANGED",
       },
     });
 
@@ -35,11 +32,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "Booking cancellation failed.",
+        message: "Failed to update booking status.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
