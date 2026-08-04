@@ -1,22 +1,15 @@
-import "dotenv/config";
-
 import { PrismaClient, UserRole } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcrypt";
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL!,
-});
-
-const prisma = new PrismaClient({
-  adapter,
-});
+const prisma = new PrismaClient();
 
 async function main() {
   const email = "admin@ridegrid.in";
 
   const existingUser = await prisma.user.findUnique({
-    where: { email },
+    where: {
+      email,
+    },
   });
 
   if (existingUser) {
@@ -29,7 +22,7 @@ async function main() {
   await prisma.user.create({
     data: {
       name: "RideGrid Super Admin",
-      email: email,
+      email,
       mobile: "9999999999",
       password: hashedPassword,
       role: UserRole.SUPER_ADMIN,
@@ -40,8 +33,8 @@ async function main() {
 }
 
 main()
-  .catch((err) => {
-    console.error(err);
+  .catch((error) => {
+    console.error(error);
     process.exit(1);
   })
   .finally(async () => {

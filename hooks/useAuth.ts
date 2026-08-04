@@ -2,6 +2,8 @@
 
 import { useAuth as useAuthContext } from '@/contexts/AuthContext';
 
-export default function useAuth() {
+export function useAuth() {
   return useAuthContext();
 }
+
+export default useAuth;

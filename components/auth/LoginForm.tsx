@@ -30,7 +30,7 @@ export default function LoginForm() {
     try {
       setLoading(true);
 
-      await login(form);
+      await login(form.email, form.password);
 
       router.push('/');
     } finally {
