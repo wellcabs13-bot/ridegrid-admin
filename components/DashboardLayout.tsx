@@ -1,21 +1,40 @@
-import { ReactNode } from 'react';
-import Sidebar from './Sidebar';
-import Header from './Header';
+import { ReactNode } from "react";
+
+import { Sidebar } from "@/components/navigation";
+import Header from "./Header";
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+export default function DashboardLayout({
+  children,
+}: DashboardLayoutProps) {
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex h-screen overflow-hidden bg-slate-100">
+
+      {/* Sidebar */}
+
       <Sidebar />
 
-      <div className="flex-1 flex flex-col">
+      {/* Main Content */}
+
+      <div className="flex flex-1 flex-col overflow-hidden">
+
+        {/* Header */}
+
         <Header />
 
-        <main className="flex-1 overflow-y-auto p-8">{children}</main>
+        {/* Page */}
+
+        <main className="flex-1 overflow-y-auto bg-slate-100 p-8">
+
+          {children}
+
+        </main>
+
       </div>
+
     </div>
   );
 }

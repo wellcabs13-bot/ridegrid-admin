@@ -1,6 +1,9 @@
-import { LoginRequest, RegisterRequest } from "@/types/auth";
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
 
-export const AuthService = {
+class AuthServiceClass {
   async login(data: LoginRequest) {
     const response = await fetch("/api/auth/login", {
       method: "POST",
@@ -12,29 +15,33 @@ export const AuthService = {
 
     const result = await response.json();
 
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || "Login failed");
+    if (!response.ok) {
+      throw new Error(result.message);
     }
 
-    return {
-      user: result.user,
-    };
-  },
-
-  async register(data: RegisterRequest) {
-    return {
-      success: true,
-      message: "Registration endpoint coming soon.",
-    };
-  },
+    return result;
+  }
 
   async logout() {
     await fetch("/api/auth/logout", {
       method: "POST",
     });
+  }
 
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("ridegrid-auth");
+  async me() {
+    const response = await fetch("/api/auth/me", {
+      method: "GET",
+      credentials: "include",
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message);
     }
-  },
-};
+
+    return result.user;
+  }
+}
+
+export const AuthService = new AuthServiceClass();

@@ -4,24 +4,24 @@ import { authService } from "@/lib/auth/auth";
 import { success, failure } from "@/lib/api-response";
 import { apiError } from "@/lib/api-error";
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest
+) {
   try {
     const body = await request.json();
 
-    if (!body.email || !body.password) {
+    if (!body.refreshToken) {
       return failure(
-        "Email and password are required.",
+        "Refresh token is required.",
         400
       );
     }
 
-    const result = await authService.login({
-      email: body.email,
-      password: body.password,
-      rememberMe: body.rememberMe ?? false,
-    });
+    const token = await authService.refresh(
+      body.refreshToken
+    );
 
-    return success(result, "Login successful.");
+    return success(token);
   } catch (error) {
     return apiError(error);
   }

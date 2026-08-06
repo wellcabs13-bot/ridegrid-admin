@@ -20,7 +20,6 @@ interface User {
 
 interface AuthState {
   user: User | null;
-  token: string;
   isAuthenticated: boolean;
   loading: boolean;
 }
@@ -28,12 +27,10 @@ interface AuthState {
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  setUser: (user: User | null) => void;
+  refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(
-  undefined
-);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({
   children,
@@ -42,73 +39,58 @@ export function AuthProvider({
 }) {
   const [auth, setAuth] = useState<AuthState>({
     user: null,
-    token: '',
     isAuthenticated: false,
     loading: true,
   });
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const saved = localStorage.getItem('ridegrid-auth');
-
-    if (saved) {
-      const user = JSON.parse(saved);
+  async function refreshUser() {
+    try {
+      const user = await AuthService.me();
 
       setAuth({
         user,
-        token: '',
         isAuthenticated: true,
         loading: false,
       });
-    } else {
-      setAuth((prev) => ({
-        ...prev,
+    } catch {
+      setAuth({
+        user: null,
+        isAuthenticated: false,
         loading: false,
-      }));
+      });
     }
+  }
+
+  useEffect(() => {
+    refreshUser();
   }, []);
 
-  async function login(
-    email: string,
-    password: string
-  ) {
-    const result = await AuthService.login({
+  async function login(email: string, password: string) {
+    await AuthService.login({
       email,
       password,
     });
 
-    localStorage.setItem(
-      'ridegrid-auth',
-      JSON.stringify(result.user)
-    );
+    const result = await AuthService.login({
+  email,
+  password,
+});
 
-    setAuth({
-      user: result.user,
-      token: '',
-      isAuthenticated: true,
-      loading: false,
-    });
+setAuth({
+  user: result.user,
+  isAuthenticated: true,
+  loading: false,
+   });
   }
 
   async function logout() {
     await AuthService.logout();
 
-    localStorage.removeItem('ridegrid-auth');
-
     setAuth({
       user: null,
-      token: '',
       isAuthenticated: false,
       loading: false,
     });
-  }
-
-  function setUser(user: User | null) {
-    setAuth((prev) => ({
-      ...prev,
-      user,
-    }));
   }
 
   return (
@@ -117,7 +99,7 @@ export function AuthProvider({
         ...auth,
         login,
         logout,
-        setUser,
+        refreshUser,
       }}
     >
       {children}

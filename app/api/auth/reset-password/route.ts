@@ -7,16 +7,18 @@ export async function POST(
   request: NextRequest
 ) {
   try {
+    await request.json();
+
     /**
      * TODO
-     * Destroy Session
-     * Remove Cookies
-     * Audit Log
+     * Validate Token
+     * Validate Password
+     * Update Password
      */
 
     return success(
       null,
-      "Logout successful."
+      "Password updated successfully."
     );
   } catch (error) {
     return apiError(error);

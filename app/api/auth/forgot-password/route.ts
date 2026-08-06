@@ -7,16 +7,18 @@ export async function POST(
   request: NextRequest
 ) {
   try {
+    const body = await request.json();
+
     /**
      * TODO
-     * Destroy Session
-     * Remove Cookies
-     * Audit Log
+     * Verify Email
+     * Generate Reset Token
+     * Send Email
      */
 
     return success(
-      null,
-      "Logout successful."
+      body.email,
+      "Password reset link sent."
     );
   } catch (error) {
     return apiError(error);
