@@ -1,271 +1,519 @@
-import DashboardLayout from "../components/DashboardLayout";
-import DashboardCard from "../components/DashboardCard";
+import DashboardLayout from "@/components/DashboardLayout";
 
 import {
-  CalendarDays,
+  CalendarPlus,
   Car,
   Users,
   Wallet,
+  TrendingUp,
   Activity,
-  CircleCheck,
+  Bell,
+  Shield,
+  Building2,
+  ArrowUpRight,
   Clock3,
-  AlertTriangle,
 } from "lucide-react";
+
+import {
+  PageContainer,
+} from "@/components/ui/page";
+
+import {
+  StatCard,
+  ChartCard,
+  InfoCard,
+} from "@/components/ui/cards";
+
+import {
+  RevenueChart,
+  FleetChart,
+} from "@/components/ui/charts";
+
+import {
+  AIInsight,
+  FleetHealth,
+  RecentBookings,
+  LiveOperations,
+  BookingTimeline,
+  AlertCenter,
+  QuickCommand,
+} from "@/components/ui/widgets";
 
 export default function Home() {
   return (
     <DashboardLayout>
-      <div className="space-y-8">
 
-        {/* Header */}
+      <PageContainer>
 
-        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+        {/* ===========================
+            HERO SECTION
+        ============================ */}
 
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-              RideGrid Dashboard
-            </h1>
+        <section className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 p-10 text-white shadow-2xl">
 
-            <p className="mt-2 text-slate-500">
-              Welcome back. Here&apos;s what&apos;s happening across your business today.
-            </p>
+          <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-cyan-500/20 blur-3xl" />
+
+          <div className="absolute bottom-0 left-0 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl" />
+
+          <div className="relative z-10">
+
+            <div className="flex flex-col gap-10 xl:flex-row xl:items-center xl:justify-between">
+
+              {/* LEFT */}
+
+              <div className="max-w-3xl">
+
+                <span className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm backdrop-blur">
+
+                  🚀 RideGrid Enterprise Command Center
+
+                </span>
+
+                <h1 className="mt-8 text-5xl font-black leading-tight">
+
+                  Welcome Back,
+                  <br />
+
+                  Administrator
+
+                </h1>
+
+                <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
+
+                  Monitor every booking, vehicle, driver,
+                  vendor, finance transaction and customer
+                  from one intelligent enterprise platform.
+
+                </p>
+
+                <div className="mt-10 flex flex-wrap gap-4">
+
+                  <button className="rounded-xl bg-white px-7 py-3 font-semibold text-slate-900 transition hover:scale-105">
+
+                    + New Booking
+
+                  </button>
+
+                  <button className="rounded-xl border border-white/20 bg-white/10 px-7 py-3 backdrop-blur transition hover:bg-white/20">
+
+                    View Reports
+
+                  </button>
+
+                </div>
+
+              </div>
+
+              {/* RIGHT */}
+
+              <div className="grid grid-cols-2 gap-5">
+
+                <div className="rounded-3xl bg-white/10 p-6 backdrop-blur">
+
+                  <Activity className="mb-5" />
+
+                  <p className="text-sm text-slate-300">
+
+                    Running Trips
+
+                  </p>
+
+                  <h2 className="mt-3 text-5xl font-bold">
+
+                    118
+
+                  </h2>
+
+                  <p className="mt-2 text-emerald-300">
+
+                    +8% Today
+
+                  </p>
+
+                </div>
+
+                <div className="rounded-3xl bg-white/10 p-6 backdrop-blur">
+
+                  <Wallet className="mb-5" />
+
+                  <p className="text-sm text-slate-300">
+
+                    Today's Revenue
+
+                  </p>
+
+                  <h2 className="mt-3 text-5xl font-bold">
+
+                    ₹18.4L
+
+                  </h2>
+
+                  <p className="mt-2 text-emerald-300">
+
+                    +18%
+
+                  </p>
+
+                </div>
+
+                <div className="rounded-3xl bg-white/10 p-6 backdrop-blur">
+
+                  <Users className="mb-5" />
+
+                  <p className="text-sm text-slate-300">
+
+                    Active Drivers
+
+                  </p>
+
+                  <h2 className="mt-3 text-5xl font-bold">
+
+                    214
+
+                  </h2>
+
+                  <p className="mt-2 text-blue-300">
+
+                    Online
+
+                  </p>
+
+                </div>
+
+                <div className="rounded-3xl bg-white/10 p-6 backdrop-blur">
+
+                  <Car className="mb-5" />
+
+                  <p className="text-sm text-slate-300">
+
+                    Fleet Size
+
+                  </p>
+
+                  <h2 className="mt-3 text-5xl font-bold">
+
+                    426
+
+                  </h2>
+
+                  <p className="mt-2 text-cyan-300">
+
+                    Available
+
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
           </div>
 
-          <button className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700">
-            + New Booking
-          </button>
+        </section>
+
+        {/* ===========================
+            EXECUTIVE OVERVIEW
+        ============================ */}
+
+        <div className="mt-10 flex items-center justify-between">
+
+          <div>
+
+            <h2 className="text-3xl font-bold text-slate-900">
+
+              Executive Overview
+
+            </h2>
+
+            <p className="mt-2 text-slate-500">
+
+              Live operational statistics across RideGrid
+
+            </p>
+
+          </div>
 
         </div>
 
-        {/* KPI Cards */}
-
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-
-          <DashboardCard
-            title="Today's Bookings"
-            value="128"
-            icon={<CalendarDays size={32} />}
-            change="+12%"
-            color="bg-blue-500"
-          />
-
-          <DashboardCard
-            title="Running Trips"
-            value="46"
-            icon={<Car size={32} />}
-            change="+5%"
-            color="bg-green-500"
-          />
-
-          <DashboardCard
-            title="Active Drivers"
-            value="214"
-            icon={<Users size={32} />}
-            change="+8%"
-            color="bg-orange-500"
-          />
-
-          <DashboardCard
+        <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">          <StatCard
             title="Today's Revenue"
             value="₹1,84,500"
             icon={<Wallet size={32} />}
-            change="+18%"
-            color="bg-purple-500"
+            trend="+18%"
+            trendType="up"
+            color="green"
+          />
+
+          <StatCard
+            title="Today's Bookings"
+            value="128"
+            icon={<CalendarPlus size={32} />}
+            trend="+12%"
+            trendType="up"
+            color="blue"
+          />
+
+          <StatCard
+            title="Active Drivers"
+            value="214"
+            icon={<Users size={32} />}
+            trend="+8%"
+            trendType="up"
+            color="purple"
+          />
+
+          <StatCard
+            title="Fleet Available"
+            value="426"
+            icon={<Car size={32} />}
+            trend="+5%"
+            trendType="up"
+            color="orange"
           />
 
         </div>
 
-        {/* Middle Section */}
+        {/* ===========================
+            BUSINESS SUMMARY
+        ============================ */}
 
-        <div className="grid gap-6 xl:grid-cols-3">
+        <div className="mt-10 grid gap-6 lg:grid-cols-4">
 
-          {/* Revenue */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
+            <div className="flex items-center justify-between">
+
+              <TrendingUp className="text-emerald-600" />
+
+              <ArrowUpRight className="text-emerald-600" />
+
+            </div>
+
+            <h3 className="mt-6 text-3xl font-bold">
+
+              ₹3.42 Cr
+
+            </h3>
+
+            <p className="mt-2 text-slate-500">
+
+              Monthly Revenue
+
+            </p>
+
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+            <div className="flex items-center justify-between">
+
+              <Building2 className="text-blue-600" />
+
+              <ArrowUpRight className="text-blue-600" />
+
+            </div>
+
+            <h3 className="mt-6 text-3xl font-bold">
+
+              326
+
+            </h3>
+
+            <p className="mt-2 text-slate-500">
+
+              Corporate Clients
+
+            </p>
+
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+            <div className="flex items-center justify-between">
+
+              <Bell className="text-orange-500" />
+
+              <Clock3 className="text-orange-500" />
+
+            </div>
+
+            <h3 className="mt-6 text-3xl font-bold">
+
+              18
+
+            </h3>
+
+            <p className="mt-2 text-slate-500">
+
+              Pending Alerts
+
+            </p>
+
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+            <div className="flex items-center justify-between">
+
+              <Shield className="text-cyan-600" />
+
+              <ArrowUpRight className="text-cyan-600" />
+
+            </div>
+
+            <h3 className="mt-6 text-3xl font-bold">
+
+              99.98%
+
+            </h3>
+
+            <p className="mt-2 text-slate-500">
+
+              System Health
+
+            </p>
+
+          </div>
+
+        </div>
+
+        {/* ===========================
+            REVENUE & AI
+        ============================ */}
+
+        <div className="mt-10 grid gap-6 xl:grid-cols-3">
+
+          <ChartCard
+            title="Revenue Intelligence"
+            subtitle="Business Growth - Last 6 Months"
+            className="xl:col-span-2"
+          >
+
+            <RevenueChart />
+
+          </ChartCard>
+
+          <AIInsight />
+
+        </div>
+
+        {/* ===========================
+            FLEET & OPERATIONS
+        ============================ */}
+
+        <div className="mt-10 grid gap-6 xl:grid-cols-3">          <ChartCard
+            title="Fleet Distribution"
+            subtitle="Current Vehicle Status"
+          >
+            <FleetChart />
+          </ChartCard>
+
+          <FleetHealth />
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
 
             <div className="mb-6 flex items-center justify-between">
 
-              <h2 className="text-xl font-bold text-slate-900">
-                Revenue Overview
-              </h2>
+              <div>
 
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-                +18%
+                <h2 className="text-xl font-bold text-slate-900">
+                  Operations Center
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Today's operational overview
+                </p>
+
+              </div>
+
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                LIVE
               </span>
 
             </div>
 
-            <div className="flex h-72 items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50">
-
-              <div className="text-center">
-
-                <Activity
-                  size={50}
-                  className="mx-auto text-blue-600"
-                />
-
-                <p className="mt-4 font-semibold text-slate-700">
-                  Revenue Chart
-                </p>
-
-                <p className="text-sm text-slate-500">
-                  Recharts will be integrated here.
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* Fleet Status */}
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-
-            <h2 className="mb-6 text-xl font-bold">
-              Fleet Status
-            </h2>
-
             <div className="space-y-5">
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-4">
 
-                <span>Total Vehicles</span>
+                <div>
 
-                <strong>426</strong>
+                  <p className="font-semibold">
+                    Airport Pickups
+                  </p>
 
-              </div>
-
-              <div className="flex items-center justify-between">
-
-                <span>Available</span>
-
-                <span className="font-semibold text-emerald-600">
-                  286
-                </span>
-
-              </div>
-
-              <div className="flex items-center justify-between">
-
-                <span>Running</span>
-
-                <span className="font-semibold text-blue-600">
-                  118
-                </span>
-
-              </div>
-
-              <div className="flex items-center justify-between">
-
-                <span>Maintenance</span>
-
-                <span className="font-semibold text-orange-600">
-                  22
-                </span>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Bottom */}
-
-        <div className="grid gap-6 xl:grid-cols-2">
-
-          {/* Recent Bookings */}
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-
-            <h2 className="mb-6 text-xl font-bold">
-              Recent Bookings
-            </h2>
-
-            <div className="space-y-4">
-
-              {[
-                ["RG100245", "Completed", "green"],
-                ["RG100246", "Running", "blue"],
-                ["RG100247", "Pending", "orange"],
-                ["RG100248", "Cancelled", "red"],
-              ].map(([id, status, color]) => (
-
-                <div
-                  key={id}
-                  className="flex items-center justify-between rounded-xl bg-slate-50 p-4"
-                >
-
-                  <div>
-
-                    <p className="font-semibold">
-                      {id}
-                    </p>
-
-                    <p className="text-sm text-slate-500">
-                      Mumbai Airport Transfer
-                    </p>
-
-                  </div>
-
-                  <span
-                    className={`rounded-full px-3 py-1 text-sm font-semibold
-                    ${
-                      color === "green"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : color === "blue"
-                        ? "bg-blue-100 text-blue-700"
-                        : color === "orange"
-                        ? "bg-orange-100 text-orange-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {status}
-                  </span>
+                  <p className="text-sm text-slate-500">
+                    Scheduled Today
+                  </p>
 
                 </div>
 
-              ))}
+                <span className="text-2xl font-bold text-blue-600">
+                  64
+                </span>
 
-            </div>
+              </div>
 
-          </div>
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-4">
 
-          {/* System Health */}
+                <div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <p className="font-semibold">
+                    Airport Drop-offs
+                  </p>
 
-            <h2 className="mb-6 text-xl font-bold">
-              System Health
-            </h2>
+                  <p className="text-sm text-slate-500">
+                    Scheduled Today
+                  </p>
 
-            <div className="space-y-5">
+                </div>
 
-              <Status
-                icon={<CircleCheck className="text-emerald-600" />}
-                title="Server"
-                value="Online"
-              />
+                <span className="text-2xl font-bold text-emerald-600">
+                  54
+                </span>
 
-              <Status
-                icon={<CircleCheck className="text-emerald-600" />}
-                title="Database"
-                value="Healthy"
-              />
+              </div>
 
-              <Status
-                icon={<Clock3 className="text-orange-500" />}
-                title="Payment Gateway"
-                value="Syncing"
-              />
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-4">
 
-              <Status
-                icon={<AlertTriangle className="text-yellow-500" />}
-                title="SMS Gateway"
-                value="Warning"
-              />
+                <div>
+
+                  <p className="font-semibold">
+                    Corporate Trips
+                  </p>
+
+                  <p className="text-sm text-slate-500">
+                    Running
+                  </p>
+
+                </div>
+
+                <span className="text-2xl font-bold text-violet-600">
+                  27
+                </span>
+
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl bg-slate-50 p-4">
+
+                <div>
+
+                  <p className="font-semibold">
+                    Outstation Trips
+                  </p>
+
+                  <p className="text-sm text-slate-500">
+                    Active
+                  </p>
+
+                </div>
+
+                <span className="text-2xl font-bold text-orange-600">
+                  18
+                </span>
+
+              </div>
 
             </div>
 
@@ -273,35 +521,374 @@ export default function Home() {
 
         </div>
 
-      </div>
+        {/* ===========================
+            QUICK ACTIONS & LIVE ACTIVITY
+        ============================ */}
+
+        <div className="mt-10 grid gap-6 xl:grid-cols-2">
+
+        <QuickCommand />
+
+        <LiveOperations />
+
+        </div>
+
+        {/* ===========================
+            RECENT BOOKINGS & NOTIFICATIONS
+        ============================ */}
+
+        <div className="mt-10 grid gap-6 xl:grid-cols-2">
+
+       <RecentBookings />
+
+       <BookingTimeline />
+
+        </div>
+
+        <div className="mt-10">
+
+        <AlertCenter />
+
+        </div>
+
+        {/* ===========================
+            BUSINESS OVERVIEW
+        ============================ */}
+
+        <div className="mt-10 grid gap-6 xl:grid-cols-2">          <InfoCard title="Business Overview">
+
+            <div className="space-y-5">
+
+              <div className="flex items-center justify-between">
+
+                <span className="text-slate-600">
+                  Total Customers
+                </span>
+
+                <strong className="text-lg">
+                  18,245
+                </strong>
+
+              </div>
+
+              <div className="flex items-center justify-between">
+
+                <span className="text-slate-600">
+                  Vendor Partners
+                </span>
+
+                <strong className="text-lg">
+                  148
+                </strong>
+
+              </div>
+
+              <div className="flex items-center justify-between">
+
+                <span className="text-slate-600">
+                  Corporate Accounts
+                </span>
+
+                <strong className="text-lg">
+                  326
+                </strong>
+
+              </div>
+
+              <div className="flex items-center justify-between">
+
+                <span className="text-slate-600">
+                  Completed Trips
+                </span>
+
+                <strong className="text-lg">
+                  1,25,820
+                </strong>
+
+              </div>
+
+              <div className="flex items-center justify-between">
+
+                <span className="text-slate-600">
+                  Customer Rating
+                </span>
+
+                <strong className="text-lg text-amber-500">
+                  ⭐ 4.9 / 5
+                </strong>
+
+              </div>
+
+              <div className="flex items-center justify-between">
+
+                <span className="text-slate-600">
+                  Cancellation Rate
+                </span>
+
+                <strong className="text-lg text-emerald-600">
+                  1.8%
+                </strong>
+
+              </div>
+
+            </div>
+
+          </InfoCard>
+
+          <div className="space-y-6">
+
+            <InfoCard title="Finance Summary">
+
+              <div className="space-y-4">
+
+                <div className="flex items-center justify-between">
+
+                  <span>Today's Collection</span>
+
+                  <strong className="text-emerald-600">
+                    ₹1,84,500
+                  </strong>
+
+                </div>
+
+                <div className="flex items-center justify-between">
+
+                  <span>Vendor Payables</span>
+
+                  <strong className="text-orange-500">
+                    ₹72,400
+                  </strong>
+
+                </div>
+
+                <div className="flex items-center justify-between">
+
+                  <span>Outstanding Amount</span>
+
+                  <strong className="text-red-500">
+                    ₹18,200
+                  </strong>
+
+                </div>
+
+                <div className="flex items-center justify-between">
+
+                  <span>Net Profit Today</span>
+
+                  <strong className="text-blue-600">
+                    ₹64,850
+                  </strong>
+
+                </div>
+
+              </div>
+
+            </InfoCard>
+
+            <InfoCard title="AI Business Advisor">
+
+              <div className="space-y-4">
+
+                <div className="rounded-xl bg-emerald-50 p-4">
+
+                  <p className="font-semibold text-emerald-700">
+
+                    📈 Revenue expected to grow 16% today.
+
+                  </p>
+
+                </div>
+
+                <div className="rounded-xl bg-blue-50 p-4">
+
+                  <p className="font-semibold text-blue-700">
+
+                    🚖 Pune Airport demand is increasing.
+
+                  </p>
+
+                </div>
+
+                <div className="rounded-xl bg-orange-50 p-4">
+
+                  <p className="font-semibold text-orange-700">
+
+                    ⚠ 6 vehicles require maintenance this week.
+
+                  </p>
+
+                </div>
+
+                <div className="rounded-xl bg-violet-50 p-4">
+
+                  <p className="font-semibold text-violet-700">
+
+                    🏢 Corporate bookings increased by 11%.
+
+                  </p>
+
+                </div>
+
+              </div>
+
+            </InfoCard>
+
+          </div>
+
+        </div>
+
+        {/* ===========================
+            SYSTEM STATUS
+        ============================ */}
+
+        <div className="mt-10 rounded-[30px] border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 p-8 text-white">
+
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+
+            <div>
+
+              <h2 className="text-3xl font-bold">
+
+                RideGrid Enterprise Status
+
+              </h2>
+
+              <p className="mt-3 text-slate-300">
+
+                All enterprise services are monitored in real time.
+
+              </p>
+
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
+
+              <div>
+
+                <p className="text-slate-400 text-sm">
+                  API
+                </p>
+
+                <h3 className="mt-2 text-2xl font-bold text-emerald-400">
+                  Online
+                </h3>
+
+              </div>
+
+              <div>
+
+                <p className="text-slate-400 text-sm">
+                  Database
+                </p>
+
+                <h3 className="mt-2 text-2xl font-bold text-emerald-400">
+                  Healthy
+                </h3>
+
+              </div>
+
+              <div>
+
+                <p className="text-slate-400 text-sm">
+                  Payments
+                </p>
+
+                <h3 className="mt-2 text-2xl font-bold text-blue-400">
+                  Active
+                </h3>
+
+              </div>
+
+              <div>
+
+                <p className="text-slate-400 text-sm">
+                  Notifications
+                </p>
+
+                <h3 className="mt-2 text-2xl font-bold text-orange-400">
+                  Running
+                </h3>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>        {/* ===========================
+            FOOTER
+        ============================ */}
+
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white px-8 py-6 shadow-sm lg:flex-row">
+
+          <div>
+
+            <h3 className="text-lg font-bold text-slate-900">
+              RideGrid Enterprise Platform
+            </h3>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Enterprise Mobility Management System • Version 2.0
+            </p>
+
+          </div>
+
+          <div className="flex flex-wrap gap-8 text-center">
+
+            <div>
+
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Server Uptime
+              </p>
+
+              <p className="mt-1 font-bold text-emerald-600">
+                99.98%
+              </p>
+
+            </div>
+
+            <div>
+
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Response Time
+              </p>
+
+              <p className="mt-1 font-bold text-blue-600">
+                182 ms
+              </p>
+
+            </div>
+
+            <div>
+
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Active Sessions
+              </p>
+
+              <p className="mt-1 font-bold text-violet-600">
+                148
+              </p>
+
+            </div>
+
+            <div>
+
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Last Sync
+              </p>
+
+              <p className="mt-1 font-bold text-slate-700">
+                Just Now
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </PageContainer>
+
     </DashboardLayout>
-  );
-}
-
-function Status({
-  icon,
-  title,
-  value,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-xl bg-slate-50 p-4">
-
-      <div className="flex items-center gap-3">
-
-        {icon}
-
-        <span className="font-medium">
-          {title}
-        </span>
-
-      </div>
-
-      <strong>{value}</strong>
-
-    </div>
   );
 }
