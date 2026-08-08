@@ -138,7 +138,7 @@ export default function Home() {
 
                   <p className="text-sm text-slate-300">
 
-                    Today's Revenue
+                    Today&apos;s Revenue
 
                   </p>
 
@@ -237,7 +237,7 @@ export default function Home() {
         </div>
 
         <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">          <StatCard
-            title="Today's Revenue"
+            title="Today&apos;s Revenue"
             value="₹1,84,500"
             icon={<Wallet size={32} />}
             trend="+18%"
@@ -246,7 +246,7 @@ export default function Home() {
           />
 
           <StatCard
-            title="Today's Bookings"
+            title="Today&apos;s Bookings"
             value="128"
             icon={<CalendarPlus size={32} />}
             trend="+12%"
@@ -422,7 +422,7 @@ export default function Home() {
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  Today's operational overview
+                  Today&apos;s operational overview
                 </p>
 
               </div>
@@ -643,7 +643,7 @@ export default function Home() {
 
                 <div className="flex items-center justify-between">
 
-                  <span>Today's Collection</span>
+                  <span>Today&apos;s Collection</span>
 
                   <strong className="text-emerald-600">
                     ₹1,84,500

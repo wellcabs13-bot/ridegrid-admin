@@ -3,11 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "seed": "tsx prisma/seed.ts"
-  },
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "seed": "tsx prisma/seed.ts",
+  "test": "vitest run",
+  "test:watch": "vitest",
+  "test:coverage": "vitest run --coverage",
+  "test:e2e": "playwright test",
+  "test:all": "npm run test && npm run test:e2e"
+},
   "dependencies": {
     "@prisma/client": "6.16.3",
     "bcrypt": "^6.0.0",
@@ -24,17 +29,23 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
     "@types/bcrypt": "^6.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.5",
     "autoprefixer": "^10",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.3.3",
+    "jsdom": "^30.0.1",
+    "playwright": "^1.62.1",
     "postcss": "^8",
     "tailwindcss": "^3",
     "tsx": "^4.23.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

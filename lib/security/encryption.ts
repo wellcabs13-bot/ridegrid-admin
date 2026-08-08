@@ -1,43 +1,68 @@
+import bcrypt from "bcrypt";
+import { randomBytes, randomInt } from "crypto";
+
+const BCRYPT_ROUNDS = 12;
+
 export class EncryptionService {
   async hash(value: string): Promise<string> {
-    const data = new TextEncoder().encode(value);
+    if (!value) {
+      throw new Error(
+        "Value is required for hashing."
+      );
+    }
 
-    const hash = await crypto.subtle.digest(
-      "SHA-256",
-      data
+    return bcrypt.hash(
+      value,
+      BCRYPT_ROUNDS
     );
-
-    return Array.from(new Uint8Array(hash))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
   }
 
   async verify(
     value: string,
     hashed: string
   ): Promise<boolean> {
-    return (await this.hash(value)) === hashed;
+    if (!value || !hashed) {
+      return false;
+    }
+
+    return bcrypt.compare(
+      value,
+      hashed
+    );
   }
 
-  generateToken(length = 64) {
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  generateToken(length = 64): string {
+    const byteLength =
+      Math.max(
+        32,
+        Math.ceil(length * 0.75)
+      );
 
-    let token = "";
+    return randomBytes(byteLength)
+      .toString("base64url")
+      .slice(0, length);
+  }
 
-    for (let i = 0; i < length; i++) {
-      token += chars.charAt(
-        Math.floor(Math.random() * chars.length)
+  generateOTP(length = 6): string {
+    if (
+      length < 4 ||
+      length > 10
+    ) {
+      throw new Error(
+        "OTP length must be between 4 and 10."
       );
     }
 
-    return token;
-  }
+    const minimum =
+      10 ** (length - 1);
 
-  generateOTP(length = 6) {
-    return Math.random()
-      .toString()
-      .slice(2, 2 + length);
+    const maximum =
+      10 ** length;
+
+    return randomInt(
+      minimum,
+      maximum
+    ).toString();
   }
 }
 

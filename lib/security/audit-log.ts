@@ -1,55 +1,115 @@
 import {
+  prisma,
+} from "@/lib/prisma";
+
+import {
   AuditLog,
-  AuditSeverity,
-  SecurityRole,
 } from "@/types/security";
 
+export interface AuditLogInput {
+  userId?: string;
+  action: string;
+  entityName: string;
+  entityId?: string;
+  oldValue?: unknown;
+  newValue?: unknown;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
 class AuditLogger {
-  private logs: AuditLog[] = [];
-
-  log(
-    module: string,
-    action: string,
-    performedBy: string,
-    role: SecurityRole,
-    severity: AuditSeverity,
-    ipAddress: string,
-    entityId?: string,
-    userAgent?: string
+  async log(
+    input: AuditLogInput
   ) {
-    const entry: AuditLog = {
-      id: crypto.randomUUID(),
-      module,
-      action,
-      performedBy,
-      role,
-      entityId,
-      ipAddress,
-      userAgent,
-      severity,
-      createdAt: new Date(),
-    };
+    const action =
+      input.action as never;
 
-    this.logs.unshift(entry);
-
-    console.info("[AUDIT]", entry);
+    const entry =
+      await prisma.auditLog.create({
+        data: {
+          userId:
+            input.userId,
+          action,
+          entityName:
+            input.entityName,
+          entityId:
+            input.entityId,
+          oldValue:
+            input.oldValue === undefined
+              ? undefined
+              : JSON.parse(
+                  JSON.stringify(
+                    input.oldValue
+                  )
+                ),
+          newValue:
+            input.newValue === undefined
+              ? undefined
+              : JSON.parse(
+                  JSON.stringify(
+                    input.newValue
+                  )
+                ),
+          ipAddress:
+            input.ipAddress,
+          userAgent:
+            input.userAgent,
+        },
+      });
 
     return entry;
   }
 
-  getAll() {
-    return this.logs;
+  async getAll(
+    limit = 100
+  ) {
+    return prisma.auditLog.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: Math.min(
+        Math.max(limit, 1),
+        500
+      ),
+    });
   }
 
-  getByModule(module: string) {
-    return this.logs.filter(
-      (log) => log.module === module
-    );
+  async getByUser(
+    userId: string,
+    limit = 100
+  ) {
+    return prisma.auditLog.findMany({
+      where: {
+        userId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: Math.min(
+        Math.max(limit, 1),
+        500
+      ),
+    });
   }
 
-  clear() {
-    this.logs = [];
+  async getByModule(
+    entityName: string,
+    limit = 100
+  ) {
+    return prisma.auditLog.findMany({
+      where: {
+        entityName,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: Math.min(
+        Math.max(limit, 1),
+        500
+      ),
+    });
   }
 }
 
-export const auditLogger = new AuditLogger();
+export const auditLogger =
+  new AuditLogger();

@@ -1,19 +1,31 @@
-import { jwtService } from "./jwt";
-import { SecurityRole } from "@/types/security";
+import {
+  jwtService,
+} from "./jwt";
 
-export async function authenticate(token?: string) {
+import {
+  SecurityRole,
+} from "@/types/security";
+
+export async function authenticate(
+  token?: string
+) {
   if (!token) {
     return null;
   }
 
-  return jwtService.verify(token);
+  return jwtService.verify(
+    token
+  );
 }
 
 export async function authorize(
-  token: string | undefined,
+  token:
+    | string
+    | undefined,
   roles: SecurityRole[]
 ) {
-  const user = await authenticate(token);
+  const user =
+    await authenticate(token);
 
   if (!user) {
     return {
@@ -23,7 +35,8 @@ export async function authorize(
   }
 
   return {
-    authorized: roles.includes(user.role),
+    authorized:
+      roles.includes(user.role),
     user,
   };
 }

@@ -1,15 +1,21 @@
-'use client';
+"use client";
 
-import { ReactNode } from 'react';
+import React from "react";
 
-import { AuthUser } from '@/types/auth';
-import { SecurityRole } from '@/types/security';
+import {
+  SecurityRole,
+} from "@/types/security";
 
 interface PermissionGuardProps {
-  user: AuthUser | null;
+  user: {
+    role: SecurityRole;
+  };
+
   allowedRoles: SecurityRole[];
-  children: ReactNode;
-  fallback?: ReactNode;
+
+  children: React.ReactNode;
+
+  fallback?: React.ReactNode;
 }
 
 export default function PermissionGuard({
@@ -18,15 +24,22 @@ export default function PermissionGuard({
   children,
   fallback,
 }: PermissionGuardProps) {
-  if (!user) {
-    return fallback ?? null;
-  }
-
-  if (!allowedRoles.includes(user.role)) {
+  if (
+    !allowedRoles.includes(
+      user.role
+    )
+  ) {
     return (
       fallback ?? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">
-          You don't have permission to access this resource.
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <h2 className="mb-2 text-lg font-semibold text-red-700">
+            Access Denied
+          </h2>
+
+          <p className="text-sm text-red-600">
+            You don&apos;t have permission
+            to access this resource.
+          </p>
         </div>
       )
     );

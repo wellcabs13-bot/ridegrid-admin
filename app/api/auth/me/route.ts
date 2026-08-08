@@ -1,29 +1,72 @@
-import { NextRequest } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
-import { authenticate } from "@/lib/auth/middleware";
-import { success, failure } from "@/lib/api-response";
-import { apiError } from "@/lib/api-error";
+import {
+  authenticate,
+} from "@/lib/auth/middleware";
 
 export async function GET(
   request: NextRequest
 ) {
   try {
-    const token =
-      request.headers
-        .get("authorization")
-        ?.replace("Bearer ", "");
+    const authorization =
+      request.headers.get(
+        "authorization"
+      );
 
-    const user = await authenticate(token);
+    const headerToken =
+      authorization?.startsWith(
+        "Bearer "
+      )
+        ? authorization.slice(7)
+        : undefined;
+
+    const cookieToken =
+      request.cookies.get(
+        "ridegrid-token"
+      )?.value;
+
+    const token =
+      headerToken ??
+      cookieToken;
+
+    const user =
+      await authenticate(token);
 
     if (!user) {
-      return failure(
-        "Unauthorized",
-        401
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
-    return success(user);
+    return NextResponse.json({
+      success: true,
+      data: user,
+    });
   } catch (error) {
-    return apiError(error);
+    console.error(
+      "GET /api/auth/me",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Failed to validate session.",
+      },
+      {
+        status: 401,
+      }
+    );
   }
 }

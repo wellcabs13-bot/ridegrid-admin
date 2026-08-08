@@ -1,119 +1,36 @@
-/**
- * RideGrid Enterprise AI
- * AI Utility Functions
- * Version 1.0
- */
+import { AutomationTrigger } from "@/types/automation";
 
-import {
-  AIRecommendation,
-  AIRecommendationPriority,
-} from "@/types/ai";
-
-export function generateAIId(prefix = "AI"): string {
-  return `${prefix}-${Date.now()}-${Math.random()
-    .toString(36)
-    .substring(2, 8)
-    .toUpperCase()}`;
+export interface AutomationEvent {
+  trigger: AutomationTrigger;
+  module: string;
+  userId?: string;
+  bookingId?: string;
+  vendorId?: string;
+  driverId?: string;
+  customerId?: string;
+  metadata?: Record<string, unknown>;
 }
 
-export function calculateConfidence(
-  score: number
-): number {
-  if (score < 0) return 0;
-  if (score > 100) return 100;
-
-  return Math.round(score);
+export function createAutomationEvent(
+  event: AutomationEvent
+): AutomationEvent {
+  return {
+    ...event,
+    metadata: event.metadata ?? {},
+  };
 }
 
-export function priorityWeight(
-  priority: AIRecommendationPriority
-): number {
-  switch (priority) {
-    case AIRecommendationPriority.CRITICAL:
-      return 4;
-
-    case AIRecommendationPriority.HIGH:
-      return 3;
-
-    case AIRecommendationPriority.MEDIUM:
-      return 2;
-
-    default:
-      return 1;
+export function isAutomationEvent(
+  value: unknown
+): value is AutomationEvent {
+  if (!value || typeof value !== "object") {
+    return false;
   }
-}
 
-export function sortRecommendations(
-  recommendations: AIRecommendation[]
-): AIRecommendation[] {
-  return [...recommendations].sort(
-    (a, b) =>
-      priorityWeight(b.priority) -
-      priorityWeight(a.priority)
-  );
-}
+  const event = value as Record<string, unknown>;
 
-export function groupRecommendations(
-  recommendations: AIRecommendation[]
-): Record<string, AIRecommendation[]> {
-  return recommendations.reduce(
-    (groups, recommendation) => {
-      if (!groups[recommendation.module]) {
-        groups[recommendation.module] = [];
-      }
-
-      groups[recommendation.module].push(
-        recommendation
-      );
-
-      return groups;
-    },
-    {} as Record<string, AIRecommendation[]>
-  );
-}
-
-export function estimateTokenUsage(
-  text: string
-): number {
-  return Math.ceil(text.length / 4);
-}
-
-export function estimateRequestCost(
-  tokens: number,
-  pricePer1KTokens = 0.002
-): number {
-  return Number(
-    ((tokens / 1000) * pricePer1KTokens).toFixed(6)
-  );
-}
-
-export function executionTime(
-  startedAt: number
-): number {
-  return Date.now() - startedAt;
-}
-
-export function sanitizePrompt(
-  prompt: string
-): string {
-  return prompt
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function isSuccessfulConfidence(
-  confidence: number
-): boolean {
-  return confidence >= 75;
-}
-
-export function aiLogger(
-  module: string,
-  action: string,
-  payload?: unknown
-) {
-  console.info(
-    `[RideGrid AI] ${module} :: ${action}`,
-    payload ?? ""
+  return (
+    typeof event.trigger === "string" &&
+    typeof event.module === "string"
   );
 }

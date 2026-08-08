@@ -7,18 +7,42 @@ interface RefreshTokenRecord {
   revoked: boolean;
 }
 
-export class RefreshTokenService {
-  private tokens = new Map<string, RefreshTokenRecord>();
+const REFRESH_TOKEN_DAYS = 30;
 
-  async generate(userId: string): Promise<string> {
-    const token = crypto.randomUUID();
+export class RefreshTokenService {
+  private tokens =
+    new Map<
+      string,
+      RefreshTokenRecord
+    >();
+
+  async generate(
+    userId: string
+  ): Promise<string> {
+    if (!userId) {
+      throw new Error(
+        "User ID is required."
+      );
+    }
+
+    const token =
+      crypto.randomBytes(64)
+        .toString("base64url");
+
+    const expiresAt =
+      new Date(
+        Date.now() +
+          1000 *
+            60 *
+            60 *
+            24 *
+            REFRESH_TOKEN_DAYS
+      );
 
     this.tokens.set(token, {
       token,
       userId,
-      expiresAt: new Date(
-        Date.now() + 1000 * 60 * 60 * 24 * 30
-      ), // 30 Days
+      expiresAt,
       revoked: false,
     });
 
@@ -28,20 +52,49 @@ export class RefreshTokenService {
   async validate(
     token: string
   ): Promise<boolean> {
-    const record = this.tokens.get(token);
+    const record =
+      this.tokens.get(token);
 
-    if (!record) return false;
-
-    if (record.revoked) return false;
-
-    if (record.expiresAt < new Date())
+    if (!record) {
       return false;
+    }
+
+    if (record.revoked) {
+      return false;
+    }
+
+    if (
+      record.expiresAt <=
+      new Date()
+    ) {
+      this.tokens.delete(token);
+      return false;
+    }
 
     return true;
   }
 
-  async revoke(token: string) {
-    const record = this.tokens.get(token);
+  async getUserId(
+    token: string
+  ): Promise<string | null> {
+    const valid =
+      await this.validate(token);
+
+    if (!valid) {
+      return null;
+    }
+
+    return (
+      this.tokens.get(token)
+        ?.userId ?? null
+    );
+  }
+
+  async revoke(
+    token: string
+  ): Promise<void> {
+    const record =
+      this.tokens.get(token);
 
     if (record) {
       record.revoked = true;
@@ -51,15 +104,37 @@ export class RefreshTokenService {
   async rotate(
     oldToken: string
   ): Promise<string> {
-    const record = this.tokens.get(oldToken);
+    const record =
+      this.tokens.get(oldToken);
 
     if (!record) {
-      throw new Error("Invalid Refresh Token");
+      throw new Error(
+        "Invalid refresh token."
+      );
     }
 
-    await this.revoke(oldToken);
+    const valid =
+      await this.validate(
+        oldToken
+      );
 
-    return this.generate(record.userId);
+    if (!valid) {
+      throw new Error(
+        "Refresh token expired or revoked."
+      );
+    }
+
+    await this.revoke(
+      oldToken
+    );
+
+    return this.generate(
+      record.userId
+    );
+  }
+
+  clear(): void {
+    this.tokens.clear();
   }
 }
 

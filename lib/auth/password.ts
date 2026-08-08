@@ -1,56 +1,84 @@
+import bcrypt from "bcrypt";
 import crypto from "crypto";
+
+const BCRYPT_ROUNDS = 12;
+
+export interface PasswordValidation {
+  valid: boolean;
+  errors: string[];
+}
 
 export class PasswordService {
   async hash(
     password: string
   ): Promise<string> {
-    return crypto
-      .createHash("sha256")
-      .update(password)
-      .digest("hex");
+    if (!password) {
+      throw new Error(
+        "Password is required."
+      );
+    }
+
+    return bcrypt.hash(
+      password,
+      BCRYPT_ROUNDS
+    );
   }
 
   async verify(
     password: string,
     hashedPassword: string
   ): Promise<boolean> {
-    const hash = await this.hash(password);
+    if (
+      !password ||
+      !hashedPassword
+    ) {
+      return false;
+    }
 
-    return hash === hashedPassword;
+    return bcrypt.compare(
+      password,
+      hashedPassword
+    );
   }
 
   validateStrength(
     password: string
-  ): {
-    valid: boolean;
-    errors: string[];
-  } {
+  ): PasswordValidation {
     const errors: string[] = [];
 
-    if (password.length < 8)
+    if (password.length < 8) {
       errors.push(
         "Minimum 8 characters required."
       );
+    }
 
-    if (!/[A-Z]/.test(password))
+    if (!/[A-Z]/.test(password)) {
       errors.push(
         "At least one uppercase letter required."
       );
+    }
 
-    if (!/[a-z]/.test(password))
+    if (!/[a-z]/.test(password)) {
       errors.push(
         "At least one lowercase letter required."
       );
+    }
 
-    if (!/[0-9]/.test(password))
+    if (!/[0-9]/.test(password)) {
       errors.push(
         "At least one number required."
       );
+    }
 
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password))
+    if (
+      !/[!@#$%^&*(),.?":{}|<>]/.test(
+        password
+      )
+    ) {
       errors.push(
         "At least one special character required."
       );
+    }
 
     return {
       valid: errors.length === 0,
@@ -61,18 +89,74 @@ export class PasswordService {
   generateTemporaryPassword(
     length = 12
   ): string {
+    const upper =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lower =
+      "abcdefghijklmnopqrstuvwxyz";
+    const numbers =
+      "0123456789";
+    const special =
+      "!@#$%^&*";
+
     const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+      upper +
+      lower +
+      numbers +
+      special;
 
-    let password = "";
+    const required = [
+      upper[
+        crypto.randomInt(
+          upper.length
+        )
+      ],
+      lower[
+        crypto.randomInt(
+          lower.length
+        )
+      ],
+      numbers[
+        crypto.randomInt(
+          numbers.length
+        )
+      ],
+      special[
+        crypto.randomInt(
+          special.length
+        )
+      ],
+    ];
 
-    for (let i = 0; i < length; i++) {
-      password += chars.charAt(
-        Math.floor(Math.random() * chars.length)
+    while (
+      required.length < length
+    ) {
+      required.push(
+        chars[
+          crypto.randomInt(
+            chars.length
+          )
+        ]
       );
     }
 
-    return password;
+    for (
+      let i = required.length - 1;
+      i > 0;
+      i--
+    ) {
+      const j =
+        crypto.randomInt(i + 1);
+
+      [
+        required[i],
+        required[j],
+      ] = [
+        required[j],
+        required[i],
+      ];
+    }
+
+    return required.join("");
   }
 }
 
