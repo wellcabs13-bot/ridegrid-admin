@@ -141,6 +141,49 @@ export class TransactionRepository {
       where,
     });
   }
+
+  async sum(
+    where: Prisma.TransactionWhereInput = {}
+  ) {
+    const result =
+      await prisma.transaction.aggregate({
+        where,
+        _sum: {
+          amount: true,
+        },
+      });
+
+    return Number(result._sum.amount ?? 0);
+  }
+
+  async totalsByType(
+    paymentStatus: PaymentStatus = PaymentStatus.PAID
+  ) {
+    const transactions =
+      await prisma.transaction.findMany({
+        where: {
+          paymentStatus,
+        },
+        select: {
+          transactionType: true,
+          amount: true,
+        },
+      });
+
+    return transactions.reduce(
+      (
+        totals: Record<TransactionType, number>,
+        transaction
+      ) => {
+        totals[transaction.transactionType] =
+          (totals[transaction.transactionType] ?? 0) +
+          Number(transaction.amount);
+
+        return totals;
+      },
+      {} as Record<TransactionType, number>
+    );
+  }
 }
 
 export const transactionRepository =

@@ -1,310 +1,299 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
 
-import DashboardLayout from "@/components/DashboardLayout";
+import DashboardLayout from '@/components/DashboardLayout';
 
-import FinanceHeader from "@/components/finance/FinanceHeader";
-import FinanceStats from "@/components/finance/FinanceStats";
-import FinanceFilters from "@/components/finance/FinanceFilters";
-import RevenueChart from "@/components/finance/RevenueChart";
-import ExpenseChart from "@/components/finance/ExpenseChart";
-import IncomeExpenseChart from "@/components/finance/IncomeExpenseChart";
-import ProfitLossCard from "@/components/finance/ProfitLossCard";
-import ExpenseBreakdown from "@/components/finance/ExpenseBreakdown";
-import GSTCard from "@/components/finance/GSTCard";
-import VendorPaymentCard from "@/components/finance/VendorPaymentCard";
-import DriverSalaryCard from "@/components/finance/DriverSalaryCard";
-import WalletCard from "@/components/finance/WalletCard";
-import RecentTransactions from "@/components/finance/RecentTransactions";
-import TransactionTable from "@/components/finance/TransactionTable";
-import AddExpenseModal from "@/components/finance/AddExpenseModal";
-import InvoiceDrawer from "@/components/finance/InvoiceDrawer";
+import FinanceHeader from '@/components/finance/FinanceHeader';
+import FinanceStats from '@/components/finance/FinanceStats';
+import FinanceFilters from '@/components/finance/FinanceFilters';
+import RevenueChart from '@/components/finance/RevenueChart';
+import ExpenseChart from '@/components/finance/ExpenseChart';
+import IncomeExpenseChart from '@/components/finance/IncomeExpenseChart';
+import ProfitLossCard from '@/components/finance/ProfitLossCard';
+import ExpenseBreakdown from '@/components/finance/ExpenseBreakdown';
+import GSTCard from '@/components/finance/GSTCard';
+import VendorPaymentCard from '@/components/finance/VendorPaymentCard';
+import DriverSalaryCard from '@/components/finance/DriverSalaryCard';
+import WalletCard from '@/components/finance/WalletCard';
+import RecentTransactions from '@/components/finance/RecentTransactions';
+import TransactionTable from '@/components/finance/TransactionTable';
+import AddExpenseModal from '@/components/finance/AddExpenseModal';
+import InvoiceDrawer from '@/components/finance/InvoiceDrawer';
 
-import type { Transaction } from "@/components/finance/TransactionRow";
+import type { Transaction } from '@/components/finance/TransactionRow';
+
+interface FinanceOverview {
+  totalRevenue: number;
+  totalExpenses: number;
+  netProfit: number;
+  totalRefunds: number;
+  totalCommission: number;
+  pendingPayments: number;
+  pendingTransactions: number;
+  completedTransactions: number;
+  settlementCount: number;
+}
 
 interface ApiTransaction {
   id: string;
-  createdAt: string;
-  amount: number | string;
   transactionType: string;
+  paymentMethod: string;
   paymentStatus: string;
-  paymentMethod?: string | null;
+  amount: string | number;
+  createdAt: string;
   booking?: {
     id?: string;
-    referenceNumber?: string | null;
   } | null;
 }
 
-interface TransactionsResponse {
-  success: boolean;
-  data: ApiTransaction[];
-  message?: string;
-}
+const emptyOverview: FinanceOverview = {
+  totalRevenue: 0,
+  totalExpenses: 0,
+  netProfit: 0,
+  totalRefunds: 0,
+  totalCommission: 0,
+  pendingPayments: 0,
+  pendingTransactions: 0,
+  completedTransactions: 0,
+  settlementCount: 0,
+};
 
-function mapTransaction(
-  item: ApiTransaction
-): Transaction {
-  const typeMap: Record<
-    string,
-    Transaction["type"]
-  > = {
-    INCOME: "Income",
-    EXPENSE: "Expense",
-    VENDOR_PAYMENT: "Vendor Payment",
-    DRIVER_SALARY: "Driver Salary",
-    REFUND: "Refund",
-    COMMISSION: "Commission",
-  };
-
-  const statusMap: Record<
-    string,
-    Transaction["status"]
-  > = {
-    PAID: "Completed",
-    COMPLETED: "Completed",
-    SUCCESS: "Completed",
-    PENDING: "Pending",
-    FAILED: "Failed",
-    CANCELLED: "Failed",
-  };
-
-  const amount =
-    typeof item.amount === "number"
-      ? item.amount
-      : Number(item.amount);
-
-  return {
-    id: item.id,
-    date: new Date(item.createdAt).toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }
-    ),
-    details:
-      item.booking?.referenceNumber ??
-      item.booking?.id ??
-      "Finance Transaction",
-    type:
-      typeMap[item.transactionType] ??
-      "Income",
-    paymentMethod:
-      item.paymentMethod ?? "N/A",
-    amount: Number.isFinite(amount) ? amount : 0,
-    status:
-      statusMap[item.paymentStatus] ??
-      "Pending",
-  };
-}
+const monthName = (date: Date) =>
+  date.toLocaleString('en-IN', { month: 'short' });
 
 export default function FinancePage() {
-  const [search, setSearch] = useState("");
-  const [type, setType] = useState("All");
-  const [status, setStatus] = useState("All");
+  const [search, setSearch] = useState('');
+  const [type, setType] = useState('All');
+  const [status, setStatus] = useState('All');
 
-  const [transactions, setTransactions] =
-    useState<Transaction[]>([]);
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+
+  const [overview, setOverview] =
+    useState<FinanceOverview>(emptyOverview);
+
+  const [apiTransactions, setApiTransactions] = useState<
+    ApiTransaction[]
+  >([]);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  const [expenseModalOpen, setExpenseModalOpen] =
-    useState(false);
-
-  const [invoiceOpen, setInvoiceOpen] =
-    useState(false);
-
-  const fetchTransactions = useCallback(
-    async () => {
+  useEffect(() => {
+    const loadFinance = async () => {
       try {
         setLoading(true);
-        setError("");
 
-        const params = new URLSearchParams();
+        const [overviewResponse, transactionsResponse] =
+          await Promise.all([
+            fetch('/api/finance/overview', { cache: 'no-store' }),
+            fetch('/api/finance/transactions', { cache: 'no-store' }),
+          ]);
 
-        if (status !== "All") {
-          params.set(
-            "status",
-            status === "Completed"
-              ? "PAID"
-              : status.toUpperCase()
-          );
+        const overviewJson = await overviewResponse.json();
+        const transactionsJson = await transactionsResponse.json();
+
+        if (overviewJson.success) {
+          setOverview(overviewJson.data);
         }
 
-        if (type !== "All") {
-          const typeMap: Record<string, string> = {
-            Income: "INCOME",
-            Expense: "EXPENSE",
-            "Vendor Payment":
-              "VENDOR_PAYMENT",
-            "Driver Salary":
-              "DRIVER_SALARY",
-            Refund: "REFUND",
-            Commission: "COMMISSION",
-          };
-
-          if (typeMap[type]) {
-            params.set("type", typeMap[type]);
-          }
+        if (transactionsJson.success) {
+          setApiTransactions(transactionsJson.data ?? []);
         }
-
-        const query = params.toString();
-
-        const response = await fetch(
-          `/api/finance/transactions${
-            query ? `?${query}` : ""
-          }`,
-          {
-            cache: "no-store",
-          }
-        );
-
-        const result =
-          (await response.json()) as TransactionsResponse;
-
-        if (!response.ok || !result.success) {
-          throw new Error(
-            result.message ??
-              "Failed to load transactions."
-          );
-        }
-
-        setTransactions(
-          Array.isArray(result.data)
-            ? result.data.map(mapTransaction)
-            : []
-        );
-      } catch (err) {
-        console.error(
-          "Failed to load finance transactions:",
-          err
-        );
-
-        setTransactions([]);
-
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load transactions."
-        );
+      } catch (error) {
+        console.error('Finance dashboard load failed:', error);
       } finally {
         setLoading(false);
       }
-    },
-    [status, type]
+    };
+
+    loadFinance();
+  }, []);
+
+  const transactions = useMemo<Transaction[]>(
+    () =>
+      apiTransactions.map((item) => ({
+        id: item.id,
+        date: new Date(item.createdAt).toLocaleDateString('en-IN'),
+        details: item.booking?.id
+          ? `Booking ${item.booking.id}`
+          : item.transactionType.replaceAll('_', ' '),
+        type:
+          item.transactionType === 'REFUND'
+            ? 'Refund'
+            : item.transactionType === 'PLATFORM_COMMISSION'
+              ? 'Commission'
+              : item.transactionType === 'VENDOR_PAYOUT'
+                ? 'Vendor Payment'
+                : item.transactionType === 'DRIVER_PAYOUT'
+                  ? 'Driver Salary'
+                  : 'Income',
+        paymentMethod: item.paymentMethod,
+        amount: Number(item.amount),
+        status:
+          item.paymentStatus === 'PAID'
+            ? 'Completed'
+            : item.paymentStatus === 'PENDING'
+              ? 'Pending'
+              : 'Failed',
+      })),
+    [apiTransactions]
   );
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]);
-
   const filteredTransactions = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    if (!query) {
-      return transactions;
-    }
-
     return transactions.filter((item) => {
-      return (
-        item.details
-          .toLowerCase()
-          .includes(query) ||
-        item.id
-          .toLowerCase()
-          .includes(query) ||
-        item.paymentMethod
-          .toLowerCase()
-          .includes(query)
-      );
+      const query = search.toLowerCase();
+
+      const searchMatch =
+        item.details.toLowerCase().includes(query) ||
+        item.id.toLowerCase().includes(query);
+
+      const typeMatch = type === 'All' || item.type === type;
+      const statusMatch = status === 'All' || item.status === status;
+
+      return searchMatch && typeMatch && statusMatch;
     });
-  }, [transactions, search]);
+  }, [transactions, search, type, status]);
+
+  const chartData = useMemo(() => {
+    const grouped = new Map<
+      string,
+      { month: string; income: number; expense: number }
+    >();
+
+    apiTransactions.forEach((item) => {
+      const date = new Date(item.createdAt);
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          month: monthName(date),
+          income: 0,
+          expense: 0,
+        });
+      }
+
+      const current = grouped.get(key)!;
+      const amount = Number(item.amount);
+
+      if (
+        item.transactionType === 'BOOKING_PAYMENT' ||
+        item.transactionType === 'PLATFORM_COMMISSION'
+      ) {
+        current.income += amount;
+      }
+
+      if (
+        item.transactionType === 'VENDOR_PAYOUT' ||
+        item.transactionType === 'DRIVER_PAYOUT'
+      ) {
+        current.expense += amount;
+      }
+    });
+
+    return Array.from(grouped.values()).slice(-7);
+  }, [apiTransactions]);
+
+  const recentTransactions = useMemo(
+    () =>
+      apiTransactions.slice(0, 6).map((item) => ({
+        id: item.id,
+        title: item.booking?.id
+          ? `Booking ${item.booking.id}`
+          : item.transactionType.replaceAll('_', ' '),
+        type: item.transactionType.replaceAll('_', ' '),
+        amount: Number(item.amount),
+        time: new Date(item.createdAt).toLocaleString('en-IN'),
+      })),
+    [apiTransactions]
+  );
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <FinanceHeader
-          onAddExpense={() =>
-            setExpenseModalOpen(true)
-          }
-        />
+      <FinanceHeader
+        onAddExpense={() => setExpenseModalOpen(true)}
+      />
 
-        <FinanceStats />
+      <FinanceStats
+        totalRevenue={overview.totalRevenue}
+        totalExpenses={overview.totalExpenses}
+        netProfit={overview.netProfit}
+        pendingPayments={overview.pendingPayments}
+        completedTransactions={overview.completedTransactions}
+        refunds={overview.totalRefunds}
+      />
 
-        <div className="grid gap-6 xl:grid-cols-3">
-          <div className="xl:col-span-2">
-            <RevenueChart />
-          </div>
-
-          <ProfitLossCard />
+      {loading && (
+        <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50 px-5 py-3 text-sm font-medium text-indigo-700">
+          Loading finance data...
         </div>
+      )}
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <ExpenseChart />
-          <IncomeExpenseChart />
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
-          <ExpenseBreakdown />
-          <GSTCard />
-          <VendorPaymentCard />
-          <DriverSalaryCard />
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-3">
-          <div className="xl:col-span-2">
-            <WalletCard />
-          </div>
-
-          <RecentTransactions />
-        </div>
-
-        <FinanceFilters
-          search={search}
-          setSearch={setSearch}
-          type={type}
-          setType={setType}
-          status={status}
-          setStatus={setStatus}
-        />
-
-        {loading ? (
-          <div className="rounded-xl bg-white p-10 text-center text-slate-500 shadow-sm">
-            Loading transactions...
-          </div>
-        ) : error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-red-700">
-            {error}
-          </div>
-        ) : filteredTransactions.length === 0 ? (
-          <div className="rounded-xl bg-white p-10 text-center text-slate-500 shadow-sm">
-            No transactions found.
-          </div>
-        ) : (
-          <TransactionTable
-            transactions={filteredTransactions}
-            onView={() =>
-              setInvoiceOpen(true)
-            }
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <RevenueChart
+            data={chartData.map((item) => ({
+              month: item.month,
+              revenue: item.income,
+            }))}
           />
-        )}
+        </div>
+
+        <ProfitLossCard
+          revenue={overview.totalRevenue}
+          expenses={overview.totalExpenses}
+          profit={overview.netProfit}
+        />
       </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <ExpenseChart
+          data={chartData.map((item) => ({
+            month: item.month,
+            expense: item.expense,
+          }))}
+        />
+
+        <IncomeExpenseChart data={chartData} />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+        <ExpenseBreakdown />
+        <GSTCard />
+        <VendorPaymentCard />
+        <DriverSalaryCard />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <WalletCard />
+        </div>
+
+        <RecentTransactions transactions={recentTransactions} />
+      </div>
+
+      <FinanceFilters
+        search={search}
+        setSearch={setSearch}
+        type={type}
+        setType={setType}
+        status={status}
+        setStatus={setStatus}
+      />
+
+      <TransactionTable
+        transactions={filteredTransactions}
+        onView={() => setInvoiceOpen(true)}
+      />
 
       <AddExpenseModal
         open={expenseModalOpen}
-        onClose={() =>
-          setExpenseModalOpen(false)
-        }
+        onClose={() => setExpenseModalOpen(false)}
       />
 
       <InvoiceDrawer
         open={invoiceOpen}
-        onClose={() =>
-          setInvoiceOpen(false)
-        }
+        onClose={() => setInvoiceOpen(false)}
       />
     </DashboardLayout>
   );

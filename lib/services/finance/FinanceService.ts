@@ -1,4 +1,4 @@
-import {
+﻿import {
   PaymentStatus,
   Prisma,
   SettlementStatus,
@@ -29,20 +29,12 @@ export class FinanceService {
     return transactionRepository.findById(id);
   }
 
-  async getBookingTransactions(
-    bookingId: string
-  ) {
-    return transactionRepository.findByBooking(
-      bookingId
-    );
+  async getBookingTransactions(bookingId: string) {
+    return transactionRepository.findByBooking(bookingId);
   }
 
-  async getVendorTransactions(
-    vendorId: string
-  ) {
-    return transactionRepository.findByVendor(
-      vendorId
-    );
+  async getVendorTransactions(vendorId: string) {
+    return transactionRepository.findByVendor(vendorId);
   }
 
   async createTransaction(
@@ -62,10 +54,7 @@ export class FinanceService {
     id: string,
     status: PaymentStatus
   ) {
-    return transactionRepository.updateStatus(
-      id,
-      status
-    );
+    return transactionRepository.updateStatus(id, status);
   }
 
   async getVendorWallet(vendorId: string) {
@@ -84,9 +73,7 @@ export class FinanceService {
     return walletRepository.createTransaction(data);
   }
 
-  async getWalletTransactions(
-    walletId: string
-  ) {
+  async getWalletTransactions(walletId: string) {
     return walletRepository.findTransactions(walletId);
   }
 
@@ -100,9 +87,7 @@ export class FinanceService {
     return settlementRepository.findAll(where);
   }
 
-  async getVendorSettlements(
-    vendorId: string
-  ) {
+  async getVendorSettlements(vendorId: string) {
     return settlementRepository.findByVendor(vendorId);
   }
 
@@ -127,10 +112,7 @@ export class FinanceService {
     id: string,
     status: SettlementStatus
   ) {
-    return settlementRepository.updateStatus(
-      id,
-      status
-    );
+    return settlementRepository.updateStatus(id, status);
   }
 
   async getFinanceOverview() {
@@ -161,6 +143,76 @@ export class FinanceService {
     };
   }
 
+  async getFinanceDashboard() {
+    const [
+      totals,
+      pendingTransactions,
+      completedTransactions,
+      settlements,
+    ] = await Promise.all([
+      transactionRepository.totalsByType(
+        PaymentStatus.PAID
+      ),
+
+      transactionRepository.count({
+        paymentStatus: PaymentStatus.PENDING,
+      }),
+
+      transactionRepository.count({
+        paymentStatus: PaymentStatus.PAID,
+      }),
+
+      settlementRepository.findAll(),
+    ]);
+
+    const totalRevenue =
+      totals[TransactionType.BOOKING_PAYMENT] ?? 0;
+
+    const totalVendorPayout =
+      totals[TransactionType.VENDOR_PAYOUT] ?? 0;
+
+    const totalDriverPayout =
+      totals[TransactionType.DRIVER_PAYOUT] ?? 0;
+
+    const totalCommission =
+      totals[TransactionType.PLATFORM_COMMISSION] ?? 0;
+
+    const totalRefunds =
+      totals[TransactionType.REFUND] ?? 0;
+
+    const totalExpenses =
+      totalVendorPayout +
+      totalDriverPayout;
+
+    const netProfit =
+      totalCommission -
+      totalRefunds;
+
+    const pendingVendorPayments =
+      settlements
+        .filter(
+          (item) =>
+            item.settlementStatus ===
+            SettlementStatus.PENDING
+        )
+        .reduce(
+          (sum: number, item) =>
+            sum + Number(item.netAmount),
+          0
+        );
+
+    return {
+      totalRevenue,
+      totalExpenses,
+      netProfit,
+      totalRefunds,
+      totalCommission,
+      pendingPayments: pendingVendorPayments,
+      pendingTransactions,
+      completedTransactions,
+      settlementCount: settlements.length,
+    };
+  }
   async getTransactionTypes() {
     return Object.values(TransactionType);
   }
@@ -172,3 +224,4 @@ export class FinanceService {
 
 export const financeService =
   new FinanceService();
+
