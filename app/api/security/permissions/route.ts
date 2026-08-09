@@ -1,7 +1,4 @@
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 import {
   PermissionAction,
@@ -13,65 +10,43 @@ import {
   hasPermission,
 } from "@/lib/security/permissions";
 
-export async function GET(
-  request: NextRequest
-) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } =
-      new URL(request.url);
+    const { searchParams } = new URL(request.url);
 
-    const role =
-      searchParams.get("role");
-
-    const permissionModule =
-      searchParams.get("module");
-
-    const action =
-      searchParams.get("action");
+    const role = searchParams.get("role");
+    const permissionModule = searchParams.get("module");
+    const action = searchParams.get("action");
 
     if (role) {
       if (
-        !Object.values(
-          SecurityRole
-        ).includes(
+        !Object.values(SecurityRole).includes(
           role as SecurityRole
         )
       ) {
         return NextResponse.json(
           {
             success: false,
-            message:
-              "Invalid security role.",
+            message: "Invalid security role.",
           },
-          {
-            status: 400,
-          }
+          { status: 400 }
         );
       }
 
-      const securityRole =
-        role as SecurityRole;
+      const securityRole = role as SecurityRole;
 
-      if (
-        permissionModule &&
-        action
-      ) {
+      if (permissionModule && action) {
         if (
-          !Object.values(
-            PermissionAction
-          ).includes(
+          !Object.values(PermissionAction).includes(
             action as PermissionAction
           )
         ) {
           return NextResponse.json(
             {
               success: false,
-              message:
-                "Invalid permission action.",
+              message: "Invalid permission action.",
             },
-            {
-              status: 400,
-            }
+            { status: 400 }
           );
         }
 
@@ -79,15 +54,13 @@ export async function GET(
           success: true,
           data: {
             role: securityRole,
-            module:
-              permissionModule,
+            module: permissionModule,
             action,
-            allowed:
-              hasPermission(
-                securityRole,
-                permissionModule,
-                action as PermissionAction
-              ),
+            allowed: hasPermission(
+              securityRole,
+              permissionModule,
+              action as PermissionAction
+            ),
           },
         });
       }
@@ -96,41 +69,27 @@ export async function GET(
         success: true,
         data: {
           role: securityRole,
-          permissions:
-            getRolePermissions(
-              securityRole
-            ),
+          permissions: getRolePermissions(securityRole),
         },
       });
     }
 
     return NextResponse.json({
       success: true,
-      data: Object.values(
-        SecurityRole
-      ).map((securityRole) => ({
+      data: Object.values(SecurityRole).map((securityRole) => ({
         role: securityRole,
-        permissions:
-          getRolePermissions(
-            securityRole
-          ),
+        permissions: getRolePermissions(securityRole),
       })),
     });
   } catch (error) {
-    console.error(
-      "GET /api/security/permissions",
-      error
-    );
+    console.error("GET /api/security/permissions", error);
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          "Failed to fetch permissions.",
+        message: "Failed to fetch permissions.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
