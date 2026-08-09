@@ -81,17 +81,13 @@ export class FinanceService {
   async createWalletTransaction(
     data: Prisma.WalletTransactionCreateInput
   ) {
-    return walletRepository.createTransaction(
-      data
-    );
+    return walletRepository.createTransaction(data);
   }
 
   async getWalletTransactions(
     walletId: string
   ) {
-    return walletRepository.findTransactions(
-      walletId
-    );
+    return walletRepository.findTransactions(walletId);
   }
 
   async getVendorBalance(vendorId: string) {
@@ -107,9 +103,7 @@ export class FinanceService {
   async getVendorSettlements(
     vendorId: string
   ) {
-    return settlementRepository.findByVendor(
-      vendorId
-    );
+    return settlementRepository.findByVendor(vendorId);
   }
 
   async getSettlement(id: string) {

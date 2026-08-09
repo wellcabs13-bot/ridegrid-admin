@@ -35,6 +35,10 @@ export class TransactionRepository {
   async findByBooking(bookingId: string) {
     return prisma.transaction.findMany({
       where: { bookingId },
+      include: {
+        booking: true,
+        vendor: true,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -44,6 +48,10 @@ export class TransactionRepository {
   async findByVendor(vendorId: string) {
     return prisma.transaction.findMany({
       where: { vendorId },
+      include: {
+        booking: true,
+        vendor: true,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -55,6 +63,10 @@ export class TransactionRepository {
       where: {
         paymentStatus: status,
       },
+      include: {
+        booking: true,
+        vendor: true,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -65,6 +77,10 @@ export class TransactionRepository {
     return prisma.transaction.findMany({
       where: {
         transactionType: type,
+      },
+      include: {
+        booking: true,
+        vendor: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -110,6 +126,10 @@ export class TransactionRepository {
           paymentStatus === PaymentStatus.PAID
             ? new Date()
             : undefined,
+      },
+      include: {
+        booking: true,
+        vendor: true,
       },
     });
   }
