@@ -1,70 +1,114 @@
-'use client';
+﻿"use client";
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from "react";
 
-import DashboardLayout from '../../components/DashboardLayout';
+import DashboardLayout from "../../components/DashboardLayout";
 
-import VendorHeader from '../../components/vendors/VendorHeader';
-import VendorStats from '../../components/vendors/VendorStats';
-import VendorFilters from '../../components/vendors/VendorFilters';
-import VendorTable from '../../components/vendors/VendorTable';
+import VendorHeader from "../../components/vendors/VendorHeader";
+import VendorStats from "../../components/vendors/VendorStats";
+import VendorFilters from "../../components/vendors/VendorFilters";
+import VendorTable from "../../components/vendors/VendorTable";
 
-import AddVendorModal from '../../components/vendors/AddVendorModal';
+import AddVendorModal from "../../components/vendors/AddVendorModal";
 import VendorForm, {
   VendorFormData,
-} from '../../components/vendors/VendorForm';
+} from "../../components/vendors/VendorForm";
 
-import VendorDetailsDrawer from '../../components/vendors/VendorDetailsDrawer';
+import VendorDetailsDrawer from "../../components/vendors/VendorDetailsDrawer";
 
-import { vendors as vendorData, Vendor } from '../../data/vendors';
+import { Vendor } from "../../data/vendors";
 
 export default function VendorsPage() {
-  const [vendors, setVendors] = useState<Vendor[]>(vendorData);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
 
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
-  const [city, setCity] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [city, setCity] = useState("");
 
   const [openAddModal, setOpenAddModal] = useState(false);
-
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [selectedVendor, setSelectedVendor] =
+    useState<Vendor | null>(null);
 
-  const filteredVendors = useMemo(() => {
-    return vendors.filter((vendor) => {
-      const matchSearch =
-        vendor.companyName.toLowerCase().includes(search.toLowerCase()) ||
-        vendor.ownerName.toLowerCase().includes(search.toLowerCase()) ||
-        vendor.mobile.includes(search);
+  async function fetchVendors() {
+    try {
+      setLoading(true);
 
-      const matchStatus = status === '' || vendor.status === status;
+      const params = new URLSearchParams();
 
-      const matchCity =
-        city === '' || vendor.city.toLowerCase().includes(city.toLowerCase());
+      if (search.trim()) {
+        params.set("search", search.trim());
+      }
 
-      return matchSearch && matchStatus && matchCity;
-    });
-  }, [vendors, search, status, city]);
+      if (status) {
+        params.set("status", status);
+      }
 
-  const totalVendors = filteredVendors.length;
+      if (city.trim()) {
+        params.set("city", city.trim());
+      }
 
-  const activeVendors = filteredVendors.filter(
-    (vendor) => vendor.status === 'Active'
+      params.set("page", "1");
+      params.set("limit", "100");
+
+      const response = await fetch(
+        `/api/vendors?${params.toString()}`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Failed to load vendors."
+        );
+      }
+
+      setVendors(result.data || []);
+    } catch (error) {
+      console.error("Failed to load vendors:", error);
+      setVendors([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchVendors();
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [search, status, city]);
+
+  const totalVendors = vendors.length;
+
+  const activeVendors = vendors.filter(
+    (vendor) => vendor.status === "Active"
   ).length;
 
-  const inactiveVendors = filteredVendors.filter(
-    (vendor) => vendor.status !== 'Active'
+  const inactiveVendors = vendors.filter(
+    (vendor) => vendor.status !== "Active"
   ).length;
 
-  const totalEarnings = filteredVendors.reduce((sum, vendor) => {
-    return sum + Number(vendor.totalEarnings.replace(/[₹,]/g, ''));
+  const totalEarnings = vendors.reduce((sum, vendor) => {
+    return (
+      sum +
+      Number(
+        vendor.totalEarnings.replace(/[â‚¹,]/g, "")
+      )
+    );
   }, 0);
 
   function resetFilters() {
-    setSearch('');
-    setStatus('');
-    setCity('');
+    setSearch("");
+    setStatus("");
+    setCity("");
   }
 
   function handleViewVendor(vendor: Vendor) {
@@ -83,15 +127,14 @@ export default function VendorsPage() {
       totalVehicles: 0,
       activeVehicles: 0,
       completedTrips: 0,
-      totalEarnings: '₹0',
-      pendingPayment: '₹0',
-      rating: 5,
-      status: 'Pending',
-      joinedDate: new Date().toLocaleDateString(),
+      totalEarnings: "â‚¹0",
+      pendingPayment: "â‚¹0",
+      rating: 0,
+      status: "Pending",
+      joinedDate: new Date().toLocaleDateString("en-IN"),
     };
 
     setVendors((prev) => [newVendor, ...prev]);
-
     setOpenAddModal(false);
   }
 
@@ -119,12 +162,24 @@ export default function VendorsPage() {
         onReset={resetFilters}
       />
 
-      <VendorTable vendors={filteredVendors} onView={handleViewVendor} />
+      {loading ? (
+        <div className="rounded-xl bg-white p-10 text-center text-slate-500 shadow-sm">
+          Loading vendors...
+        </div>
+      ) : (
+        <VendorTable
+          vendors={vendors}
+          onView={handleViewVendor}
+        />
+      )}
 
       <VendorDetailsDrawer
         open={drawerOpen}
         vendor={selectedVendor}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSelectedVendor(null);
+        }}
       />
 
       <AddVendorModal
