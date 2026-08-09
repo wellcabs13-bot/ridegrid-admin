@@ -1,57 +1,63 @@
-'use client';
+﻿"use client";
 
-import { Customer } from '../../data/customers';
+import { Customer } from "@/types/customer-ui";
 
-interface CustomerInfoCardProps {
+interface Props {
   customer: Customer;
 }
 
-export default function CustomerInfoCard({ customer }: CustomerInfoCardProps) {
+export default function CustomerInfoCard({
+  customer,
+}: Props) {
   return (
-    <div className="rounded-xl border bg-white p-6 shadow-sm">
-      <h3 className="mb-5 text-lg font-bold">Customer Information</h3>
+    <section className="rounded-xl border bg-white p-5">
+      <h3 className="mb-5 text-lg font-semibold">
+        Customer Information
+      </h3>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div>
-          <p className="text-xs uppercase text-slate-500">Customer ID</p>
-          <p className="mt-1 font-semibold">{customer.id}</p>
-        </div>
+        <Info label="Customer ID" value={customer.id} />
+        <Info label="Name" value={customer.name} />
+        <Info label="Mobile" value={customer.mobile} />
+        <Info label="Email" value={customer.email} />
+        <Info label="City" value={customer.city} />
 
-        <div>
-          <p className="text-xs uppercase text-slate-500">Name</p>
-          <p className="mt-1 font-semibold">{customer.name}</p>
-        </div>
+        <Info
+          label="Joined On"
+          value={new Date(
+            customer.joinedOn
+          ).toLocaleDateString("en-IN")}
+        />
 
-        <div>
-          <p className="text-xs uppercase text-slate-500">Mobile</p>
-          <p className="mt-1">{customer.mobile}</p>
-        </div>
+        <Info
+          label="Preferred Vehicle"
+          value={customer.preferredVehicle}
+        />
 
-        <div>
-          <p className="text-xs uppercase text-slate-500">Email</p>
-          <p className="mt-1 break-all">{customer.email}</p>
-        </div>
-
-        <div>
-          <p className="text-xs uppercase text-slate-500">City</p>
-          <p className="mt-1">{customer.city}</p>
-        </div>
-
-        <div>
-          <p className="text-xs uppercase text-slate-500">Joined On</p>
-          <p className="mt-1">{customer.joinedDate}</p>
-        </div>
-
-        <div>
-          <p className="text-xs uppercase text-slate-500">Preferred Vehicle</p>
-          <p className="mt-1">{customer.preferredVehicle}</p>
-        </div>
-
-        <div>
-          <p className="text-xs uppercase text-slate-500">Preferred Driver</p>
-          <p className="mt-1">{customer.preferredDriver}</p>
-        </div>
+        <Info
+          label="Preferred Driver"
+          value={customer.preferredDriver}
+        />
       </div>
+    </section>
+  );
+}
+
+function Info({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 break-words font-semibold text-slate-800">
+        {value}
+      </p>
     </div>
   );
 }

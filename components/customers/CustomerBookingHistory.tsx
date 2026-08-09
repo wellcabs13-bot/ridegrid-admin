@@ -1,69 +1,44 @@
-'use client';
+﻿"use client";
 
-import { Customer } from '../../data/customers';
+import { Customer } from "@/types/customer-ui";
 
-interface CustomerBookingHistoryProps {
+interface Props {
   customer: Customer;
 }
 
 export default function CustomerBookingHistory({
   customer,
-}: CustomerBookingHistoryProps) {
+}: Props) {
   return (
-    <div className="rounded-xl border bg-white p-6 shadow-sm">
+    <section className="rounded-xl border bg-white p-5">
       <div className="mb-5 flex items-center justify-between">
-        <h3 className="text-lg font-bold">Booking History</h3>
+        <h3 className="text-lg font-semibold">
+          Booking History
+        </h3>
 
         <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
           {customer.totalBookings} Trips
         </span>
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
-        <table className="min-w-full">
-          <thead className="bg-slate-100">
-            <tr>
-              <th className="px-4 py-3 text-left">Booking ID</th>
+      {customer.totalBookings === 0 ? (
+        <div className="rounded-lg bg-slate-50 p-8 text-center text-sm text-slate-500">
+          No bookings found for this customer.
+        </div>
+      ) : (
+        <div className="rounded-lg border bg-slate-50 p-5">
+          <p className="text-sm text-slate-600">
+            {customer.totalBookings} booking
+            {customer.totalBookings === 1 ? "" : "s"}{" "}
+            recorded.
+          </p>
 
-              <th className="px-4 py-3 text-left">Vehicle</th>
-
-              <th className="px-4 py-3 text-left">Driver</th>
-
-              <th className="px-4 py-3 text-left">Amount</th>
-
-              <th className="px-4 py-3 text-left">Status</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {[1, 2, 3].map((item) => (
-              <tr key={item} className="border-t hover:bg-slate-50">
-                <td className="px-4 py-3">BKG100{item}</td>
-
-                <td className="px-4 py-3">{customer.preferredVehicle}</td>
-
-                <td className="px-4 py-3">{customer.preferredDriver}</td>
-
-                <td className="px-4 py-3">
-                  ₹{(2500 + item * 1200).toLocaleString('en-IN')}
-                </td>
-
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
-                    Completed
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">
-        Showing recent bookings for this customer. Later this section can be
-        connected to the actual Booking module and display real booking records
-        automatically.
-      </div>
-    </div>
+          <p className="mt-2 text-sm text-slate-500">
+            Detailed booking records are available
+            through the Booking module.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }

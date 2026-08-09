@@ -1,105 +1,105 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { customerRepository } from "@/lib/repositories/customer";
 
-export async function GET() {
+function serializeCustomer(customer: any) {
+  const bookings = customer.bookings ?? [];
+
+  const totalBookings = bookings.length;
+
+  const totalSpent = bookings.reduce(
+    (sum: number, booking: any) => {
+      const amount =
+        booking.finalFare ??
+        booking.estimatedFare ??
+        0;
+
+      return sum + Number(amount);
+    },
+    0
+  );
+
+  const latestBooking = bookings[0];
+
+  const preferredVehicle =
+    latestBooking?.vehicle
+      ? `${latestBooking.vehicle.registrationNumber} (${latestBooking.vehicle.category})`
+      : "—";
+
+  const preferredDriver =
+    latestBooking?.driver
+      ? `${latestBooking.driver.firstName} ${latestBooking.driver.lastName}`
+      : "—";
+
+  return {
+    id: customer.id,
+    name:
+      customer.user?.name ||
+      `${customer.firstName} ${customer.lastName}`.trim(),
+    mobile: customer.user?.mobile || "—",
+    email: customer.user?.email || "—",
+    city: "—",
+    status: customer.user?.isActive
+      ? "Active"
+      : "Inactive",
+    totalBookings,
+    totalSpent: `₹${totalSpent.toLocaleString("en-IN")}`,
+    preferredVehicle,
+    preferredDriver,
+    joinedOn: customer.createdAt.toISOString(),
+  };
+}
+
+export async function GET(request: NextRequest) {
   try {
-    const customers = await prisma.customer.findMany({
-      where: {
-        deletedAt: null,
-      },
-      include: {
-        user: true,
-        bookings: {
-          include: {
-            vehicle: true,
-            driver: {
-              include: {
-                user: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    const searchParams = new URL(request.url).searchParams;
 
-    const data = customers.map((customer) => {
-      const totalBookings = customer.bookings.length;
+    const search =
+      searchParams.get("search")?.trim().toLowerCase() || "";
 
-      const totalSpent = customer.bookings.reduce(
-        (sum, booking) => {
-          const amount =
-            booking.finalFare ??
-            booking.estimatedFare ??
-            0;
+    const status =
+      searchParams.get("status") || "";
 
-          return sum + Number(amount);
-        },
-        0
+    const result = await customerRepository.findAll();
+
+    const customers = result.customers;
+
+    let data = customers.map(serializeCustomer);
+
+    if (search) {
+      data = data.filter(
+        (customer) =>
+          customer.name.toLowerCase().includes(search) ||
+          customer.email.toLowerCase().includes(search) ||
+          customer.mobile.toLowerCase().includes(search)
       );
+    }
 
-      const latestBooking = customer.bookings[0];
-
-      const preferredVehicle =
-        latestBooking?.vehicle?.model ??
-        "-";
-
-      const preferredDriver =
-        latestBooking?.driver?.user?.name ??
-        "-";
-
-      return {
-        id: customer.id,
-        name:
-          `${customer.firstName} ${customer.lastName}`.trim() ||
-          customer.user.name,
-        mobile: customer.user.mobile ?? "",
-        email: customer.user.email,
-
-        // Customer model currently has no city field.
-        city: "-",
-
-        totalBookings,
-
-        totalSpent: `₹${totalSpent.toLocaleString(
-          "en-IN"
-        )}`,
-
-        preferredVehicle,
-        preferredDriver,
-
-        status: customer.user.isActive
-          ? "Active"
-          : "Inactive",
-
-        joinedDate:
-          customer.createdAt.toLocaleDateString(),
-      };
-    });
+    if (status) {
+      data = data.filter(
+        (customer) => customer.status === status
+      );
+    }
 
     return NextResponse.json({
       success: true,
       data,
+      pagination: {
+        total: data.length,
+      },
     });
   } catch (error) {
     console.error(
-      "GET /api/customers error:",
+      "GET /api/customers",
       error
     );
 
     return NextResponse.json(
       {
         success: false,
-        message: "Failed to fetch customers.",
+        message:
+          "Failed to load customers.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
@@ -110,86 +110,169 @@ export async function POST(
   try {
     const body = await request.json();
 
-    const name = String(body.name ?? "").trim();
-
-    const nameParts = name.split(/\s+/);
-
     const firstName =
-      String(
-        body.firstName ??
-          nameParts.shift() ??
-          ""
-      ).trim();
+      typeof body.firstName === "string"
+        ? body.firstName.trim()
+        : "";
 
     const lastName =
-      String(
-        body.lastName ??
-          nameParts.join(" ")
-      ).trim();
+      typeof body.lastName === "string"
+        ? body.lastName.trim()
+        : "";
 
-    if (!firstName) {
+    const email =
+      typeof body.email === "string"
+        ? body.email.trim().toLowerCase()
+        : "";
+
+    const mobile =
+      typeof body.mobile === "string"
+        ? body.mobile.trim()
+        : null;
+
+    const password =
+      typeof body.password === "string"
+        ? body.password
+        : "";
+
+    if (!firstName || !lastName) {
       return NextResponse.json(
         {
           success: false,
-          message: "Customer name is required.",
+          message:
+            "First name and last name are required.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    if (!body.email) {
+    if (!email) {
       return NextResponse.json(
         {
           success: false,
-          message: "Customer email is required.",
+          message: "Email is required.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    const customer = await prisma.customer.create({
-      data: {
+    if (!password) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Password is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const validation =
+      passwordServiceValidation(password);
+
+    if (!validation.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: validation.errors.join(" "),
+        },
+        { status: 400 }
+      );
+    }
+
+    const customer =
+      await customerRepository.create({
         firstName,
         lastName,
-        user: {
-          create: {
-            name:
-              `${firstName} ${lastName}`.trim(),
-            email: body.email,
-            mobile: body.mobile ?? null,
-            password: "",
-            role: "CUSTOMER",
-          },
+        email,
+        mobile,
+        password,
+      });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message:
+          "Customer created successfully.",
+        data: {
+          id: customer.id,
+          name: customer.user.name,
+          email: customer.user.email,
+          mobile: customer.user.mobile,
         },
       },
-      include: {
-        user: true,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Customer created successfully.",
-      data: customer,
-    });
-  } catch (error) {
+      { status: 201 }
+    );
+  } catch (error: any) {
     console.error(
-      "POST /api/customers error:",
+      "POST /api/customers",
       error
     );
+
+    if (
+      error?.code === "P2002"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "A customer with this email or mobile already exists.",
+        },
+        { status: 409 }
+      );
+    }
 
     return NextResponse.json(
       {
         success: false,
-        message: "Failed to create customer.",
+        message:
+          "Failed to create customer.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
+
+function passwordServiceValidation(
+  password: string
+) {
+  const errors: string[] = [];
+
+  if (password.length < 8) {
+    errors.push(
+      "Minimum 8 characters required."
+    );
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push(
+      "At least one uppercase letter required."
+    );
+  }
+
+  if (!/[a-z]/.test(password)) {
+    errors.push(
+      "At least one lowercase letter required."
+    );
+  }
+
+  if (!/[0-9]/.test(password)) {
+    errors.push(
+      "At least one number required."
+    );
+  }
+
+  if (
+    !/[!@#$%^&*(),.?":{}|<>]/.test(password)
+  ) {
+    errors.push(
+      "At least one special character required."
+    );
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+
