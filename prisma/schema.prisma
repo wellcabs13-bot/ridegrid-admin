@@ -8,31 +8,33 @@ datasource db {
 }
 
 model User {
-  id                String             @id @default(cuid())
-  name              String
-  email             String             @unique
-  mobile            String?            @unique
-  password          String
-  role              UserRole           @default(CUSTOMER)
-  isActive          Boolean            @default(true)
-  isVerified        Boolean            @default(false)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  deletedAt         DateTime?
-  apiKeys           APIKey[]
-  auditLogs         AuditLog[]
-  crmActivities     CRMActivity[]      @relation("ActivityOwner")
-  crmTasks          CRMTask[]          @relation("TaskOwner")
-  corporateEmployee CorporateEmployee?
-  customer          Customer?
-  driver            Driver?
-  assignedLeads     Lead[]             @relation("LeadOwner")
-  loginHistory      LoginHistory[]
-  notifications     Notification[]
-  securityEvents    SecurityEvent[]
-  assignedTickets   SupportTicket[]    @relation("AssignedSupportAgent")
-  ticketMessages    TicketMessage[]    @relation("SupportMessageSender")
-  vendor            Vendor?
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  mobile              String?              @unique
+  password            String
+  role                UserRole             @default(CUSTOMER)
+  isActive            Boolean              @default(true)
+  isVerified          Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  apiKeys             APIKey[]
+  auditLogs           AuditLog[]
+  crmActivities       CRMActivity[]        @relation("ActivityOwner")
+  crmTasks            CRMTask[]            @relation("TaskOwner")
+  corporateEmployee   CorporateEmployee?
+  customer            Customer?
+  driver              Driver?
+  assignedLeads       Lead[]               @relation("LeadOwner")
+  loginHistory        LoginHistory[]
+  notifications       Notification[]
+  securityEvents      SecurityEvent[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  assignedTickets     SupportTicket[]      @relation("AssignedSupportAgent")
+  ticketMessages      TicketMessage[]      @relation("SupportMessageSender")
+  vendor              Vendor?
 }
 
 model Customer {
@@ -2462,4 +2464,35 @@ enum BookingStatusAction {
   REASSIGNED
   CANCELLED
   COMPLETED
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([usedAt])
 }
