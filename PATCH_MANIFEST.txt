@@ -1,0 +1,17 @@
+RideGrid Final Blueprint/Deployment Closure Patch
+
+Apply these files to the existing ridegrid-admin project.
+Do not replace or delete existing application modules.
+
+Added:
+- CI workflow
+- production health endpoint
+- environment template
+- API catalogue
+- deployment/operations/roadmap docs
+- Docker production path
+- database backup script
+
+Updated:
+- package.json: postinstall prisma generate
+- next.config.js: production security/performance headers
