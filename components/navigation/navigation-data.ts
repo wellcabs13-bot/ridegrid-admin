@@ -11,7 +11,7 @@ export const navigation: NavigationGroup[] = [
     items: [
       {
         title: "Dashboard",
-        href: "/dashboard",
+        href: "/",
         icon: NavigationIcons.dashboard,
       },
     ],
@@ -30,7 +30,7 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.bookings,
         children: [
           { title: "All Bookings", href: "/bookings" },
-          { title: "New Booking", badge: "Soon", disabled: true },
+          { title: "New Booking", href: "/marketplace" },
           { title: "Trip Monitor", badge: "Soon", disabled: true },
           { title: "Booking Calendar", badge: "Soon", disabled: true },
         ],
@@ -235,13 +235,28 @@ export const navigation: NavigationGroup[] = [
     items: [
       {
         title: "CRM",
-        href: "/crm",
         icon: NavigationIcons.crm,
         children: [
-          { title: "Dashboard", badge: "Soon", disabled: true },
-          { title: "Leads", badge: "Soon", disabled: true },
-          { title: "Opportunities", badge: "Soon", disabled: true },
-          { title: "Campaigns", badge: "Soon", disabled: true },
+          {
+            title: "Dashboard",
+            badge: "Coming Soon",
+            disabled: true,
+          },
+          {
+            title: "Leads",
+            badge: "Coming Soon",
+            disabled: true,
+          },
+          {
+            title: "Opportunities",
+            badge: "Coming Soon",
+            disabled: true,
+          },
+          {
+            title: "Campaigns",
+            badge: "Coming Soon",
+            disabled: true,
+          },
         ],
       },
       {
@@ -264,11 +279,18 @@ export const navigation: NavigationGroup[] = [
     items: [
       {
         title: "Pricing",
-        href: "/pricing",
         icon: NavigationIcons.pricing,
         children: [
-          { title: "Pricing Rules", badge: "Soon", disabled: true },
-          { title: "Dynamic Pricing", badge: "Soon", disabled: true },
+          {
+            title: "Pricing Rules",
+            badge: "Coming Soon",
+            disabled: true,
+          },
+          {
+            title: "Dynamic Pricing",
+            badge: "Coming Soon",
+            disabled: true,
+          },
         ],
       },
       {

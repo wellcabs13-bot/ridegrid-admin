@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 
 type Corporate = {
@@ -72,7 +72,7 @@ export default function CorporatePage() {
   const [form, setForm] = useState<CorporateForm>(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  async function fetchCorporates() {
+  const fetchCorporates = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -83,24 +83,27 @@ export default function CorporatePage() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to load corporates.");
+        throw new Error(
+          result.message || "Failed to load corporate accounts."
+        );
       }
 
-      setCorporates(result.data ?? []);
+      setCorporates(Array.isArray(result.data) ? result.data : []);
     } catch (error) {
       console.error("Corporate loading error:", error);
       setCorporates([]);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    fetchCorporates();
-  }, []);
+    void fetchCorporates();
+  }, [fetchCorporates]);
 
   const filtered = useMemo(() => {
     const value = search.toLowerCase().trim();
+    const cityValue = city.toLowerCase().trim();
 
     return corporates.filter((item) => {
       const matchesSearch =
@@ -113,24 +116,30 @@ export default function CorporatePage() {
       const matchesStatus = !status || item.status === status;
 
       const matchesCity =
-        !city ||
-        item.city.toLowerCase().includes(city.toLowerCase().trim());
+        !cityValue ||
+        item.city.toLowerCase().includes(cityValue);
 
       return matchesSearch && matchesStatus && matchesCity;
     });
   }, [corporates, search, status, city]);
 
-  const active = filtered.filter((item) => item.status === "ACTIVE").length;
-  const inactive = filtered.filter((item) => item.status !== "ACTIVE").length;
+  const active = filtered.filter(
+    (item) => item.status === "ACTIVE"
+  ).length;
+
+  const inactive = filtered.filter(
+    (item) => item.status !== "ACTIVE"
+  ).length;
 
   function openCreate() {
     setSelected(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm });
     setModalOpen(true);
   }
 
   function openEdit(item: Corporate) {
     setSelected(item);
+
     setForm({
       ...emptyForm,
       companyName: item.companyName,
@@ -147,17 +156,30 @@ export default function CorporatePage() {
       approvalFlow:
         item.approvalFlow as CorporateForm["approvalFlow"],
       creditLimit:
-        item.creditLimit == null ? "" : String(item.creditLimit),
+        item.creditLimit == null
+          ? ""
+          : String(item.creditLimit),
       paymentTermsDays:
         item.paymentTermsDays == null
           ? "30"
           : String(item.paymentTermsDays),
     });
+
     setModalOpen(true);
+  }
+
+  function closeModal() {
+    if (saving) return;
+
+    setModalOpen(false);
+    setSelected(null);
+    setForm({ ...emptyForm });
   }
 
   async function saveCorporate(event: React.FormEvent) {
     event.preventDefault();
+
+    if (saving) return;
 
     try {
       setSaving(true);
@@ -167,7 +189,9 @@ export default function CorporatePage() {
         creditLimit: form.creditLimit
           ? Number(form.creditLimit)
           : null,
-        paymentTermsDays: Number(form.paymentTermsDays || 30),
+        paymentTermsDays: Number(
+          form.paymentTermsDays || 30
+        ),
       };
 
       const response = await fetch("/api/corporate", {
@@ -176,23 +200,30 @@ export default function CorporatePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(
-          selected ? { id: selected.id, ...payload } : payload
+          selected
+            ? {
+                id: selected.id,
+                ...payload,
+              }
+            : payload
         ),
       });
 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to save corporate.");
+        throw new Error(
+          result.message || "Failed to save corporate account."
+        );
       }
 
-      setModalOpen(false);
+      closeModal();
       await fetchCorporates();
     } catch (error) {
       alert(
         error instanceof Error
           ? error.message
-          : "Failed to save corporate."
+          : "Failed to save corporate account."
       );
     } finally {
       setSaving(false);
@@ -200,17 +231,29 @@ export default function CorporatePage() {
   }
 
   async function archiveCorporate(id: string) {
-    if (!window.confirm("Archive this corporate account?")) return;
+    if (
+      !window.confirm(
+        "Archive this corporate account?"
+      )
+    ) {
+      return;
+    }
 
     try {
-      const response = await fetch(`/api/corporate?id=${id}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `/api/corporate?id=${encodeURIComponent(id)}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to archive corporate.");
+        throw new Error(
+          result.message ||
+            "Failed to archive corporate account."
+        );
       }
 
       await fetchCorporates();
@@ -218,7 +261,7 @@ export default function CorporatePage() {
       alert(
         error instanceof Error
           ? error.message
-          : "Failed to archive corporate."
+          : "Failed to archive corporate account."
       );
     }
   }
@@ -241,15 +284,19 @@ export default function CorporatePage() {
             <p className="text-sm font-semibold text-indigo-600">
               CORPORATE MANAGEMENT
             </p>
+
             <h1 className="mt-1 text-3xl font-bold text-slate-900">
               Corporate Accounts
             </h1>
+
             <p className="mt-1 text-sm text-slate-500">
-              Manage enterprise clients, billing and travel controls.
+              Manage enterprise clients, billing and travel
+              controls.
             </p>
           </div>
 
           <button
+            type="button"
             onClick={openCreate}
             className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
           >
@@ -258,24 +305,39 @@ export default function CorporatePage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <Stat title="Total Corporates" value={filtered.length} />
-          <Stat title="Active" value={active} />
-          <Stat title="Inactive / Suspended" value={inactive} />
+          <Stat
+            title="Total Corporates"
+            value={filtered.length}
+          />
+
+          <Stat
+            title="Active"
+            value={active}
+          />
+
+          <Stat
+            title="Inactive / Suspended"
+            value={inactive}
+          />
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="grid gap-3 md:grid-cols-4">
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
               placeholder="Search company, email, mobile..."
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-indigo-500"
+              className={inputClass}
             />
 
             <select
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-indigo-500"
+              onChange={(event) =>
+                setStatus(event.target.value)
+              }
+              className={inputClass}
             >
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -285,12 +347,15 @@ export default function CorporatePage() {
 
             <input
               value={city}
-              onChange={(event) => setCity(event.target.value)}
+              onChange={(event) =>
+                setCity(event.target.value)
+              }
               placeholder="Filter by city"
-              className="rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-indigo-500"
+              className={inputClass}
             />
 
             <button
+              type="button"
               onClick={() => {
                 setSearch("");
                 setStatus("");
@@ -348,19 +413,29 @@ export default function CorporatePage() {
                   </tr>
                 ) : (
                   filtered.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
+                    <tr
+                      key={item.id}
+                      className="hover:bg-slate-50"
+                    >
                       <td className="px-5 py-4">
                         <div className="font-semibold text-slate-900">
                           {item.companyName}
                         </div>
+
                         <div className="text-xs text-slate-500">
-                          {item.gstNumber || "GST not provided"}
+                          {item.gstNumber ||
+                            "GST not provided"}
                         </div>
                       </td>
 
                       <td className="px-5 py-4">
-                        <div className="text-sm text-slate-800">{item.email}</div>
-                        <div className="text-xs text-slate-500">{item.mobile}</div>
+                        <div className="text-sm text-slate-800">
+                          {item.email}
+                        </div>
+
+                        <div className="text-xs text-slate-500">
+                          {item.mobile}
+                        </div>
                       </td>
 
                       <td className="px-5 py-4 text-sm text-slate-600">
@@ -368,11 +443,17 @@ export default function CorporatePage() {
                       </td>
 
                       <td className="px-5 py-4 text-sm font-medium text-slate-700">
-                        {item.billingCycle.replaceAll("_", " ")}
+                        {item.billingCycle.replaceAll(
+                          "_",
+                          " "
+                        )}
                       </td>
 
                       <td className="px-5 py-4 text-sm text-slate-600">
-                        {item.approvalFlow.replaceAll("_", " ")}
+                        {item.approvalFlow.replaceAll(
+                          "_",
+                          " "
+                        )}
                       </td>
 
                       <td className="px-5 py-4">
@@ -392,14 +473,20 @@ export default function CorporatePage() {
                       <td className="px-5 py-4">
                         <div className="flex gap-2">
                           <button
-                            onClick={() => openEdit(item)}
+                            type="button"
+                            onClick={() =>
+                              openEdit(item)
+                            }
                             className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold hover:bg-slate-50"
                           >
                             Edit
                           </button>
 
                           <button
-                            onClick={() => archiveCorporate(item.id)}
+                            type="button"
+                            onClick={() =>
+                              archiveCorporate(item.id)
+                            }
                             className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
                           >
                             Archive
@@ -415,34 +502,55 @@ export default function CorporatePage() {
         </div>
 
         {modalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                closeModal();
+              }
+            }}
+          >
             <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
               <div className="flex items-center justify-between border-b px-6 py-5">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">
-                    {selected ? "Edit Corporate" : "Add Corporate"}
+                    {selected
+                      ? "Edit Corporate"
+                      : "Add Corporate"}
                   </h2>
+
                   <p className="text-sm text-slate-500">
                     Enterprise account information
                   </p>
                 </div>
 
                 <button
-                  onClick={() => setModalOpen(false)}
+                  type="button"
+                  onClick={closeModal}
                   className="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100"
+                  aria-label="Close"
                 >
                   ✕
                 </button>
               </div>
 
-              <form onSubmit={saveCorporate} className="space-y-6 p-6">
+              <form
+                onSubmit={saveCorporate}
+                className="space-y-6 p-6"
+              >
                 <Section title="Company Information">
-                  <Field label="Company Name" required>
+                  <Field
+                    label="Company Name"
+                    required
+                  >
                     <input
                       required
                       value={form.companyName}
                       onChange={(e) =>
-                        updateField("companyName", e.target.value)
+                        updateField(
+                          "companyName",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -452,7 +560,10 @@ export default function CorporatePage() {
                     <input
                       value={form.legalName}
                       onChange={(e) =>
-                        updateField("legalName", e.target.value)
+                        updateField(
+                          "legalName",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -462,7 +573,10 @@ export default function CorporatePage() {
                     <input
                       value={form.gstNumber}
                       onChange={(e) =>
-                        updateField("gstNumber", e.target.value)
+                        updateField(
+                          "gstNumber",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -472,7 +586,10 @@ export default function CorporatePage() {
                     <input
                       value={form.panNumber}
                       onChange={(e) =>
-                        updateField("panNumber", e.target.value)
+                        updateField(
+                          "panNumber",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -486,7 +603,10 @@ export default function CorporatePage() {
                       type="email"
                       value={form.email}
                       onChange={(e) =>
-                        updateField("email", e.target.value)
+                        updateField(
+                          "email",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -497,7 +617,10 @@ export default function CorporatePage() {
                       required
                       value={form.mobile}
                       onChange={(e) =>
-                        updateField("mobile", e.target.value)
+                        updateField(
+                          "mobile",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -505,11 +628,16 @@ export default function CorporatePage() {
 
                   <Field label="Website">
                     <input
+                      type="url"
                       value={form.website}
                       onChange={(e) =>
-                        updateField("website", e.target.value)
+                        updateField(
+                          "website",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
+                      placeholder="https://example.com"
                     />
                   </Field>
 
@@ -518,7 +646,10 @@ export default function CorporatePage() {
                       required
                       value={form.pincode}
                       onChange={(e) =>
-                        updateField("pincode", e.target.value)
+                        updateField(
+                          "pincode",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -527,13 +658,19 @@ export default function CorporatePage() {
 
                 <Section title="Address">
                   <div className="md:col-span-2">
-                    <Field label="Address" required>
+                    <Field
+                      label="Address"
+                      required
+                    >
                       <textarea
                         required
                         rows={3}
                         value={form.address}
                         onChange={(e) =>
-                          updateField("address", e.target.value)
+                          updateField(
+                            "address",
+                            e.target.value
+                          )
                         }
                         className={inputClass}
                       />
@@ -545,7 +682,10 @@ export default function CorporatePage() {
                       required
                       value={form.city}
                       onChange={(e) =>
-                        updateField("city", e.target.value)
+                        updateField(
+                          "city",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -556,7 +696,23 @@ export default function CorporatePage() {
                       required
                       value={form.state}
                       onChange={(e) =>
-                        updateField("state", e.target.value)
+                        updateField(
+                          "state",
+                          e.target.value
+                        )
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <Field label="Country">
+                    <input
+                      value={form.country}
+                      onChange={(e) =>
+                        updateField(
+                          "country",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -575,9 +731,15 @@ export default function CorporatePage() {
                       }
                       className={inputClass}
                     >
-                      <option value="ACTIVE">Active</option>
-                      <option value="INACTIVE">Inactive</option>
-                      <option value="SUSPENDED">Suspended</option>
+                      <option value="ACTIVE">
+                        Active
+                      </option>
+                      <option value="INACTIVE">
+                        Inactive
+                      </option>
+                      <option value="SUSPENDED">
+                        Suspended
+                      </option>
                     </select>
                   </Field>
 
@@ -592,10 +754,18 @@ export default function CorporatePage() {
                       }
                       className={inputClass}
                     >
-                      <option value="PER_TRIP">Per Trip</option>
-                      <option value="WEEKLY">Weekly</option>
-                      <option value="FORTNIGHTLY">Fortnightly</option>
-                      <option value="MONTHLY">Monthly</option>
+                      <option value="PER_TRIP">
+                        Per Trip
+                      </option>
+                      <option value="WEEKLY">
+                        Weekly
+                      </option>
+                      <option value="FORTNIGHTLY">
+                        Fortnightly
+                      </option>
+                      <option value="MONTHLY">
+                        Monthly
+                      </option>
                     </select>
                   </Field>
 
@@ -610,12 +780,18 @@ export default function CorporatePage() {
                       }
                       className={inputClass}
                     >
-                      <option value="NONE">None</option>
-                      <option value="MANAGER">Manager</option>
+                      <option value="NONE">
+                        None
+                      </option>
+                      <option value="MANAGER">
+                        Manager
+                      </option>
                       <option value="MANAGER_FINANCE">
                         Manager + Finance
                       </option>
-                      <option value="CUSTOM">Custom</option>
+                      <option value="CUSTOM">
+                        Custom
+                      </option>
                     </select>
                   </Field>
 
@@ -625,7 +801,10 @@ export default function CorporatePage() {
                       min="0"
                       value={form.creditLimit}
                       onChange={(e) =>
-                        updateField("creditLimit", e.target.value)
+                        updateField(
+                          "creditLimit",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -637,7 +816,10 @@ export default function CorporatePage() {
                       min="0"
                       value={form.paymentTermsDays}
                       onChange={(e) =>
-                        updateField("paymentTermsDays", e.target.value)
+                        updateField(
+                          "paymentTermsDays",
+                          e.target.value
+                        )
                       }
                       className={inputClass}
                     />
@@ -647,8 +829,9 @@ export default function CorporatePage() {
                 <div className="flex justify-end gap-3 border-t pt-5">
                   <button
                     type="button"
-                    onClick={() => setModalOpen(false)}
-                    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold"
+                    onClick={closeModal}
+                    disabled={saving}
+                    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -683,8 +866,13 @@ function Stat({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-slate-500">{title}</p>
-      <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
+      <p className="text-sm font-medium text-slate-500">
+        {title}
+      </p>
+
+      <p className="mt-2 text-3xl font-bold text-slate-900">
+        {value}
+      </p>
     </div>
   );
 }
@@ -701,7 +889,10 @@ function Section({
       <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">
         {title}
       </h3>
-      <div className="grid gap-4 md:grid-cols-2">{children}</div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {children}
+      </div>
     </section>
   );
 }
@@ -721,6 +912,7 @@ function Field({
         {label}
         {required ? " *" : ""}
       </span>
+
       {children}
     </label>
   );
