@@ -1,0 +1,1810 @@
+﻿===== DRIVER PAGE =====
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import DashboardLayout from "../../components/DashboardLayout";
+
+import { Driver } from "../../data/drivers";
+
+import DriverHeader from "../../components/drivers/DriverHeader";
+import DriverStats from "../../components/drivers/DriverStats";
+import DriverFilters from "../../components/drivers/DriverFilters";
+import DriverTable from "../../components/drivers/DriverTable";
+
+import AddDriverModal from "../../components/drivers/AddDriverModal";
+import DriverForm from "../../components/drivers/DriverForm";
+
+import DriverDetailsDrawer from "../../components/drivers/DriverDetailsDrawer";
+
+import DriverInfoCard from "../../components/drivers/DriverInfoCard";
+import DriverLicenseCard from "../../components/drivers/DriverLicenseCard";
+import DriverVehicleCard from "../../components/drivers/DriverVehicleCard";
+import DriverTripHistoryCard from "../../components/drivers/DriverTripHistoryCard";
+import DriverAttendanceCard from "../../components/drivers/DriverAttendanceCard";
+import DriverPaymentCard from "../../components/drivers/DriverPaymentCard";
+import DriverDocumentCard from "../../components/drivers/DriverDocumentCard";
+import DriverPerformanceCard from "../../components/drivers/DriverPerformanceCard";
+
+export default function DriversPage() {
+  const [driverList, setDriverList] = useState<Driver[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("All");
+
+  const [selectedDriver, setSelectedDriver] =
+    useState<Driver | null>(null);
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const fetchDrivers = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const params = new URLSearchParams();
+
+      if (search.trim()) {
+        params.set("search", search.trim());
+      }
+
+      if (status !== "All") {
+        params.set("status", status);
+      }
+
+      const queryString = params.toString();
+
+      const response = await fetch(
+        queryString
+          ? `/api/drivers?${queryString}`
+          : "/api/drivers",
+        {
+          cache: "no-store",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ??
+            "Failed to load drivers."
+        );
+      }
+
+      setDriverList(
+        Array.isArray(result.data)
+          ? result.data
+          : []
+      );
+    } catch (error) {
+      console.error(
+        "Failed to load drivers:",
+        error
+      );
+
+      setDriverList([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, status]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchDrivers();
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [fetchDrivers]);
+
+  const filteredDrivers = useMemo(
+    () => driverList,
+    [driverList]
+  );
+
+  const activeDrivers = driverList.filter(
+    (driver) =>
+      driver.status === "Active"
+  ).length;
+
+  const inactiveDrivers = driverList.filter(
+    (driver) =>
+      driver.status === "Inactive"
+  ).length;
+
+  function openDriver(driver: Driver) {
+    setSelectedDriver(driver);
+    setDrawerOpen(true);
+  }
+
+  function closeDrawer() {
+    setDrawerOpen(false);
+    setSelectedDriver(null);
+  }
+
+  return (
+    <DashboardLayout>
+      <DriverHeader
+        totalDrivers={driverList.length}
+        onAddDriver={() =>
+          setModalOpen(true)
+        }
+      />
+
+      <DriverStats
+        totalDrivers={driverList.length}
+      />
+
+      <DriverFilters
+        search={search}
+        setSearch={setSearch}
+        status={status}
+        setStatus={setStatus}
+      />
+
+      {loading ? (
+        <div className="rounded-xl bg-white p-10 text-center text-slate-500 shadow-sm">
+          Loading drivers...
+        </div>
+      ) : (
+        <DriverTable
+          drivers={filteredDrivers}
+          onView={openDriver}
+        />
+      )}
+
+      <AddDriverModal
+        isOpen={modalOpen}
+        onClose={() =>
+          setModalOpen(false)
+        }
+      >
+        <DriverForm />
+      </AddDriverModal>
+
+      <DriverDetailsDrawer
+        driver={selectedDriver}
+        isOpen={drawerOpen}
+        onClose={closeDrawer}
+      >
+        {selectedDriver && (
+          <>
+            <DriverInfoCard
+              driver={selectedDriver}
+            />
+
+            <DriverLicenseCard
+              driver={selectedDriver}
+            />
+
+            <DriverVehicleCard
+              driver={selectedDriver}
+            />
+
+            <DriverTripHistoryCard
+              driver={selectedDriver}
+            />
+
+            <DriverAttendanceCard
+              driver={selectedDriver}
+            />
+
+            <DriverPaymentCard
+              driver={selectedDriver}
+            />
+
+            <DriverDocumentCard
+              driver={selectedDriver}
+            />
+
+            <DriverPerformanceCard
+              driver={selectedDriver}
+            />
+          </>
+        )}
+      </DriverDetailsDrawer>
+    </DashboardLayout>
+  );
+}
+
+===== DRIVER FORM =====
+'use client';
+
+export default function DriverForm() {
+  return (
+    <form
+      id="driverForm"
+      className="space-y-8"
+      onSubmit={(e) => {
+        e.preventDefault();
+        alert('Driver saved successfully.');
+      }}
+    >
+      {/* Personal Information */}
+      <div className="rounded-2xl border border-slate-200 p-6">
+        <h3 className="mb-5 text-xl font-semibold text-slate-800">
+          Personal Information
+        </h3>
+
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label className="mb-2 block text-sm font-medium">Full Name</label>
+            <input
+              className="w-full rounded-xl border px-4 py-3"
+              placeholder="Driver Name"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Mobile Number
+            </label>
+            <input
+              className="w-full rounded-xl border px-4 py-3"
+              placeholder="+91XXXXXXXXXX"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">Email</label>
+            <input
+              className="w-full rounded-xl border px-4 py-3"
+              placeholder="driver@email.com"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Aadhaar Number
+            </label>
+            <input className="w-full rounded-xl border px-4 py-3" />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Date of Birth
+            </label>
+            <input type="date" className="w-full rounded-xl border px-4 py-3" />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium">Experience</label>
+            <input
+              className="w-full rounded-xl border px-4 py-3"
+              placeholder="5 Years"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Address */}
+      <div className="rounded-2xl border border-slate-200 p-6">
+        <h3 className="mb-5 text-xl font-semibold text-slate-800">Address</h3>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          <textarea
+            rows={4}
+            className="rounded-xl border px-4 py-3"
+            placeholder="Full Address"
+          />
+
+          <div className="grid gap-5">
+            <input className="rounded-xl border px-4 py-3" placeholder="City" />
+
+            <input
+              className="rounded-xl border px-4 py-3"
+              placeholder="State"
+            />
+
+            <input
+              className="rounded-xl border px-4 py-3"
+              placeholder="Pincode"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* License */}
+      <div className="rounded-2xl border border-slate-200 p-6">
+        <h3 className="mb-5 text-xl font-semibold text-slate-800">
+          Driving License
+        </h3>
+
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <input
+            className="rounded-xl border px-4 py-3"
+            placeholder="License Number"
+          />
+
+          <input type="date" className="rounded-xl border px-4 py-3" />
+
+          <input type="date" className="rounded-xl border px-4 py-3" />
+        </div>
+      </div>
+
+      {/* Vehicle */}
+      <div className="rounded-2xl border border-slate-200 p-6">
+        <h3 className="mb-5 text-xl font-semibold text-slate-800">
+          Vehicle Details
+        </h3>
+
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <input
+            className="rounded-xl border px-4 py-3"
+            placeholder="Vehicle Name"
+          />
+
+          <input
+            className="rounded-xl border px-4 py-3"
+            placeholder="Vehicle Number"
+          />
+
+          <select className="rounded-xl border px-4 py-3">
+            <option>Available</option>
+            <option>On Trip</option>
+            <option>Offline</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Banking */}
+      <div className="rounded-2xl border border-slate-200 p-6">
+        <h3 className="mb-5 text-xl font-semibold text-slate-800">
+          Bank Details
+        </h3>
+
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <input
+            className="rounded-xl border px-4 py-3"
+            placeholder="Bank Name"
+          />
+
+          <input
+            className="rounded-xl border px-4 py-3"
+            placeholder="Account Number"
+          />
+
+          <input
+            className="rounded-xl border px-4 py-3"
+            placeholder="IFSC Code"
+          />
+        </div>
+      </div>
+    </form>
+  );
+}
+
+
+===== DRIVER ROW =====
+'use client';
+
+import Image from 'next/image';
+import { Driver } from '../../data/drivers';
+
+interface DriverRowProps {
+  driver: Driver;
+  onView: (driver: Driver) => void;
+}
+
+export default function DriverRow({
+  driver,
+  onView,
+}: DriverRowProps) {
+  return (
+    <tr className="border-b border-slate-200 transition hover:bg-slate-50">
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="relative h-12 w-12 overflow-hidden rounded-full border">
+            <Image
+              src={driver.photo}
+              alt={driver.name}
+              fill
+              className="object-cover"
+              sizes="48px"
+            />
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-slate-800">
+              {driver.name}
+            </h3>
+
+            <p className="text-sm text-slate-500">
+              {driver.mobile}
+            </p>
+          </div>
+        </div>
+      </td>
+
+      <td className="px-6 py-4">
+        <div>
+          <p className="font-medium text-slate-700">
+            {driver.vehicle}
+          </p>
+
+          <p className="text-sm text-slate-500">
+            {driver.vehicleNumber}
+          </p>
+        </div>
+      </td>
+
+      <td className="px-6 py-4">
+        <span
+          className={`rounded-full px-3 py-1 text-sm font-medium ${
+            driver.availability === 'Available'
+              ? 'bg-green-100 text-green-700'
+              : driver.availability === 'On Trip'
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-slate-200 text-slate-700'
+          }`}
+        >
+          {driver.availability}
+        </span>
+      </td>
+
+      <td className="px-6 py-4">
+        <span
+          className={`rounded-full px-3 py-1 text-sm font-medium ${
+            driver.status === 'Active'
+              ? 'bg-green-100 text-green-700'
+              : driver.status === 'Inactive'
+                ? 'bg-yellow-100 text-yellow-700'
+                : 'bg-red-100 text-red-700'
+          }`}
+        >
+          {driver.status}
+        </span>
+      </td>
+
+      <td className="px-6 py-4 text-slate-700">
+        {driver.trips}
+      </td>
+
+      <td className="px-6 py-4 text-slate-700">
+        â­ {driver.rating}
+      </td>
+
+      <td className="px-6 py-4 text-slate-700">
+        â‚¹{driver.earnings.toLocaleString()}
+      </td>
+
+      <td className="px-6 py-4">
+        <button
+          onClick={() => onView(driver)}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
+        >
+          View
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+===== DRIVER TABLE =====
+'use client';
+
+import { Driver } from '../../data/drivers';
+import DriverRow from './DriverRow';
+
+interface DriverTableProps {
+  drivers: Driver[];
+  onView: (driver: Driver) => void;
+}
+
+export default function DriverTable({ drivers, onView }: DriverTableProps) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 px-6 py-4">
+        <h2 className="text-xl font-semibold text-slate-800">Driver List</h2>
+
+        <p className="mt-1 text-sm text-slate-500">
+          Showing {drivers.length} driver(s)
+        </p>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full">
+          <thead className="bg-slate-100">
+            <tr>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                Driver
+              </th>
+
+              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                Vehicle
+              </th>
+
+              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                Availability
+              </th>
+
+              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                Status
+              </th>
+
+              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                Trips
+              </th>
+
+              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                Rating
+              </th>
+
+              <th className="px-6 py-4 text-left text-sm font-semibold text-slate-700">
+                Earnings
+              </th>
+
+              <th className="px-6 py-4 text-center text-sm font-semibold text-slate-700">
+                Action
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {drivers.length > 0 ? (
+              drivers.map((driver) => (
+                <DriverRow key={driver.id} driver={driver} onView={onView} />
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={8}
+                  className="px-6 py-12 text-center text-slate-500"
+                >
+                  No drivers found.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
+===== DRIVER API =====
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { UserRole } from "@prisma/client";
+
+function serializeDriver(driver: any) {
+  const vehicle = driver.vehicles?.[0] ?? null;
+
+  return {
+    id: driver.id,
+    name: `${driver.firstName} ${driver.lastName}`.trim(),
+    photo: "",
+    mobile: driver.user?.mobile ?? "",
+    email: driver.user?.email ?? "",
+    licenseNumber: driver.licenseNumber,
+    licenseExpiry: "",
+    aadhaar: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
+    joinDate: driver.createdAt.toISOString(),
+    experience: "",
+    vehicle: vehicle?.vehicleType ?? vehicle?.model ?? "",
+    vehicleNumber: vehicle?.registrationNumber ?? "",
+    trips: driver.bookings?.length ?? 0,
+    rating: 0,
+    earnings: driver.bookings?.reduce(
+      (sum: number, booking: any) =>
+        sum + Number(booking.driverPayout ?? 0),
+      0
+    ) ?? 0,
+    wallet: 0,
+    availability: "Available" as const,
+    status: driver.deletedAt
+      ? ("Inactive" as const)
+      : ("Active" as const),
+  };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+
+    const search = searchParams.get("search")?.trim() ?? "";
+    const status = searchParams.get("status")?.trim() ?? "";
+    const page = Math.max(
+      Number(searchParams.get("page") ?? "1"),
+      1
+    );
+    const limit = Math.min(
+      Math.max(Number(searchParams.get("limit") ?? "50"), 1),
+      100
+    );
+
+    const where: any = {
+      ...(status === "Inactive"
+        ? { deletedAt: { not: null } }
+        : { deletedAt: null }),
+    };
+
+    if (search) {
+      where.OR = [
+        {
+          firstName: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          lastName: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          licenseNumber: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          user: {
+            email: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+        {
+          user: {
+            mobile: {
+              contains: search,
+            },
+          },
+        },
+      ];
+    }
+
+    const [drivers, total] = await Promise.all([
+      prisma.driver.findMany({
+        where,
+        include: {
+          user: true,
+          vehicles: true,
+          bookings: {
+            select: {
+              driverPayout: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+
+      prisma.driver.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      data: drivers.map(serializeDriver),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("GET /api/drivers", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to load drivers.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    const firstName = String(body.firstName ?? "").trim();
+    const lastName = String(body.lastName ?? "").trim();
+    const email = String(body.email ?? "").trim().toLowerCase();
+    const mobile = String(body.mobile ?? "").trim();
+    const licenseNumber = String(
+      body.licenseNumber ?? ""
+    ).trim();
+
+    if (
+      !firstName ||
+      !lastName ||
+      !email ||
+      !licenseNumber
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "First name, last name, email and license number are required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "A user with this email already exists.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const existingLicense =
+      await prisma.driver.findUnique({
+        where: { licenseNumber },
+      });
+
+    if (existingLicense) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "A driver with this license number already exists.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const driver = await prisma.driver.create({
+      data: {
+        firstName,
+        lastName,
+        licenseNumber,
+        user: {
+          create: {
+            name: `${firstName} ${lastName}`.trim(),
+            email,
+            mobile: mobile || null,
+            password: String(
+              body.password ?? "ChangeMe@123"
+            ),
+            role: UserRole.DRIVER,
+          },
+        },
+      },
+      include: {
+        user: true,
+        vehicles: true,
+        bookings: {
+          select: {
+            driverPayout: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: serializeDriver(driver),
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("POST /api/drivers", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to create driver.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+===== DRIVER/VENDOR/VEHICLE SCHEMA =====
+
+> prisma\schema.prisma:59:model Vendor {
+  prisma\schema.prisma:60:  id                 String              @id @default(cuid())
+  prisma\schema.prisma:61:  userId             String              @unique
+  prisma\schema.prisma:62:  companyName        String
+  prisma\schema.prisma:63:  isApproved         Boolean             @default(false)
+  prisma\schema.prisma:64:  deletedAt          DateTime?
+  prisma\schema.prisma:65:  createdAt          DateTime            @default(now())
+  prisma\schema.prisma:66:  updatedAt          DateTime            @updatedAt
+  prisma\schema.prisma:67:  bookings           Booking[]
+  prisma\schema.prisma:68:  pricingRules       PricingRule[]
+  prisma\schema.prisma:69:  revenueReports     RevenueSummary[]
+  prisma\schema.prisma:70:  reviews            Review[]
+  prisma\schema.prisma:71:  supportTickets     SupportTicket[]
+  prisma\schema.prisma:72:  transactions       Transaction[]
+  prisma\schema.prisma:73:  vehicles           Vehicle[]
+  prisma\schema.prisma:74:  user               User                @relation(fields: [userId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:75:  analytics          VendorAnalytics[]
+  prisma\schema.prisma:76:  documents          VendorDocument[]
+  prisma\schema.prisma:77:  performanceReports VendorPerformance[]
+  prisma\schema.prisma:78:  promotions         VendorPromotion[]
+  prisma\schema.prisma:79:  settlements        VendorSettlement[]
+  prisma\schema.prisma:80:  wallet             VendorWallet?
+  prisma\schema.prisma:81:}
+  prisma\schema.prisma:82:
+> prisma\schema.prisma:83:model Driver {
+  prisma\schema.prisma:84:  id                 String              @id @default(cuid())
+  prisma\schema.prisma:85:  userId             String              @unique
+  prisma\schema.prisma:86:  firstName          String
+  prisma\schema.prisma:87:  lastName           String
+  prisma\schema.prisma:88:  licenseNumber      String              @unique
+  prisma\schema.prisma:89:  deletedAt          DateTime?
+  prisma\schema.prisma:90:  createdAt          DateTime            @default(now())
+  prisma\schema.prisma:91:  updatedAt          DateTime            @updatedAt
+  prisma\schema.prisma:92:  bookings           Booking[]
+  prisma\schema.prisma:93:  user               User                @relation(fields: [userId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:94:  analytics          DriverAnalytics[]
+  prisma\schema.prisma:95:  attendance         DriverAttendance[]
+  prisma\schema.prisma:96:  documents          DriverDocument[]
+  prisma\schema.prisma:97:  incentives         DriverIncentive[]
+  prisma\schema.prisma:98:  leaveRequests      DriverLeave[]
+  prisma\schema.prisma:99:  payrolls           DriverPayroll[]
+  prisma\schema.prisma:100:  penalties          DriverPenalty[]
+  prisma\schema.prisma:101:  performanceReports DriverPerformance[]
+  prisma\schema.prisma:102:  shifts             DriverShift[]
+  prisma\schema.prisma:103:  reviews            Review[]
+  prisma\schema.prisma:104:  sosEvents          SOSEvent[]
+  prisma\schema.prisma:105:  supportTickets     SupportTicket[]
+  prisma\schema.prisma:106:  trips              Trip[]
+  prisma\schema.prisma:107:  tripLocations      TripLocation[]
+  prisma\schema.prisma:108:  vehicles           Vehicle[]
+  prisma\schema.prisma:109:
+  prisma\schema.prisma:110:  @@index([userId])
+  prisma\schema.prisma:111:  @@index([licenseNumber])
+  prisma\schema.prisma:112:  @@index([createdAt])
+  prisma\schema.prisma:113:  @@index([firstName, lastName])
+  prisma\schema.prisma:114:}
+  prisma\schema.prisma:115:
+> prisma\schema.prisma:116:model Vehicle {
+  prisma\schema.prisma:117:  id                 String               @id @default(cuid())
+  prisma\schema.prisma:118:  vendorId           String
+  prisma\schema.prisma:119:  driverId           String?
+  prisma\schema.prisma:120:  registrationNumber String               @unique
+  prisma\schema.prisma:121:  make               String
+  prisma\schema.prisma:122:  model              String
+  prisma\schema.prisma:123:  variant            String?
+  prisma\schema.prisma:124:  year               Int?
+  prisma\schema.prisma:125:  color              String?
+  prisma\schema.prisma:126:  category           VehicleCategory
+  prisma\schema.prisma:127:  fuelType           FuelType
+  prisma\schema.prisma:128:  transmission       TransmissionType
+  prisma\schema.prisma:129:  seatingCapacity    Int
+  prisma\schema.prisma:130:  luggageCapacity    Int?
+  prisma\schema.prisma:131:  homeCity           String
+  prisma\schema.prisma:132:  status             VehicleStatus        @default(AVAILABLE)
+  prisma\schema.prisma:133:  baseFare           Decimal              @db.Decimal(10, 2)
+  prisma\schema.prisma:134:  pricePerKm         Decimal?             @db.Decimal(10, 2)
+  prisma\schema.prisma:135:  waitingCharge      Decimal?             @db.Decimal(10, 2)
+  prisma\schema.prisma:136:  nightCharge        Decimal?             @db.Decimal(10, 2)
+  prisma\schema.prisma:137:  rating             Float                @default(0)
+  prisma\schema.prisma:138:  totalTrips         Int                  @default(0)
+  prisma\schema.prisma:139:  isVerified         Boolean              @default(false)
+  prisma\schema.prisma:140:  deletedAt          DateTime?
+  prisma\schema.prisma:141:  createdAt          DateTime             @default(now())
+  prisma\schema.prisma:142:  updatedAt          DateTime             @updatedAt
+  prisma\schema.prisma:143:  bookings           Booking[]
+  prisma\schema.prisma:144:  fuelLogs           FuelLog[]
+  prisma\schema.prisma:145:  gpsDevice          GPSDevice?
+  prisma\schema.prisma:146:  geofenceEvents     GeofenceEvent[]
+  prisma\schema.prisma:147:  dometerLogs        OdometerLog[]
+  prisma\schema.prisma:148:  reviews            Review[]
+  prisma\schema.prisma:149:  routeDeviations    RouteDeviation[]
+  prisma\schema.prisma:150:  sosEvents          SOSEvent[]
+  prisma\schema.prisma:151:  serviceSchedules   ServiceSchedule[]
+  prisma\schema.prisma:152:  trips              Trip[]
+  prisma\schema.prisma:153:  tripLocations      TripLocation[]
+  prisma\schema.prisma:154:  driver             Driver?              @relation(fields: [driverId], references: 
+[id])
+  prisma\schema.prisma:155:  vendor             Vendor               @relation(fields: [vendorId], references: 
+[id], onDelete: Cascade)
+  prisma\schema.prisma:156:  analytics          VehicleAnalytics[]
+  prisma\schema.prisma:157:  breakdowns         VehicleBreakdown[]
+  prisma\schema.prisma:158:  documents          VehicleDocument[]
+  prisma\schema.prisma:159:  maintenanceRecords VehicleMaintenance[]
+  prisma\schema.prisma:160:  performanceReports VehiclePerformance[]
+  prisma\schema.prisma:161:
+  prisma\schema.prisma:162:  @@index([vendorId])
+  prisma\schema.prisma:163:  @@index([driverId])
+  prisma\schema.prisma:164:  @@index([status])
+  prisma\schema.prisma:165:  @@index([category])
+  prisma\schema.prisma:166:  @@index([homeCity])
+  prisma\schema.prisma:167:  @@index([isVerified])
+  prisma\schema.prisma:168:  @@index([createdAt])
+  prisma\schema.prisma:169:  @@index([vendorId, status])
+  prisma\schema.prisma:170:  @@index([category, status])
+  prisma\schema.prisma:171:  @@index([homeCity, category])
+  prisma\schema.prisma:172:}
+  prisma\schema.prisma:173:
+  prisma\schema.prisma:174:model Booking {
+  prisma\schema.prisma:175:  id                 String                 @id @default(cuid())
+  prisma\schema.prisma:176:  bookingNumber      String                 @unique @default(uuid())
+  prisma\schema.prisma:177:  customerId         String
+  prisma\schema.prisma:178:  vendorId           String
+  prisma\schema.prisma:179:  vehicleId          String
+  prisma\schema.prisma:180:  driverId           String?
+  prisma\schema.prisma:181:  pickupLocation     String
+  prisma\schema.prisma:182:  dropLocation       String
+  prisma\schema.prisma:183:  pickupDateTime     DateTime
+  prisma\schema.prisma:184:  status             BookingStatus          @default(PENDING)
+  prisma\schema.prisma:185:  estimatedFare      Decimal                @db.Decimal(10, 2)
+  prisma\schema.prisma:186:  baseFare           Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:187:  taxAmount          Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:188:  discountAmount     Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:189:  couponAmount       Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:190:  extraCharges       Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:191:  finalFare          Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:192:  vendorEarning      Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:193:  platformCommission Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:194:  driverPayout       Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:195:  cancelledBy        String?
+  prisma\schema.prisma:196:  cancelReason       String?
+  prisma\schema.prisma:197:  cancelledAt        DateTime?
+  prisma\schema.prisma:198:  cancellationCharge Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:199:  refundAmount       Decimal?               @db.Decimal(10, 2)
+  prisma\schema.prisma:200:  deletedAt          DateTime?
+  prisma\schema.prisma:201:  createdAt          DateTime               @default(now())
+  prisma\schema.prisma:202:  updatedAt          DateTime               @updatedAt
+  prisma\schema.prisma:203:  customer           Customer               @relation(fields: [customerId], references: 
+[id], onDelete: Cascade)
+  prisma\schema.prisma:204:  driver             Driver?                @relation(fields: [driverId], references: 
+[id])
+  prisma\schema.prisma:205:  vehicle            Vehicle                @relation(fields: [vehicleId], references: 
+[id], onDelete: Cascade)
+  prisma\schema.prisma:206:  vendor             Vendor                 @relation(fields: [vendorId], references: 
+[id], onDelete: Cascade)
+  prisma\schema.prisma:207:  analytics          BookingAnalytics[]
+  prisma\schema.prisma:208:  statusHistory      BookingStatusHistory[]
+  prisma\schema.prisma:209:  couponUsages       CouponUsage[]
+  prisma\schema.prisma:210:  fraudChecks        FraudDetection[]
+  prisma\schema.prisma:211:  reviews            Review[]
+  prisma\schema.prisma:212:  supportTickets     SupportTicket[]
+  prisma\schema.prisma:213:  transactions       Transaction[]
+  prisma\schema.prisma:214:  trip               Trip?
+  prisma\schema.prisma:215:
+  prisma\schema.prisma:216:  @@index([customerId])
+> prisma\schema.prisma:286:model VehicleDocument {
+  prisma\schema.prisma:287:  id             String         @id @default(cuid())
+  prisma\schema.prisma:288:  vehicleId      String
+  prisma\schema.prisma:289:  documentType   DocumentType
+  prisma\schema.prisma:290:  documentNumber String?
+  prisma\schema.prisma:291:  fileUrl        String
+  prisma\schema.prisma:292:  issueDate      DateTime?
+  prisma\schema.prisma:293:  expiryDate     DateTime?
+  prisma\schema.prisma:294:  status         DocumentStatus @default(PENDING)
+  prisma\schema.prisma:295:  remarks        String?
+  prisma\schema.prisma:296:  verifiedBy     String?
+  prisma\schema.prisma:297:  verifiedAt     DateTime?
+  prisma\schema.prisma:298:  createdAt      DateTime       @default(now())
+  prisma\schema.prisma:299:  updatedAt      DateTime       @updatedAt
+  prisma\schema.prisma:300:  vehicle        Vehicle        @relation(fields: [vehicleId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:301:}
+  prisma\schema.prisma:302:
+> prisma\schema.prisma:303:model DriverDocument {
+  prisma\schema.prisma:304:  id             String         @id @default(cuid())
+  prisma\schema.prisma:305:  driverId       String
+  prisma\schema.prisma:306:  documentType   DocumentType
+  prisma\schema.prisma:307:  documentNumber String?
+  prisma\schema.prisma:308:  fileUrl        String
+  prisma\schema.prisma:309:  issueDate      DateTime?
+  prisma\schema.prisma:310:  expiryDate     DateTime?
+  prisma\schema.prisma:311:  status         DocumentStatus @default(PENDING)
+  prisma\schema.prisma:312:  remarks        String?
+  prisma\schema.prisma:313:  verifiedBy     String?
+  prisma\schema.prisma:314:  verifiedAt     DateTime?
+  prisma\schema.prisma:315:  createdAt      DateTime       @default(now())
+  prisma\schema.prisma:316:  updatedAt      DateTime       @updatedAt
+  prisma\schema.prisma:317:  driver         Driver         @relation(fields: [driverId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:318:}
+  prisma\schema.prisma:319:
+> prisma\schema.prisma:320:model VendorDocument {
+  prisma\schema.prisma:321:  id             String         @id @default(cuid())
+  prisma\schema.prisma:322:  vendorId       String
+  prisma\schema.prisma:323:  documentType   DocumentType
+  prisma\schema.prisma:324:  documentNumber String?
+  prisma\schema.prisma:325:  fileUrl        String
+  prisma\schema.prisma:326:  issueDate      DateTime?
+  prisma\schema.prisma:327:  expiryDate     DateTime?
+  prisma\schema.prisma:328:  status         DocumentStatus @default(PENDING)
+  prisma\schema.prisma:329:  remarks        String?
+  prisma\schema.prisma:330:  verifiedBy     String?
+  prisma\schema.prisma:331:  verifiedAt     DateTime?
+  prisma\schema.prisma:332:  createdAt      DateTime       @default(now())
+  prisma\schema.prisma:333:  updatedAt      DateTime       @updatedAt
+  prisma\schema.prisma:334:  vendor         Vendor         @relation(fields: [vendorId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:335:}
+  prisma\schema.prisma:336:
+  prisma\schema.prisma:337:model PricingRule {
+  prisma\schema.prisma:338:  id                  String               @id @default(cuid())
+  prisma\schema.prisma:339:  vendorId            String
+  prisma\schema.prisma:340:  vehicleCategory     VehicleCategory
+  prisma\schema.prisma:341:  pricingType         PricingType
+  prisma\schema.prisma:342:  tripType            TripType
+  prisma\schema.prisma:343:  chargeType          ChargeType
+  prisma\schema.prisma:344:  baseFare            Decimal              @db.Decimal(10, 2)
+  prisma\schema.prisma:345:  minimumKm           Int?
+  prisma\schema.prisma:346:  includedKm          Int?
+  prisma\schema.prisma:347:  pricePerKm          Decimal?             @db.Decimal(10, 2)
+  prisma\schema.prisma:348:  pricePerHour        Decimal?             @db.Decimal(10, 2)
+  prisma\schema.prisma:349:  driverAllowance     Decimal?             @db.Decimal(10, 2)
+  prisma\schema.prisma:350:  nightCharge         Decimal?             @db.Decimal(10, 2)
+  prisma\schema.prisma:351:  waitingCharge       Decimal?             @db.Decimal(10, 2)
+  prisma\schema.prisma:352:  isActive            Boolean              @default(true)
+  prisma\schema.prisma:353:  createdAt           DateTime             @default(now())
+  prisma\schema.prisma:354:  updatedAt           DateTime             @updatedAt
+  prisma\schema.prisma:355:  dynamicPricingRules DynamicPricingRule[]
+  prisma\schema.prisma:356:  vendor              Vendor               @relation(fields: [vendorId], references: 
+[id], onDelete: Cascade)
+  prisma\schema.prisma:357:
+  prisma\schema.prisma:358:  @@unique([vendorId, vehicleCategory, pricingType, tripType])
+  prisma\schema.prisma:359:  @@index([vendorId])
+  prisma\schema.prisma:360:  @@index([vehicleCategory])
+  prisma\schema.prisma:361:  @@index([pricingType])
+  prisma\schema.prisma:362:  @@index([tripType])
+  prisma\schema.prisma:363:  @@index([isActive])
+  prisma\schema.prisma:364:  @@index([vendorId, isActive])
+  prisma\schema.prisma:365:  @@index([vehicleCategory, pricingType])
+  prisma\schema.prisma:366:}
+  prisma\schema.prisma:367:
+  prisma\schema.prisma:368:model Transaction {
+  prisma\schema.prisma:369:  id                   String          @id @default(cuid())
+  prisma\schema.prisma:370:  bookingId            String?
+  prisma\schema.prisma:371:  vendorId             String?
+  prisma\schema.prisma:372:  transactionType      TransactionType
+  prisma\schema.prisma:373:  paymentMethod        PaymentMethod
+  prisma\schema.prisma:374:  paymentStatus        PaymentStatus   @default(PENDING)
+  prisma\schema.prisma:375:  amount               Decimal         @db.Decimal(10, 2)
+  prisma\schema.prisma:376:  currency             String          @default("INR")
+  prisma\schema.prisma:377:  referenceNumber      String?
+  prisma\schema.prisma:378:  gatewayName          String?
+  prisma\schema.prisma:379:  gatewayTransactionId String?
+  prisma\schema.prisma:380:  gatewayFee           Decimal?        @db.Decimal(10, 2)
+  prisma\schema.prisma:381:  taxAmount            Decimal?        @db.Decimal(10, 2)
+  prisma\schema.prisma:382:  gatewayResponse      Json?
+  prisma\schema.prisma:383:  remarks              String?
+  prisma\schema.prisma:384:  processedAt          DateTime?
+  prisma\schema.prisma:385:  createdAt            DateTime        @default(now())
+  prisma\schema.prisma:386:  updatedAt            DateTime        @updatedAt
+  prisma\schema.prisma:387:  booking              Booking?        @relation(fields: [bookingId], references: [id])
+  prisma\schema.prisma:388:  vendor               Vendor?         @relation(fields: [vendorId], references: [id])
+  prisma\schema.prisma:389:
+  prisma\schema.prisma:390:  @@index([bookingId])
+  prisma\schema.prisma:391:  @@index([vendorId])
+  prisma\schema.prisma:392:  @@index([paymentStatus])
+  prisma\schema.prisma:393:  @@index([transactionType])
+  prisma\schema.prisma:394:  @@index([paymentMethod])
+  prisma\schema.prisma:395:  @@index([processedAt])
+  prisma\schema.prisma:396:  @@index([createdAt])
+  prisma\schema.prisma:397:  @@index([vendorId, paymentStatus])
+  prisma\schema.prisma:398:  @@index([bookingId, paymentStatus])
+  prisma\schema.prisma:399:}
+  prisma\schema.prisma:400:
+> prisma\schema.prisma:401:model VendorWallet {
+  prisma\schema.prisma:402:  id           String              @id @default(cuid())
+  prisma\schema.prisma:403:  vendorId     String              @unique
+  prisma\schema.prisma:404:  balance      Decimal             @default(0) @db.Decimal(12, 2)
+  prisma\schema.prisma:405:  createdAt    DateTime            @default(now())
+  prisma\schema.prisma:406:  updatedAt    DateTime            @updatedAt
+  prisma\schema.prisma:407:  settlements  VendorSettlement[]
+  prisma\schema.prisma:408:  vendor       Vendor              @relation(fields: [vendorId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:409:  transactions WalletTransaction[]
+  prisma\schema.prisma:410:
+  prisma\schema.prisma:411:  @@index([vendorId])
+  prisma\schema.prisma:412:}
+  prisma\schema.prisma:413:
+  prisma\schema.prisma:414:model WalletTransaction {
+  prisma\schema.prisma:415:  id              String                @id @default(cuid())
+  prisma\schema.prisma:416:  walletId        String
+  prisma\schema.prisma:417:  transactionType WalletTransactionType
+  prisma\schema.prisma:418:  amount          Decimal               @db.Decimal(12, 2)
+  prisma\schema.prisma:419:  balanceBefore   Decimal?              @db.Decimal(12, 2)
+  prisma\schema.prisma:420:  balanceAfter    Decimal?              @db.Decimal(12, 2)
+  prisma\schema.prisma:421:  referenceId     String?
+  prisma\schema.prisma:422:  referenceType   String?
+  prisma\schema.prisma:423:  performedBy     String?
+  prisma\schema.prisma:424:  description     String?
+  prisma\schema.prisma:425:  createdAt       DateTime              @default(now())
+  prisma\schema.prisma:426:  wallet          VendorWallet          @relation(fields: [walletId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:427:
+  prisma\schema.prisma:428:  @@index([walletId])
+  prisma\schema.prisma:429:  @@index([transactionType])
+  prisma\schema.prisma:430:  @@index([createdAt])
+  prisma\schema.prisma:431:  @@index([referenceId])
+  prisma\schema.prisma:432:  @@index([walletId, createdAt])
+  prisma\schema.prisma:433:}
+  prisma\schema.prisma:434:
+> prisma\schema.prisma:435:model VendorSettlement {
+  prisma\schema.prisma:436:  id                  String           @id @default(cuid())
+  prisma\schema.prisma:437:  vendorId            String
+  prisma\schema.prisma:438:  walletId            String
+  prisma\schema.prisma:439:  amount              Decimal          @db.Decimal(12, 2)
+  prisma\schema.prisma:440:  commission          Decimal          @default(0) @db.Decimal(12, 2)
+  prisma\schema.prisma:441:  netAmount           Decimal          @db.Decimal(12, 2)
+  prisma\schema.prisma:442:  settlementStatus    SettlementStatus @default(PENDING)
+  prisma\schema.prisma:443:  settlementReference String?
+  prisma\schema.prisma:444:  bankReference       String?
+  prisma\schema.prisma:445:  processedBy         String?
+  prisma\schema.prisma:446:  failureReason       String?
+  prisma\schema.prisma:447:  remarks             String?
+  prisma\schema.prisma:448:  settledAt           DateTime?
+  prisma\schema.prisma:449:  createdAt           DateTime         @default(now())
+  prisma\schema.prisma:450:  updatedAt           DateTime         @updatedAt
+  prisma\schema.prisma:451:  vendor              Vendor           @relation(fields: [vendorId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:452:  wallet              VendorWallet     @relation(fields: [walletId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:453:
+  prisma\schema.prisma:454:  @@index([vendorId])
+  prisma\schema.prisma:455:  @@index([walletId])
+  prisma\schema.prisma:456:  @@index([settlementStatus])
+  prisma\schema.prisma:457:  @@index([createdAt])
+  prisma\schema.prisma:458:  @@index([settledAt])
+  prisma\schema.prisma:459:  @@index([vendorId, settlementStatus])
+  prisma\schema.prisma:460:}
+  prisma\schema.prisma:461:
+  prisma\schema.prisma:462:model Notification {
+  prisma\schema.prisma:463:  id               String             @id @default(cuid())
+  prisma\schema.prisma:464:  userId           String
+  prisma\schema.prisma:465:  notificationType NotificationType
+  prisma\schema.prisma:466:  title            String
+  prisma\schema.prisma:467:  message          String
+  prisma\schema.prisma:468:  status           NotificationStatus @default(PENDING)
+  prisma\schema.prisma:469:  sentAt           DateTime?
+  prisma\schema.prisma:470:  readAt           DateTime?
+  prisma\schema.prisma:471:  createdAt        DateTime           @default(now())
+  prisma\schema.prisma:472:  updatedAt        DateTime           @updatedAt
+  prisma\schema.prisma:473:  user             User               @relation(fields: [userId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:474:}
+  prisma\schema.prisma:475:
+  prisma\schema.prisma:476:model Review {
+  prisma\schema.prisma:477:  id         String           @id @default(cuid())
+  prisma\schema.prisma:478:  bookingId  String
+  prisma\schema.prisma:479:  customerId String
+  prisma\schema.prisma:480:  targetType ReviewTargetType
+  prisma\schema.prisma:481:  driverId   String?
+  prisma\schema.prisma:482:  vehicleId  String?
+  prisma\schema.prisma:483:  vendorId   String?
+  prisma\schema.prisma:484:  rating     Int
+  prisma\schema.prisma:485:  review     String?
+  prisma\schema.prisma:486:  status     ReviewStatus     @default(PUBLISHED)
+  prisma\schema.prisma:487:  createdAt  DateTime         @default(now())
+  prisma\schema.prisma:488:  updatedAt  DateTime         @updatedAt
+  prisma\schema.prisma:489:  booking    Booking          @relation(fields: [bookingId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:490:  customer   Customer         @relation(fields: [customerId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:491:  driver     Driver?          @relation(fields: [driverId], references: [id])
+  prisma\schema.prisma:492:  vehicle    Vehicle?         @relation(fields: [vehicleId], references: [id])
+  prisma\schema.prisma:493:  vendor     Vendor?          @relation(fields: [vendorId], references: [id])
+  prisma\schema.prisma:494:}
+  prisma\schema.prisma:495:
+  prisma\schema.prisma:496:model Corporate {
+  prisma\schema.prisma:497:  id                   String                   @id @default(cuid())
+  prisma\schema.prisma:498:  companyName          String
+  prisma\schema.prisma:499:  legalName            String?
+  prisma\schema.prisma:500:  gstNumber            String?                  @unique
+  prisma\schema.prisma:501:  panNumber            String?
+  prisma\schema.prisma:502:  email                String                   @unique
+  prisma\schema.prisma:503:  mobile               String
+  prisma\schema.prisma:504:  website              String?
+  prisma\schema.prisma:505:  address              String
+  prisma\schema.prisma:506:  city                 String
+  prisma\schema.prisma:507:  state                String
+  prisma\schema.prisma:508:  country              String                   @default("India")
+  prisma\schema.prisma:509:  pincode              String
+  prisma\schema.prisma:510:  status               CorporateStatus          @default(ACTIVE)
+  prisma\schema.prisma:511:  billingCycle         CorporateBillingCycle    @default(MONTHLY)
+  prisma\schema.prisma:512:  approvalFlow         ApprovalFlow             @default(MANAGER)
+  prisma\schema.prisma:513:  creditLimit          Decimal?                 @db.Decimal(12, 2)
+  prisma\schema.prisma:514:  paymentTermsDays     Int?                     @default(30)
+  prisma\schema.prisma:515:  accountManagerName   String?
+  prisma\schema.prisma:516:  accountManagerEmail  String?
+  prisma\schema.prisma:517:  accountManagerMobile String?
+  prisma\schema.prisma:518:  deletedAt            DateTime?
+  prisma\schema.prisma:519:  createdAt            DateTime                 @default(now())
+  prisma\schema.prisma:520:  updatedAt            DateTime                 @updatedAt
+  prisma\schema.prisma:521:  approvalRules        CorporateApprovalRule[]
+  prisma\schema.prisma:522:  branches             CorporateBranch[]
+  prisma\schema.prisma:523:  contracts            CorporateContract[]
+  prisma\schema.prisma:524:  costCenters          CorporateCostCenter[]
+  prisma\schema.prisma:525:  corporateDepartments CorporateDepartment[]
+  prisma\schema.prisma:526:  discounts            CorporateDiscount[]
+  prisma\schema.prisma:527:  employees            CorporateEmployee[]
+  prisma\schema.prisma:528:  invoiceSetting       CorporateInvoiceSetting?
+  prisma\schema.prisma:529:  reports              CorporateReport[]
+  prisma\schema.prisma:530:  travelPolicies       CorporateTravelPolicy[]
+  prisma\schema.prisma:531:  wallet               CorporateWallet?
+  prisma\schema.prisma:532:  leads                Lead[]
+  prisma\schema.prisma:533:  supportTickets       SupportTicket[]
+  prisma\schema.prisma:534:}
+  prisma\schema.prisma:535:
+> prisma\schema.prisma:780:model VendorPromotion {
+  prisma\schema.prisma:781:  id          String   @id @default(cuid())
+  prisma\schema.prisma:782:  vendorId    String
+  prisma\schema.prisma:783:  couponId    String?
+  prisma\schema.prisma:784:  title       String
+  prisma\schema.prisma:785:  description String?
+  prisma\schema.prisma:786:  startDate   DateTime
+  prisma\schema.prisma:787:  endDate     DateTime
+  prisma\schema.prisma:788:  isActive    Boolean  @default(true)
+  prisma\schema.prisma:789:  createdAt   DateTime @default(now())
+  prisma\schema.prisma:790:  updatedAt   DateTime @updatedAt
+  prisma\schema.prisma:791:  coupon      Coupon?  @relation(fields: [couponId], references: [id])
+  prisma\schema.prisma:792:  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:793:}
+  prisma\schema.prisma:794:
+  prisma\schema.prisma:795:model CorporateDiscount {
+  prisma\schema.prisma:796:  id              String    @id @default(cuid())
+  prisma\schema.prisma:797:  corporateId     String
+  prisma\schema.prisma:798:  discountPercent Decimal?  @db.Decimal(5, 2)
+  prisma\schema.prisma:799:  discountAmount  Decimal?  @db.Decimal(10, 2)
+  prisma\schema.prisma:800:  isActive        Boolean   @default(true)
+  prisma\schema.prisma:801:  createdAt       DateTime  @default(now())
+  prisma\schema.prisma:802:  updatedAt       DateTime  @updatedAt
+  prisma\schema.prisma:803:  corporate       Corporate @relation(fields: [corporateId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:804:}
+  prisma\schema.prisma:805:
+  prisma\schema.prisma:806:model GeoPromotion {
+  prisma\schema.prisma:807:  id          String   @id @default(cuid())
+  prisma\schema.prisma:808:  city        String
+  prisma\schema.prisma:809:  state       String?
+  prisma\schema.prisma:810:  title       String
+  prisma\schema.prisma:811:  description String?
+  prisma\schema.prisma:812:  couponId    String?
+  prisma\schema.prisma:813:  startDate   DateTime
+  prisma\schema.prisma:814:  endDate     DateTime
+  prisma\schema.prisma:815:  isActive    Boolean  @default(true)
+  prisma\schema.prisma:816:  createdAt   DateTime @default(now())
+  prisma\schema.prisma:817:  updatedAt   DateTime @updatedAt
+  prisma\schema.prisma:818:  coupon      Coupon?  @relation(fields: [couponId], references: [id])
+  prisma\schema.prisma:819:}
+  prisma\schema.prisma:820:
+  prisma\schema.prisma:821:model FestivalCampaign {
+  prisma\schema.prisma:822:  id           String   @id @default(cuid())
+  prisma\schema.prisma:823:  festivalName String
+  prisma\schema.prisma:824:  couponId     String?
+  prisma\schema.prisma:825:  startDate    DateTime
+  prisma\schema.prisma:826:  endDate      DateTime
+  prisma\schema.prisma:827:  bannerImage  String?
+  prisma\schema.prisma:828:  isActive     Boolean  @default(true)
+  prisma\schema.prisma:829:  createdAt    DateTime @default(now())
+  prisma\schema.prisma:830:  updatedAt    DateTime @updatedAt
+  prisma\schema.prisma:831:  coupon       Coupon?  @relation(fields: [couponId], references: [id])
+  prisma\schema.prisma:832:}
+  prisma\schema.prisma:833:
+  prisma\schema.prisma:834:model CouponUsage {
+  prisma\schema.prisma:835:  id             String   @id @default(cuid())
+  prisma\schema.prisma:836:  couponId       String
+  prisma\schema.prisma:837:  bookingId      String
+  prisma\schema.prisma:838:  customerId     String
+  prisma\schema.prisma:839:  discountAmount Decimal  @db.Decimal(10, 2)
+  prisma\schema.prisma:840:  usedAt         DateTime @default(now())
+  prisma\schema.prisma:841:  booking        Booking  @relation(fields: [bookingId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:842:  coupon         Coupon   @relation(fields: [couponId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:843:  customer       Customer @relation(fields: [customerId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:844:}
+  prisma\schema.prisma:845:
+  prisma\schema.prisma:846:model PromotionalBanner {
+  prisma\schema.prisma:847:  id          String   @id @default(cuid())
+  prisma\schema.prisma:848:  title       String
+  prisma\schema.prisma:849:  imageUrl    String
+  prisma\schema.prisma:850:  redirectUrl String?
+  prisma\schema.prisma:851:  priority    Int      @default(1)
+  prisma\schema.prisma:852:  startDate   DateTime
+  prisma\schema.prisma:853:  endDate     DateTime
+  prisma\schema.prisma:854:  isActive    Boolean  @default(true)
+  prisma\schema.prisma:855:  createdAt   DateTime @default(now())
+  prisma\schema.prisma:856:  updatedAt   DateTime @updatedAt
+  prisma\schema.prisma:857:}
+  prisma\schema.prisma:858:
+  prisma\schema.prisma:859:model RentalExtension {
+  prisma\schema.prisma:860:  id               String                @id @default(cuid())
+  prisma\schema.prisma:861:  tripId           String
+  prisma\schema.prisma:862:  requestedHours   Int
+  prisma\schema.prisma:863:  approvedHours    Int?
+  prisma\schema.prisma:864:  additionalAmount Decimal?              @db.Decimal(10, 2)
+  prisma\schema.prisma:865:  requestedBy      String?
+  prisma\schema.prisma:866:  approvedBy       String?
+  prisma\schema.prisma:867:  remarks          String?
+  prisma\schema.prisma:868:  status           RentalExtensionStatus @default(REQUESTED)
+  prisma\schema.prisma:869:  createdAt        DateTime              @default(now())
+  prisma\schema.prisma:870:  updatedAt        DateTime              @updatedAt
+  prisma\schema.prisma:871:  trip             Trip                  @relation(fields: [tripId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:872:}
+  prisma\schema.prisma:873:
+  prisma\schema.prisma:874:model ExtraCharge {
+  prisma\schema.prisma:875:  id          String          @id @default(cuid())
+  prisma\schema.prisma:876:  tripId      String
+  prisma\schema.prisma:877:  chargeType  ExtraChargeType
+  prisma\schema.prisma:878:  amount      Decimal         @db.Decimal(10, 2)
+  prisma\schema.prisma:879:  description String?
+  prisma\schema.prisma:880:  createdBy   String?
+> prisma\schema.prisma:968:model VendorPerformance {
+  prisma\schema.prisma:969:  id             String   @id @default(cuid())
+  prisma\schema.prisma:970:  vendorId       String
+  prisma\schema.prisma:971:  totalBookings  Int
+  prisma\schema.prisma:972:  completedTrips Int
+  prisma\schema.prisma:973:  cancelledTrips Int
+  prisma\schema.prisma:974:  rating         Float
+  prisma\schema.prisma:975:  reportDate     DateTime
+  prisma\schema.prisma:976:  createdAt      DateTime @default(now())
+  prisma\schema.prisma:977:  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:978:}
+  prisma\schema.prisma:979:
+> prisma\schema.prisma:980:model DriverPerformance {
+  prisma\schema.prisma:981:  id             String   @id @default(cuid())
+  prisma\schema.prisma:982:  driverId       String
+  prisma\schema.prisma:983:  completedTrips Int
+  prisma\schema.prisma:984:  cancelledTrips Int
+  prisma\schema.prisma:985:  rating         Float
+  prisma\schema.prisma:986:  reportDate     DateTime
+  prisma\schema.prisma:987:  createdAt      DateTime @default(now())
+  prisma\schema.prisma:988:  driver         Driver   @relation(fields: [driverId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:989:}
+  prisma\schema.prisma:990:
+> prisma\schema.prisma:991:model VehiclePerformance {
+  prisma\schema.prisma:992:  id            String   @id @default(cuid())
+  prisma\schema.prisma:993:  vehicleId     String
+  prisma\schema.prisma:994:  totalTrips    Int
+  prisma\schema.prisma:995:  totalDistance Decimal? @db.Decimal(12, 2)
+  prisma\schema.prisma:996:  utilization   Float?
+  prisma\schema.prisma:997:  reportDate    DateTime
+  prisma\schema.prisma:998:  createdAt     DateTime @default(now())
+  prisma\schema.prisma:999:  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:1000:}
+  prisma\schema.prisma:1001:
+  prisma\schema.prisma:1002:model CorporateReport {
+  prisma\schema.prisma:1003:  id             String    @id @default(cuid())
+  prisma\schema.prisma:1004:  corporateId    String
+  prisma\schema.prisma:1005:  periodStart    DateTime
+  prisma\schema.prisma:1006:  periodEnd      DateTime
+  prisma\schema.prisma:1007:  totalTrips     Int
+  prisma\schema.prisma:1008:  totalEmployees Int
+  prisma\schema.prisma:1009:  totalAmount    Decimal   @db.Decimal(14, 2)
+  prisma\schema.prisma:1010:  createdAt      DateTime  @default(now())
+  prisma\schema.prisma:1011:  corporate      Corporate @relation(fields: [corporateId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1012:}
+  prisma\schema.prisma:1013:
+  prisma\schema.prisma:1014:model GSTSummary {
+  prisma\schema.prisma:1015:  id            String   @id @default(cuid())
+  prisma\schema.prisma:1016:  periodStart   DateTime
+  prisma\schema.prisma:1017:  periodEnd     DateTime
+  prisma\schema.prisma:1018:  taxableAmount Decimal  @db.Decimal(14, 2)
+  prisma\schema.prisma:1019:  gstCollected  Decimal  @db.Decimal(14, 2)
+  prisma\schema.prisma:1020:  createdAt     DateTime @default(now())
+  prisma\schema.prisma:1021:}
+  prisma\schema.prisma:1022:
+  prisma\schema.prisma:1023:model AnalyticsEvent {
+  prisma\schema.prisma:1024:  id        String             @id @default(cuid())
+  prisma\schema.prisma:1025:  eventType AnalyticsEventType
+  prisma\schema.prisma:1026:  userId    String?
+  prisma\schema.prisma:1027:  bookingId String?
+  prisma\schema.prisma:1028:  city      String?
+  prisma\schema.prisma:1029:  metadata  Json?
+  prisma\schema.prisma:1030:  createdAt DateTime           @default(now())
+  prisma\schema.prisma:1031:}
+  prisma\schema.prisma:1032:
+  prisma\schema.prisma:1033:model BookingAnalytics {
+  prisma\schema.prisma:1034:  id               String   @id @default(cuid())
+  prisma\schema.prisma:1035:  bookingId        String
+  prisma\schema.prisma:1036:  customerId       String
+  prisma\schema.prisma:1037:  bookingValue     Decimal  @db.Decimal(12, 2)
+  prisma\schema.prisma:1038:  bookingDuration  Int?
+  prisma\schema.prisma:1039:  distanceKm       Decimal? @db.Decimal(10, 2)
+  prisma\schema.prisma:1040:  cancellationRisk Float?
+  prisma\schema.prisma:1041:  createdAt        DateTime @default(now())
+  prisma\schema.prisma:1042:  booking          Booking  @relation(fields: [bookingId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:1043:  customer         Customer @relation(fields: [customerId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1044:}
+  prisma\schema.prisma:1045:
+> prisma\schema.prisma:1046:model DriverAnalytics {
+  prisma\schema.prisma:1047:  id             String   @id @default(cuid())
+  prisma\schema.prisma:1048:  driverId       String
+  prisma\schema.prisma:1049:  completedTrips Int
+  prisma\schema.prisma:1050:  cancelledTrips Int
+  prisma\schema.prisma:1051:  acceptanceRate Float
+  prisma\schema.prisma:1052:  averageRating  Float
+  prisma\schema.prisma:1053:  earnings       Decimal? @db.Decimal(12, 2)
+  prisma\schema.prisma:1054:  reportDate     DateTime
+  prisma\schema.prisma:1055:  createdAt      DateTime @default(now())
+  prisma\schema.prisma:1056:  driver         Driver   @relation(fields: [driverId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:1057:}
+  prisma\schema.prisma:1058:
+> prisma\schema.prisma:1059:model VendorAnalytics {
+  prisma\schema.prisma:1060:  id             String   @id @default(cuid())
+  prisma\schema.prisma:1061:  vendorId       String
+  prisma\schema.prisma:1062:  totalBookings  Int
+  prisma\schema.prisma:1063:  completedTrips Int
+  prisma\schema.prisma:1064:  revenue        Decimal  @db.Decimal(14, 2)
+  prisma\schema.prisma:1065:  averageRating  Float
+  prisma\schema.prisma:1066:  reportDate     DateTime
+  prisma\schema.prisma:1067:  createdAt      DateTime @default(now())
+  prisma\schema.prisma:1068:  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:1069:}
+  prisma\schema.prisma:1070:
+> prisma\schema.prisma:1071:model VehicleAnalytics {
+  prisma\schema.prisma:1072:  id                 String   @id @default(cuid())
+  prisma\schema.prisma:1073:  vehicleId          String
+  prisma\schema.prisma:1074:  utilizationPercent Float?
+  prisma\schema.prisma:1075:  revenue            Decimal? @db.Decimal(12, 2)
+  prisma\schema.prisma:1076:  totalTrips         Int
+  prisma\schema.prisma:1077:  reportDate         DateTime
+  prisma\schema.prisma:1078:  createdAt          DateTime @default(now())
+  prisma\schema.prisma:1079:  vehicle            Vehicle  @relation(fields: [vehicleId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1080:}
+  prisma\schema.prisma:1081:
+  prisma\schema.prisma:1082:model AIRecommendation {
+  prisma\schema.prisma:1083:  id                 String             @id @default(cuid())
+  prisma\schema.prisma:1084:  customerId         String
+  prisma\schema.prisma:1085:  recommendationType RecommendationType
+  prisma\schema.prisma:1086:  title              String
+  prisma\schema.prisma:1087:  description        String?
+  prisma\schema.prisma:1088:  confidenceScore    Float
+  prisma\schema.prisma:1089:  isAccepted         Boolean            @default(false)
+  prisma\schema.prisma:1090:  createdAt          DateTime           @default(now())
+  prisma\schema.prisma:1091:  customer           Customer           @relation(fields: [customerId], references: 
+[id], onDelete: Cascade)
+  prisma\schema.prisma:1092:}
+  prisma\schema.prisma:1093:
+  prisma\schema.prisma:1094:model DemandPrediction {
+  prisma\schema.prisma:1095:  id             String         @id @default(cuid())
+  prisma\schema.prisma:1096:  city           String
+  prisma\schema.prisma:1097:  predictionType PredictionType
+  prisma\schema.prisma:1098:  predictionDate DateTime
+  prisma\schema.prisma:1099:  predictedValue Decimal        @db.Decimal(12, 2)
+  prisma\schema.prisma:1100:  confidence     Float
+  prisma\schema.prisma:1101:  createdAt      DateTime       @default(now())
+  prisma\schema.prisma:1102:}
+  prisma\schema.prisma:1103:
+  prisma\schema.prisma:1104:model FraudDetection {
+  prisma\schema.prisma:1105:  id        String         @id @default(cuid())
+  prisma\schema.prisma:1106:  bookingId String
+  prisma\schema.prisma:1107:  riskLevel FraudRiskLevel
+  prisma\schema.prisma:1108:  score     Float
+  prisma\schema.prisma:1109:  reason    String?
+  prisma\schema.prisma:1110:  reviewed  Boolean        @default(false)
+  prisma\schema.prisma:1111:  createdAt DateTime       @default(now())
+  prisma\schema.prisma:1112:  booking   Booking        @relation(fields: [bookingId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:1113:}
+  prisma\schema.prisma:1114:
+  prisma\schema.prisma:1115:model HeatMapLocation {
+  prisma\schema.prisma:1116:  id           String   @id @default(cuid())
+  prisma\schema.prisma:1117:  city         String
+  prisma\schema.prisma:1118:  latitude     Decimal  @db.Decimal(10, 7)
+  prisma\schema.prisma:1119:  longitude    Decimal  @db.Decimal(10, 7)
+  prisma\schema.prisma:1120:  bookingCount Int
+  prisma\schema.prisma:1121:  reportDate   DateTime
+  prisma\schema.prisma:1122:  createdAt    DateTime @default(now())
+  prisma\schema.prisma:1123:}
+  prisma\schema.prisma:1124:
+  prisma\schema.prisma:1125:model RouteAnalytics {
+  prisma\schema.prisma:1126:  id              String   @id @default(cuid())
+  prisma\schema.prisma:1127:  sourceCity      String
+  prisma\schema.prisma:1128:  destinationCity String
+  prisma\schema.prisma:1129:  totalTrips      Int
+  prisma\schema.prisma:1130:  averageFare     Decimal  @db.Decimal(12, 2)
+  prisma\schema.prisma:1131:  averageDistance Decimal  @db.Decimal(12, 2)
+  prisma\schema.prisma:1132:  averageDuration Int?
+  prisma\schema.prisma:1133:  createdAt       DateTime @default(now())
+  prisma\schema.prisma:1134:}
+  prisma\schema.prisma:1135:
+  prisma\schema.prisma:1136:model AuditLog {
+  prisma\schema.prisma:1137:  id         String      @id @default(cuid())
+  prisma\schema.prisma:1138:  userId     String?
+  prisma\schema.prisma:1139:  action     AuditAction
+  prisma\schema.prisma:1140:  entityName String
+  prisma\schema.prisma:1141:  entityId   String?
+  prisma\schema.prisma:1142:  oldValue   Json?
+  prisma\schema.prisma:1143:  newValue   Json?
+  prisma\schema.prisma:1144:  ipAddress  String?
+  prisma\schema.prisma:1145:  userAgent  String?
+  prisma\schema.prisma:1146:  createdAt  DateTime    @default(now())
+  prisma\schema.prisma:1147:  user       User?       @relation(fields: [userId], references: [id])
+  prisma\schema.prisma:1148:}
+  prisma\schema.prisma:1149:
+  prisma\schema.prisma:1150:model LoginHistory {
+  prisma\schema.prisma:1151:  id         String    @id @default(cuid())
+  prisma\schema.prisma:1152:  userId     String
+  prisma\schema.prisma:1153:  ipAddress  String?
+  prisma\schema.prisma:1154:  device     String?
+  prisma\schema.prisma:1155:  browser    String?
+  prisma\schema.prisma:1156:  os         String?
+  prisma\schema.prisma:1157:  city       String?
+  prisma\schema.prisma:1158:  country    String?
+  prisma\schema.prisma:1159:  loginTime  DateTime
+  prisma\schema.prisma:1160:  logoutTime DateTime?
+  prisma\schema.prisma:1161:  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prisma\schema.prisma:1162:}
+  prisma\schema.prisma:1163:
+  prisma\schema.prisma:1164:model ApiLog {
+  prisma\schema.prisma:1165:  id             String           @id @default(cuid())
+  prisma\schema.prisma:1166:  endpoint       String
+  prisma\schema.prisma:1167:  method         String
+  prisma\schema.prisma:1168:  status         ApiRequestStatus
+  prisma\schema.prisma:1169:  responseTimeMs Int
+  prisma\schema.prisma:1170:  ipAddress      String?
+  prisma\schema.prisma:1171:  createdAt      DateTime         @default(now())
+> prisma\schema.prisma:1222:model DriverAttendance {
+  prisma\schema.prisma:1223:  id             String                 @id @default(cuid())
+  prisma\schema.prisma:1224:  driverId       String
+  prisma\schema.prisma:1225:  attendanceDate DateTime
+  prisma\schema.prisma:1226:  checkIn        DateTime?
+  prisma\schema.prisma:1227:  checkOut       DateTime?
+  prisma\schema.prisma:1228:  status         DriverAttendanceStatus
+  prisma\schema.prisma:1229:  remarks        String?
+  prisma\schema.prisma:1230:  createdAt      DateTime               @default(now())
+  prisma\schema.prisma:1231:  updatedAt      DateTime               @updatedAt
+  prisma\schema.prisma:1232:  driver         Driver                 @relation(fields: [driverId], references: 
+[id], onDelete: Cascade)
+  prisma\schema.prisma:1233:}
+  prisma\schema.prisma:1234:
+> prisma\schema.prisma:1235:model DriverShift {
+  prisma\schema.prisma:1236:  id         String            @id @default(cuid())
+  prisma\schema.prisma:1237:  driverId   String
+  prisma\schema.prisma:1238:  shiftName  String
+  prisma\schema.prisma:1239:  startTime  DateTime
+  prisma\schema.prisma:1240:  endTime    DateTime
+  prisma\schema.prisma:1241:  status     DriverShiftStatus
+  prisma\schema.prisma:1242:  totalHours Decimal?          @db.Decimal(5, 2)
+  prisma\schema.prisma:1243:  createdAt  DateTime          @default(now())
+  prisma\schema.prisma:1244:  updatedAt  DateTime          @updatedAt
+  prisma\schema.prisma:1245:  driver     Driver            @relation(fields: [driverId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1246:}
+  prisma\schema.prisma:1247:
+> prisma\schema.prisma:1248:model DriverLeave {
+  prisma\schema.prisma:1249:  id         String            @id @default(cuid())
+  prisma\schema.prisma:1250:  driverId   String
+  prisma\schema.prisma:1251:  fromDate   DateTime
+  prisma\schema.prisma:1252:  toDate     DateTime
+  prisma\schema.prisma:1253:  reason     String?
+  prisma\schema.prisma:1254:  status     DriverLeaveStatus
+  prisma\schema.prisma:1255:  approvedBy String?
+  prisma\schema.prisma:1256:  approvedAt DateTime?
+  prisma\schema.prisma:1257:  createdAt  DateTime          @default(now())
+  prisma\schema.prisma:1258:  updatedAt  DateTime          @updatedAt
+  prisma\schema.prisma:1259:  driver     Driver            @relation(fields: [driverId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1260:}
+  prisma\schema.prisma:1261:
+> prisma\schema.prisma:1262:model DriverPayroll {
+  prisma\schema.prisma:1263:  id              String              @id @default(cuid())
+  prisma\schema.prisma:1264:  driverId        String
+  prisma\schema.prisma:1265:  month           Int
+  prisma\schema.prisma:1266:  year            Int
+  prisma\schema.prisma:1267:  basicAmount     Decimal             @db.Decimal(12, 2)
+  prisma\schema.prisma:1268:  incentiveAmount Decimal             @default(0) @db.Decimal(12, 2)
+  prisma\schema.prisma:1269:  penaltyAmount   Decimal             @default(0) @db.Decimal(12, 2)
+  prisma\schema.prisma:1270:  netAmount       Decimal             @db.Decimal(12, 2)
+  prisma\schema.prisma:1271:  status          DriverPayrollStatus
+  prisma\schema.prisma:1272:  paidAt          DateTime?
+  prisma\schema.prisma:1273:  createdAt       DateTime            @default(now())
+  prisma\schema.prisma:1274:  updatedAt       DateTime            @updatedAt
+  prisma\schema.prisma:1275:  driver          Driver              @relation(fields: [driverId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1276:
+  prisma\schema.prisma:1277:  @@unique([driverId, month, year])
+  prisma\schema.prisma:1278:  @@index([driverId])
+  prisma\schema.prisma:1279:  @@index([status])
+  prisma\schema.prisma:1280:  @@index([year, month])
+  prisma\schema.prisma:1281:}
+  prisma\schema.prisma:1282:
+> prisma\schema.prisma:1283:model DriverIncentive {
+  prisma\schema.prisma:1284:  id            String        @id @default(cuid())
+  prisma\schema.prisma:1285:  driverId      String
+  prisma\schema.prisma:1286:  incentiveType IncentiveType
+  prisma\schema.prisma:1287:  amount        Decimal       @db.Decimal(12, 2)
+  prisma\schema.prisma:1288:  description   String?
+  prisma\schema.prisma:1289:  createdAt     DateTime      @default(now())
+  prisma\schema.prisma:1290:  driver        Driver        @relation(fields: [driverId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1291:}
+  prisma\schema.prisma:1292:
+> prisma\schema.prisma:1293:model DriverPenalty {
+  prisma\schema.prisma:1294:  id          String      @id @default(cuid())
+  prisma\schema.prisma:1295:  driverId    String
+  prisma\schema.prisma:1296:  penaltyType PenaltyType
+  prisma\schema.prisma:1297:  amount      Decimal     @db.Decimal(12, 2)
+  prisma\schema.prisma:1298:  reason      String?
+  prisma\schema.prisma:1299:  createdAt   DateTime    @default(now())
+  prisma\schema.prisma:1300:  driver      Driver      @relation(fields: [driverId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:1301:}
+  prisma\schema.prisma:1302:
+> prisma\schema.prisma:1303:model VehicleMaintenance {
+  prisma\schema.prisma:1304:  id              String              @id @default(cuid())
+  prisma\schema.prisma:1305:  vehicleId       String
+  prisma\schema.prisma:1306:  maintenanceType MaintenanceType
+  prisma\schema.prisma:1307:  priority        MaintenancePriority
+  prisma\schema.prisma:1308:  status          MaintenanceStatus
+  prisma\schema.prisma:1309:  workshopName    String?
+  prisma\schema.prisma:1310:  description     String?
+  prisma\schema.prisma:1311:  cost            Decimal?            @db.Decimal(12, 2)
+  prisma\schema.prisma:1312:  serviceDate     DateTime
+  prisma\schema.prisma:1313:  nextServiceDate DateTime?
+  prisma\schema.prisma:1314:  createdAt       DateTime            @default(now())
+  prisma\schema.prisma:1315:  updatedAt       DateTime            @updatedAt
+  prisma\schema.prisma:1316:  vehicle         Vehicle             @relation(fields: [vehicleId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1317:}
+  prisma\schema.prisma:1318:
+  prisma\schema.prisma:1319:model FuelLog {
+  prisma\schema.prisma:1320:  id              String        @id @default(cuid())
+  prisma\schema.prisma:1321:  vehicleId       String
+  prisma\schema.prisma:1322:  fuelType        FuelTypeEntry
+  prisma\schema.prisma:1323:  quantity        Decimal       @db.Decimal(10, 2)
+  prisma\schema.prisma:1324:  amount          Decimal       @db.Decimal(12, 2)
+  prisma\schema.prisma:1325:  odometerReading Int
+  prisma\schema.prisma:1326:  filledAt        DateTime
+  prisma\schema.prisma:1327:  createdAt       DateTime      @default(now())
+  prisma\schema.prisma:1328:  vehicle         Vehicle       @relation(fields: [vehicleId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1329:}
+  prisma\schema.prisma:1330:
+  prisma\schema.prisma:1331:model ServiceSchedule {
+  prisma\schema.prisma:1332:  id              String          @id @default(cuid())
+  prisma\schema.prisma:1333:  vehicleId       String
+  prisma\schema.prisma:1334:  maintenanceType MaintenanceType
+  prisma\schema.prisma:1335:  dueDate         DateTime
+  prisma\schema.prisma:1336:  dueOdometer     Int?
+  prisma\schema.prisma:1337:  isCompleted     Boolean         @default(false)
+  prisma\schema.prisma:1338:  createdAt       DateTime        @default(now())
+  prisma\schema.prisma:1339:  updatedAt       DateTime        @updatedAt
+  prisma\schema.prisma:1340:  vehicle         Vehicle         @relation(fields: [vehicleId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1341:}
+  prisma\schema.prisma:1342:
+> prisma\schema.prisma:1343:model VehicleBreakdown {
+  prisma\schema.prisma:1344:  id            String    @id @default(cuid())
+  prisma\schema.prisma:1345:  vehicleId     String
+  prisma\schema.prisma:1346:  breakdownTime DateTime
+  prisma\schema.prisma:1347:  location      String?
+  prisma\schema.prisma:1348:  issue         String
+  prisma\schema.prisma:1349:  resolved      Boolean   @default(false)
+  prisma\schema.prisma:1350:  resolvedAt    DateTime?
+  prisma\schema.prisma:1351:  createdAt     DateTime  @default(now())
+  prisma\schema.prisma:1352:  vehicle       Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:1353:}
+  prisma\schema.prisma:1354:
+  prisma\schema.prisma:1355:model OdometerLog {
+  prisma\schema.prisma:1356:  id         String   @id @default(cuid())
+  prisma\schema.prisma:1357:  vehicleId  String
+  prisma\schema.prisma:1358:  reading    Int
+  prisma\schema.prisma:1359:  recordedAt DateTime
+  prisma\schema.prisma:1360:  remarks    String?
+  prisma\schema.prisma:1361:  createdAt  DateTime @default(now())
+  prisma\schema.prisma:1362:  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:1363:}
+  prisma\schema.prisma:1364:
+  prisma\schema.prisma:1365:model GPSDevice {
+  prisma\schema.prisma:1366:  id          String          @id @default(cuid())
+  prisma\schema.prisma:1367:  vehicleId   String          @unique
+  prisma\schema.prisma:1368:  imei        String          @unique
+  prisma\schema.prisma:1369:  provider    String?
+  prisma\schema.prisma:1370:  simNumber   String?
+  prisma\schema.prisma:1371:  status      GpsDeviceStatus
+  prisma\schema.prisma:1372:  installedAt DateTime?
+  prisma\schema.prisma:1373:  createdAt   DateTime        @default(now())
+  prisma\schema.prisma:1374:  updatedAt   DateTime        @updatedAt
+  prisma\schema.prisma:1375:  vehicle     Vehicle         @relation(fields: [vehicleId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1376:}
+  prisma\schema.prisma:1377:
+  prisma\schema.prisma:1378:model TripLocation {
+  prisma\schema.prisma:1379:  id         String         @id @default(cuid())
+  prisma\schema.prisma:1380:  tripId     String
+  prisma\schema.prisma:1381:  driverId   String?
+  prisma\schema.prisma:1382:  vehicleId  String?
+  prisma\schema.prisma:1383:  latitude   Decimal        @db.Decimal(10, 7)
+  prisma\schema.prisma:1384:  longitude  Decimal        @db.Decimal(10, 7)
+  prisma\schema.prisma:1385:  speed      Float?
+  prisma\schema.prisma:1386:  heading    Float?
+  prisma\schema.prisma:1387:  accuracy   Float?
+  prisma\schema.prisma:1388:  source     LocationSource
+  prisma\schema.prisma:1389:  recordedAt DateTime
+  prisma\schema.prisma:1390:  createdAt  DateTime       @default(now())
+  prisma\schema.prisma:1391:  driver     Driver?        @relation(fields: [driverId], references: [id])
+  prisma\schema.prisma:1392:  trip       Trip           @relation(fields: [tripId], references: [id], onDelete: 
+Cascade)
+  prisma\schema.prisma:1393:  vehicle    Vehicle?       @relation(fields: [vehicleId], references: [id])
+  prisma\schema.prisma:1394:
+  prisma\schema.prisma:1395:  @@index([tripId])
+  prisma\schema.prisma:1396:  @@index([driverId])
+  prisma\schema.prisma:1397:  @@index([vehicleId])
+  prisma\schema.prisma:1398:  @@index([recordedAt])
+  prisma\schema.prisma:1399:  @@index([tripId, recordedAt])
+  prisma\schema.prisma:1400:  @@index([vehicleId, recordedAt])
+  prisma\schema.prisma:1401:}
+  prisma\schema.prisma:1402:
+  prisma\schema.prisma:1403:model Geofence {
+  prisma\schema.prisma:1404:  id             String          @id @default(cuid())
+  prisma\schema.prisma:1405:  name           String
+  prisma\schema.prisma:1406:  city           String?
+  prisma\schema.prisma:1407:  latitude       Decimal         @db.Decimal(10, 7)
+  prisma\schema.prisma:1408:  longitude      Decimal         @db.Decimal(10, 7)
+  prisma\schema.prisma:1409:  radiusMeters   Int
+  prisma\schema.prisma:1410:  isActive       Boolean         @default(true)
+  prisma\schema.prisma:1411:  createdAt      DateTime        @default(now())
+  prisma\schema.prisma:1412:  updatedAt      DateTime        @updatedAt
+  prisma\schema.prisma:1413:  geofenceEvents GeofenceEvent[]
+  prisma\schema.prisma:1414:}
+  prisma\schema.prisma:1415:
+  prisma\schema.prisma:1416:model GeofenceEvent {
+  prisma\schema.prisma:1417:  id         String            @id @default(cuid())
+  prisma\schema.prisma:1418:  geofenceId String
+  prisma\schema.prisma:1419:  tripId     String?
+  prisma\schema.prisma:1420:  vehicleId  String?
+  prisma\schema.prisma:1421:  eventType  GeofenceEventType
+  prisma\schema.prisma:1422:  eventTime  DateTime
+  prisma\schema.prisma:1423:  createdAt  DateTime          @default(now())
+  prisma\schema.prisma:1424:  geofence   Geofence          @relation(fields: [geofenceId], references: [id], 
+onDelete: Cascade)
+  prisma\schema.prisma:1425:  trip       Trip?             @relation(fields: [tripId], references: [id])
+  prisma\schema.prisma:1426:  vehicle    Vehicle?          @relation(fields: [vehicleId], references: [id])
+  prisma\schema.prisma:1427:}
+  prisma\schema.prisma:1428:
+  prisma\schema.prisma:1429:model SOSEvent {
+  prisma\schema.prisma:1430:  id        String    @id @default(cuid())
+  prisma\schema.prisma:1431:  driverId  String?
+  prisma\schema.prisma:1432:  vehicleId String?
+  prisma\schema.prisma:1433:  tripId    String?
+  prisma\schema.prisma:1434:  latitude  Decimal?  @db.Decimal(10, 7)
+  prisma\schema.prisma:1435:  longitude Decimal?  @db.Decimal(10, 7)
+  prisma\schema.prisma:1436:  status    SOSStatus
+  prisma\schema.prisma:1437:  remarks   String?
+  prisma\schema.prisma:1438:  createdAt DateTime  @default(now())
+  prisma\schema.prisma:1439:  driver    Driver?   @relation(fields: [driverId], references: [id])
+  prisma\schema.prisma:1440:  trip      Trip?     @relation(fields: [tripId], references: [id])
+  prisma\schema.prisma:1441:  vehicle   Vehicle?  @relation(fields: [vehicleId], references: [id])
+  prisma\schema.prisma:1442:}
+  prisma\schema.prisma:1443:
+
+

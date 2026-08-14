@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { customerRepository } from "@/lib/repositories/customer";
 
 function serializeCustomer(customer: any) {
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       data = data.filter(
-        (customer) =>
+        (customer: any) =>
           customer.name.toLowerCase().includes(search) ||
           customer.email.toLowerCase().includes(search) ||
           customer.mobile.toLowerCase().includes(search)
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       data = data.filter(
-        (customer) => customer.status === status
+        (customer: any) => customer.status === status
       );
     }
 

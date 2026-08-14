@@ -3,8 +3,6 @@ import {
   NextResponse,
 } from "next/server";
 
-import { Prisma } from "@prisma/client";
-
 import {
   corporateService,
 } from "@/lib/services/corporate/CorporateService";
@@ -213,7 +211,7 @@ export async function POST(
       );
     }
 
-    const data: Prisma.CorporateCreateInput = {
+    const data: any = {
       companyName,
       legalName: body.legalName ?? null,
       gstNumber: body.gstNumber ?? null,
@@ -295,7 +293,7 @@ export async function PATCH(
     const corporate =
       await corporateService.update(
         id,
-        updates as Prisma.CorporateUpdateInput
+        updates as any
       );
 
     return NextResponse.json({

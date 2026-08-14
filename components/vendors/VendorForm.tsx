@@ -1,6 +1,12 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from "react";
+
+export type VendorStatus =
+  | "Active"
+  | "Suspended"
+  | "Inactive"
+  | "Pending";
 
 export interface VendorFormData {
   companyName: string;
@@ -8,30 +14,58 @@ export interface VendorFormData {
   mobile: string;
   email: string;
   city: string;
+  status: VendorStatus;
 }
 
 interface VendorFormProps {
+  initialData?: Partial<VendorFormData>;
   onSave: (vendor: VendorFormData) => void;
   onCancel: () => void;
+  saving?: boolean;
 }
 
-export default function VendorForm({ onSave, onCancel }: VendorFormProps) {
-  const [form, setForm] = useState<VendorFormData>({
-    companyName: '',
-    ownerName: '',
-    mobile: '',
-    email: '',
-    city: '',
-  });
+const emptyForm: VendorFormData = {
+  companyName: "",
+  ownerName: "",
+  mobile: "",
+  email: "",
+  city: "",
+  status: "Pending",
+};
 
-  function updateField(field: keyof VendorFormData, value: string) {
+export default function VendorForm({
+  initialData,
+  onSave,
+  onCancel,
+  saving = false,
+}: VendorFormProps) {
+  const [form, setForm] =
+    useState<VendorFormData>(emptyForm);
+
+  useEffect(() => {
+    setForm({
+      companyName: initialData?.companyName || "",
+      ownerName: initialData?.ownerName || "",
+      mobile: initialData?.mobile || "",
+      email: initialData?.email || "",
+      city: initialData?.city || "",
+      status: initialData?.status || "Pending",
+    });
+  }, [initialData]);
+
+  function updateField(
+    field: keyof VendorFormData,
+    value: string
+  ) {
     setForm((prev) => ({
       ...prev,
       [field]: value,
     }));
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
     if (
@@ -41,23 +75,18 @@ export default function VendorForm({ onSave, onCancel }: VendorFormProps) {
       !form.email.trim() ||
       !form.city.trim()
     ) {
-      alert('Please fill all fields.');
+      alert("Please fill all fields.");
       return;
     }
 
     onSave(form);
-
-    setForm({
-      companyName: '',
-      ownerName: '',
-      mobile: '',
-      email: '',
-      city: '',
-    });
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+    >
       <div className="grid gap-5 md:grid-cols-2">
         <div>
           <label className="mb-2 block text-sm font-semibold">
@@ -66,20 +95,34 @@ export default function VendorForm({ onSave, onCancel }: VendorFormProps) {
 
           <input
             value={form.companyName}
-            onChange={(e) => updateField('companyName', e.target.value)}
+            onChange={(e) =>
+              updateField(
+                "companyName",
+                e.target.value
+              )
+            }
             placeholder="Company Name"
-            className="w-full rounded-lg border px-4 py-3 focus:border-blue-500 outline-none"
+            disabled={saving}
+            className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
           />
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-semibold">Owner Name</label>
+          <label className="mb-2 block text-sm font-semibold">
+            Owner Name
+          </label>
 
           <input
             value={form.ownerName}
-            onChange={(e) => updateField('ownerName', e.target.value)}
+            onChange={(e) =>
+              updateField(
+                "ownerName",
+                e.target.value
+              )
+            }
             placeholder="Owner Name"
-            className="w-full rounded-lg border px-4 py-3 focus:border-blue-500 outline-none"
+            disabled={saving}
+            className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
           />
         </div>
 
@@ -90,9 +133,15 @@ export default function VendorForm({ onSave, onCancel }: VendorFormProps) {
 
           <input
             value={form.mobile}
-            onChange={(e) => updateField('mobile', e.target.value)}
+            onChange={(e) =>
+              updateField(
+                "mobile",
+                e.target.value
+              )
+            }
             placeholder="+91 9876543210"
-            className="w-full rounded-lg border px-4 py-3 focus:border-blue-500 outline-none"
+            disabled={saving}
+            className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
           />
         </div>
 
@@ -104,21 +153,69 @@ export default function VendorForm({ onSave, onCancel }: VendorFormProps) {
           <input
             type="email"
             value={form.email}
-            onChange={(e) => updateField('email', e.target.value)}
+            onChange={(e) =>
+              updateField(
+                "email",
+                e.target.value
+              )
+            }
             placeholder="vendor@email.com"
-            className="w-full rounded-lg border px-4 py-3 focus:border-blue-500 outline-none"
+            disabled={saving}
+            className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
           />
         </div>
 
-        <div className="md:col-span-2">
-          <label className="mb-2 block text-sm font-semibold">City</label>
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            City
+          </label>
 
           <input
             value={form.city}
-            onChange={(e) => updateField('city', e.target.value)}
+            onChange={(e) =>
+              updateField(
+                "city",
+                e.target.value
+              )
+            }
             placeholder="City"
-            className="w-full rounded-lg border px-4 py-3 focus:border-blue-500 outline-none"
+            disabled={saving}
+            className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
           />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Vendor Status
+          </label>
+
+          <select
+            value={form.status}
+            onChange={(e) =>
+              updateField(
+                "status",
+                e.target.value
+              )
+            }
+            disabled={saving}
+            className="w-full rounded-lg border bg-white px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
+          >
+            <option value="Active">
+              Active
+            </option>
+
+            <option value="Suspended">
+              Suspended
+            </option>
+
+            <option value="Inactive">
+              Inactive
+            </option>
+
+            <option value="Pending">
+              Pending
+            </option>
+          </select>
         </div>
       </div>
 
@@ -126,16 +223,18 @@ export default function VendorForm({ onSave, onCancel }: VendorFormProps) {
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border px-6 py-3 hover:bg-slate-100"
+          disabled={saving}
+          className="rounded-lg border px-6 py-3 hover:bg-slate-100 disabled:opacity-50"
         >
           Cancel
         </button>
 
         <button
           type="submit"
-          className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
+          disabled={saving}
+          className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Save Vendor
+          {saving ? "Saving..." : "Save Vendor"}
         </button>
       </div>
     </form>
