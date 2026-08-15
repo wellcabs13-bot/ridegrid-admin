@@ -1,4 +1,4 @@
-import { verifyToken } from "./auth-server";
+﻿import { verifyToken } from "./auth-server";
 
 type AuthorizationRole = string;
 
@@ -18,3 +18,4 @@ export function authorize(
 
   return user;
 }
+

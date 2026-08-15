@@ -88,9 +88,7 @@ export default function DriverForm() {
           );
         }
 
-        const list = Array.isArray(result.data)
-          ? result.data
-          : [];
+        const list = Array.isArray(result.data?.data) ? result.data.data : Array.isArray(result.data) ? result.data : [];
 
         const activeVendors = list.filter(
           (vendor: Vendor) =>
@@ -161,9 +159,7 @@ export default function DriverForm() {
         );
       }
 
-      const list = Array.isArray(result.data)
-        ? result.data
-        : [];
+      const list = Array.isArray(result.data?.data) ? result.data.data : Array.isArray(result.data) ? result.data : [];
 
       /*
        * Only vehicles belonging to this vendor.
@@ -253,22 +249,8 @@ export default function DriverForm() {
       return;
     }
 
-    if (!form.policeVerificationNumber.trim()) {
-      alert(
-        "Please enter police verification number."
-      );
-      return;
-    }
-
     if (!documents.aadhaar) {
       alert("Please upload Aadhaar document.");
-      return;
-    }
-
-    if (!documents.policeVerification) {
-      alert(
-        "Please upload police verification document."
-      );
       return;
     }
 
@@ -675,7 +657,7 @@ export default function DriverForm() {
         <div className="grid gap-5 md:grid-cols-2">
           <div>
             <label className="mb-2 block text-sm font-medium">
-              Verification Number *
+              Verification Number
             </label>
 
             <input
@@ -695,7 +677,7 @@ export default function DriverForm() {
 
           <div>
             <label className="mb-2 block text-sm font-medium">
-              Upload Police Verification *
+              Upload Police Verification
             </label>
 
             <input

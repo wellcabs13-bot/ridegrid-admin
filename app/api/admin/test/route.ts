@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { authorize } from "@/lib/authorize";
 
 export async function GET(request: NextRequest) {
   const token =
-    request.cookies.get("accessToken")?.value ||
+    request.cookies.get("ridegrid_access_token")?.value ||
     request.headers
       .get("authorization")
       ?.replace(/^Bearer\s+/i, "");
 
-  const user = authorize(token, ["ADMIN", "SUPER_ADMIN"]);
+  const user = authorize(token, ["SUPER_ADMIN"]);
 
   if (!user) {
     return NextResponse.json(
@@ -29,3 +29,4 @@ export async function GET(request: NextRequest) {
     },
   });
 }
+

@@ -59,7 +59,10 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("POST /api/auth/login", error);
+    console.error(
+      "POST /api/auth/login",
+      error
+    );
 
     return NextResponse.json(
       {

@@ -1,4 +1,4 @@
-import * as jwt from "jsonwebtoken";
+﻿import * as jwt from "jsonwebtoken";
 
 import {
   AuthProvider,
@@ -33,8 +33,7 @@ export class JwtService {
       payload,
       JWT_SECRET,
       {
-        expiresIn: 3600,
-      }
+        }
     );
   }
 
@@ -80,3 +79,4 @@ export class JwtService {
 
 export const jwtService =
   new JwtService();
+

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 import { authService } from "@/lib/auth/auth";
 import { apiError } from "@/lib/api-error";
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const accessToken =
       authorization?.startsWith("Bearer ")
         ? authorization.slice(7)
-        : request.cookies.get("ridegrid-token")?.value ?? "";
+        : request.cookies.get("ridegrid_access_token")?.value ?? "";
 
     const session = {
       sessionId:
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       message: "Logout successful.",
     });
 
-    response.cookies.delete("ridegrid-token");
+    response.cookies.delete("ridegrid_access_token");
 
     return response;
   } catch (error) {

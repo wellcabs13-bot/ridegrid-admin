@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useCallback,
@@ -20,6 +20,7 @@ import AddDriverModal from "../../components/drivers/AddDriverModal";
 import DriverForm from "../../components/drivers/DriverForm";
 
 import DriverDetailsDrawer from "../../components/drivers/DriverDetailsDrawer";
+import EditDriverModal from "../../components/drivers/EditDriverModal";
 
 import DriverInfoCard from "../../components/drivers/DriverInfoCard";
 import DriverLicenseCard from "../../components/drivers/DriverLicenseCard";
@@ -31,93 +32,121 @@ import DriverDocumentCard from "../../components/drivers/DriverDocumentCard";
 import DriverPerformanceCard from "../../components/drivers/DriverPerformanceCard";
 
 export default function DriversPage() {
-  const [driverList, setDriverList] = useState<Driver[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [driverList, setDriverList] =
+    useState<Driver[]>([]);
 
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("All");
+  const [loading, setLoading] =
+    useState(true);
+
+  const [search, setSearch] =
+    useState("");
+
+  const [status, setStatus] =
+    useState("All");
 
   const [selectedDriver, setSelectedDriver] =
     useState<Driver | null>(null);
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [editDriver, setEditDriver] =
+    useState<Driver | null>(null);
 
-  const fetchDrivers = useCallback(async () => {
-    try {
-      setLoading(true);
+  const [drawerOpen, setDrawerOpen] =
+    useState(false);
 
-      const params = new URLSearchParams();
+  const [modalOpen, setModalOpen] =
+    useState(false);
 
-      if (search.trim()) {
-        params.set("search", search.trim());
-      }
+  const [editModalOpen, setEditModalOpen] =
+    useState(false);
 
-      if (status !== "All") {
-        params.set("status", status);
-      }
+  const fetchDrivers = useCallback(
+    async () => {
+      try {
+        setLoading(true);
 
-      const queryString = params.toString();
+        const params =
+          new URLSearchParams();
 
-      const response = await fetch(
-        queryString
-          ? `/api/drivers?${queryString}`
-          : "/api/drivers",
-        {
-          cache: "no-store",
+        if (search.trim()) {
+          params.set(
+            "search",
+            search.trim()
+          );
         }
-      );
 
-      const result = await response.json();
+        if (status !== "All") {
+          params.set(
+            "status",
+            status
+          );
+        }
 
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result.message ??
-            "Failed to load drivers."
+        const queryString =
+          params.toString();
+
+        const response =
+          await fetch(
+            queryString
+              ? `/api/drivers?${queryString}`
+              : "/api/drivers",
+            {
+              cache: "no-store",
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ??
+              "Failed to load drivers."
+          );
+        }
+
+        setDriverList(
+          Array.isArray(
+            result.data
+          )
+            ? result.data
+            : []
         );
+      } catch (error) {
+        console.error(
+          "Failed to load drivers:",
+          error
+        );
+
+        setDriverList([]);
+      } finally {
+        setLoading(false);
       }
-
-      setDriverList(
-        Array.isArray(result.data)
-          ? result.data
-          : []
-      );
-    } catch (error) {
-      console.error(
-        "Failed to load drivers:",
-        error
-      );
-
-      setDriverList([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [search, status]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchDrivers();
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [fetchDrivers]);
-
-  const filteredDrivers = useMemo(
-    () => driverList,
-    [driverList]
+    },
+    [search, status]
   );
 
-  const activeDrivers = driverList.filter(
-    (driver) =>
-      driver.status === "Active"
-  ).length;
+  useEffect(() => {
+    const timer =
+      setTimeout(() => {
+        void fetchDrivers();
+      }, 250);
 
-  const inactiveDrivers = driverList.filter(
-    (driver) =>
-      driver.status === "Inactive"
-  ).length;
+    return () =>
+      clearTimeout(timer);
+  }, [fetchDrivers]);
 
-  function openDriver(driver: Driver) {
+  const filteredDrivers =
+    useMemo(
+      () => driverList,
+      [driverList]
+    );
+
+  function openDriver(
+    driver: Driver
+  ) {
     setSelectedDriver(driver);
     setDrawerOpen(true);
   }
@@ -127,17 +156,93 @@ export default function DriversPage() {
     setSelectedDriver(null);
   }
 
+  function openEdit(
+    driver: Driver
+  ) {
+    setEditDriver(driver);
+    setEditModalOpen(true);
+  }
+
+  function closeEdit() {
+    setEditModalOpen(false);
+    setEditDriver(null);
+  }
+
+  async function handleDelete(
+    driver: Driver
+  ) {
+    const confirmed =
+      window.confirm(
+        `Delete driver "${driver.name}"?\n\nThe driver will be removed from the active driver list and the assigned vehicle will become available again under its vendor.`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response =
+        await fetch(
+          "/api/drivers",
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              id: driver.id,
+            }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result.success
+      ) {
+        throw new Error(
+          result.message ??
+            "Failed to delete driver."
+        );
+      }
+
+      alert(
+        "Driver deleted successfully. The assigned vehicle is now available again."
+      );
+
+      await fetchDrivers();
+    } catch (error) {
+      console.error(
+        "Failed to delete driver:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete driver."
+      );
+    }
+  }
+
   return (
     <DashboardLayout>
       <DriverHeader
-        totalDrivers={driverList.length}
+        totalDrivers={
+          driverList.length
+        }
         onAddDriver={() =>
           setModalOpen(true)
         }
       />
 
       <DriverStats
-        totalDrivers={driverList.length}
+        totalDrivers={
+          driverList.length
+        }
       />
 
       <DriverFilters
@@ -153,8 +258,12 @@ export default function DriversPage() {
         </div>
       ) : (
         <DriverTable
-          drivers={filteredDrivers}
+          drivers={
+            filteredDrivers
+          }
           onView={openDriver}
+          onEdit={openEdit}
+          onDelete={handleDelete}
         />
       )}
 
@@ -167,6 +276,17 @@ export default function DriversPage() {
         <DriverForm />
       </AddDriverModal>
 
+      <EditDriverModal
+        isOpen={
+          editModalOpen
+        }
+        driver={editDriver}
+        onClose={closeEdit}
+        onSaved={() =>
+          void fetchDrivers()
+        }
+      />
+
       <DriverDetailsDrawer
         driver={selectedDriver}
         isOpen={drawerOpen}
@@ -175,35 +295,51 @@ export default function DriversPage() {
         {selectedDriver && (
           <>
             <DriverInfoCard
-              driver={selectedDriver}
+              driver={
+                selectedDriver
+              }
             />
 
             <DriverLicenseCard
-              driver={selectedDriver}
+              driver={
+                selectedDriver
+              }
             />
 
             <DriverVehicleCard
-              driver={selectedDriver}
+              driver={
+                selectedDriver
+              }
             />
 
             <DriverTripHistoryCard
-              driver={selectedDriver}
+              driver={
+                selectedDriver
+              }
             />
 
             <DriverAttendanceCard
-              driver={selectedDriver}
+              driver={
+                selectedDriver
+              }
             />
 
             <DriverPaymentCard
-              driver={selectedDriver}
+              driver={
+                selectedDriver
+              }
             />
 
             <DriverDocumentCard
-              driver={selectedDriver}
+              driver={
+                selectedDriver
+              }
             />
 
             <DriverPerformanceCard
-              driver={selectedDriver}
+              driver={
+                selectedDriver
+              }
             />
           </>
         )}

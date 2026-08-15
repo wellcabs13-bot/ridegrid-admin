@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+﻿  import { NextRequest, NextResponse } from "next/server";
 
 import { authenticate } from "@/lib/auth/middleware";
 
@@ -15,9 +15,6 @@ export async function GET(request: NextRequest) {
     const cookieToken =
       request.cookies.get(
         "ridegrid_access_token"
-      )?.value ??
-      request.cookies.get(
-        "ridegrid-token"
       )?.value;
 
     const token =
@@ -40,7 +37,10 @@ export async function GET(request: NextRequest) {
       data: user,
     });
   } catch (error) {
-    console.error("GET /api/auth/me", error);
+    console.error(
+      "GET /api/auth/me",
+      error
+    );
 
     return NextResponse.json(
       {

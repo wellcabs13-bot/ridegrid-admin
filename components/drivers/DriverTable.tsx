@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Driver } from '../../data/drivers';
 import DriverRow from './DriverRow';
@@ -6,13 +6,22 @@ import DriverRow from './DriverRow';
 interface DriverTableProps {
   drivers: Driver[];
   onView: (driver: Driver) => void;
+  onEdit: (driver: Driver) => void;
+  onDelete: (driver: Driver) => void;
 }
 
-export default function DriverTable({ drivers, onView }: DriverTableProps) {
+export default function DriverTable({
+  drivers,
+  onView,
+  onEdit,
+  onDelete,
+}: DriverTableProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-6 py-4">
-        <h2 className="text-xl font-semibold text-slate-800">Driver List</h2>
+        <h2 className="text-xl font-semibold text-slate-800">
+          Driver List
+        </h2>
 
         <p className="mt-1 text-sm text-slate-500">
           Showing {drivers.length} driver(s)
@@ -60,7 +69,13 @@ export default function DriverTable({ drivers, onView }: DriverTableProps) {
           <tbody>
             {drivers.length > 0 ? (
               drivers.map((driver) => (
-                <DriverRow key={driver.id} driver={driver} onView={onView} />
+                <DriverRow
+                  key={driver.id}
+                  driver={driver}
+                  onView={onView}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
               ))
             ) : (
               <tr>
