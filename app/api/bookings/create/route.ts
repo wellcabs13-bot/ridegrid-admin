@@ -1,7 +1,18 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+﻿import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+
+import {
+  PricingType,
+  TripType,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/auth/middleware";
+import {
+  pricingService,
+} from "@/lib/services/pricing/PricingService";
 
 export async function POST(
   request: NextRequest
@@ -14,10 +25,14 @@ export async function POST(
      */
 
     const authorization =
-      request.headers.get("authorization");
+      request.headers.get(
+        "authorization"
+      );
 
     const headerToken =
-      authorization?.startsWith("Bearer ")
+      authorization?.startsWith(
+        "Bearer "
+      )
         ? authorization.slice(7)
         : undefined;
 
@@ -62,6 +77,11 @@ export async function POST(
       dropLocation,
       pickupDateTime,
       estimatedFare,
+      distanceKm,
+      durationHours,
+      pricingType,
+      tripType,
+      couponId,
     } = body;
 
     if (
@@ -93,7 +113,8 @@ export async function POST(
     }
 
     if (
-      typeof pickupLocation !== "string" ||
+      typeof pickupLocation !==
+        "string" ||
       !pickupLocation.trim()
     ) {
       return NextResponse.json(
@@ -107,7 +128,8 @@ export async function POST(
     }
 
     if (
-      typeof dropLocation !== "string" ||
+      typeof dropLocation !==
+        "string" ||
       !dropLocation.trim()
     ) {
       return NextResponse.json(
@@ -121,7 +143,8 @@ export async function POST(
     }
 
     if (
-      typeof pickupDateTime !== "string" ||
+      typeof pickupDateTime !==
+        "string" ||
       !pickupDateTime.trim()
     ) {
       return NextResponse.json(
@@ -134,40 +157,10 @@ export async function POST(
       );
     }
 
-    if (
-      estimatedFare === undefined ||
-      estimatedFare === null ||
-      estimatedFare === ""
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Estimated fare is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const fare =
-      Number(estimatedFare);
-
-    if (
-      !Number.isFinite(fare) ||
-      fare < 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Estimated fare is invalid.",
-        },
-        { status: 400 }
-      );
-    }
-
     const pickupDate =
-      new Date(pickupDateTime);
+      new Date(
+        pickupDateTime
+      );
 
     if (
       Number.isNaN(
@@ -184,10 +177,6 @@ export async function POST(
       );
     }
 
-    /*
-     * Booking must be created for a future
-     * journey.
-     */
     if (
       pickupDate.getTime() <=
       Date.now()
@@ -203,17 +192,92 @@ export async function POST(
     }
 
     /*
+     * estimatedFare is retained as a compatibility
+     * field for existing clients, but it is NOT
+     * trusted as the authoritative booking price.
+     */
+    if (
+      estimatedFare !==
+        undefined &&
+      estimatedFare !== null &&
+      estimatedFare !== ""
+    ) {
+      const clientFare =
+        Number(estimatedFare);
+
+      if (
+        !Number.isFinite(
+          clientFare
+        ) ||
+        clientFare < 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Estimated fare is invalid.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const validPricingType =
+      Object.values(
+        PricingType
+      ).includes(
+        pricingType as PricingType
+      )
+        ? (pricingType as PricingType)
+        : PricingType.LOCAL;
+
+    const validTripType =
+      Object.values(
+        TripType
+      ).includes(
+        tripType as TripType
+      )
+        ? (tripType as TripType)
+        : TripType.ONEWAY;
+
+    const normalizedDistanceKm =
+      typeof distanceKm ===
+        "number" &&
+      Number.isFinite(
+        distanceKm
+      )
+        ? Math.max(
+            distanceKm,
+            0
+          )
+        : 0;
+
+    const normalizedDurationHours =
+      typeof durationHours ===
+        "number" &&
+      Number.isFinite(
+        durationHours
+      )
+        ? Math.max(
+            durationHours,
+            0
+          )
+        : 0;
+
+    /*
      * ============================================================
      * 3. CUSTOMER VALIDATION
      * ============================================================
      */
 
     const customer =
-      await prisma.customer.findUnique({
-        where: {
-          userId: user.id,
-        },
-      });
+      await prisma.customer.findUnique(
+        {
+          where: {
+            userId: user.id,
+          },
+        }
+      );
 
     if (
       !customer ||
@@ -236,18 +300,20 @@ export async function POST(
      */
 
     const vendor =
-      await prisma.vendor.findFirst({
-        where: {
-          id: vendorId,
-          deletedAt: null,
-          isApproved: true,
-        },
-        select: {
-          id: true,
-          companyName: true,
-          isApproved: true,
-        },
-      });
+      await prisma.vendor.findFirst(
+        {
+          where: {
+            id: vendorId,
+            deletedAt: null,
+            isApproved: true,
+          },
+          select: {
+            id: true,
+            companyName: true,
+            isApproved: true,
+          },
+        }
+      );
 
     if (!vendor) {
       return NextResponse.json(
@@ -267,19 +333,21 @@ export async function POST(
      */
 
     const vehicle =
-      await prisma.vehicle.findFirst({
-        where: {
-          id: vehicleId,
-          vendorId: vendor.id,
-          deletedAt: null,
-          isVerified: true,
-          status: "AVAILABLE",
-        },
-        include: {
-          vendor: true,
-          driver: true,
-        },
-      });
+      await prisma.vehicle.findFirst(
+        {
+          where: {
+            id: vehicleId,
+            vendorId: vendor.id,
+            deletedAt: null,
+            isVerified: true,
+            status: "AVAILABLE",
+          },
+          include: {
+            vendor: true,
+            driver: true,
+          },
+        }
+      );
 
     if (!vehicle) {
       return NextResponse.json(
@@ -296,15 +364,12 @@ export async function POST(
      * ============================================================
      * 6. DRIVER VALIDATION
      * ============================================================
-     *
-     * The marketplace listing is authoritative for the
-     * assigned driver. The client cannot substitute another
-     * driver.
      */
 
     if (
       driverId &&
-      vehicle.driverId !== driverId
+      vehicle.driverId !==
+        driverId
     ) {
       return NextResponse.json(
         {
@@ -318,7 +383,7 @@ export async function POST(
 
     /*
      * ============================================================
-     * 7. VEHICLE/VENDOR OWNERSHIP VALIDATION
+     * 7. VEHICLE/VENDOR OWNERSHIP
      * ============================================================
      */
 
@@ -338,36 +403,77 @@ export async function POST(
 
     /*
      * ============================================================
-     * 8. ATOMIC BOOKING CREATION
+     * 8. SERVER-SIDE PRICING
      * ============================================================
-     *
-     * Serializable isolation protects the booking transaction
-     * from concurrent booking attempts.
+     */
+
+    const pricing =
+      await pricingService.calculate(
+        {
+          vendorId:
+            vendor.id,
+
+          vehicleId:
+            vehicle.id,
+
+          vehicleCategory:
+            vehicle.category,
+
+          pricingType:
+            validPricingType,
+
+          tripType:
+            validTripType,
+
+          distanceKm:
+            normalizedDistanceKm,
+
+          durationHours:
+            normalizedDurationHours,
+
+          pickupDateTime:
+            pickupDate,
+
+          couponId:
+            typeof couponId ===
+            "string"
+              ? couponId
+              : undefined,
+
+          customerId:
+            customer.id,
+        }
+      );
+
+    /*
+     * ============================================================
+     * 9. ATOMIC BOOKING CREATION
+     * ============================================================
      */
 
     const booking =
       await prisma.$transaction(
         async (tx) => {
-          /*
-           * Re-check vehicle availability inside
-           * the transaction.
-           */
           const currentVehicle =
-            await tx.vehicle.findFirst({
-              where: {
-                id: vehicle.id,
-                vendorId: vendor.id,
-                deletedAt: null,
-                isVerified: true,
-                status: "AVAILABLE",
-              },
-              select: {
-                id: true,
-                vendorId: true,
-                driverId: true,
-                status: true,
-              },
-            });
+            await tx.vehicle.findFirst(
+              {
+                where: {
+                  id: vehicle.id,
+                  vendorId:
+                    vendor.id,
+                  deletedAt: null,
+                  isVerified: true,
+                  status:
+                    "AVAILABLE",
+                },
+                select: {
+                  id: true,
+                  vendorId: true,
+                  driverId: true,
+                  status: true,
+                },
+              }
+            );
 
           if (!currentVehicle) {
             throw new BookingConflictError(
@@ -375,10 +481,6 @@ export async function POST(
             );
           }
 
-          /*
-           * Re-check driver assignment inside
-           * the transaction.
-           */
           if (
             driverId &&
             currentVehicle.driverId !==
@@ -389,86 +491,100 @@ export async function POST(
             );
           }
 
-          /*
-           * Prevent another active booking from
-           * using the same vehicle at the exact
-           * same pickup time.
-           *
-           * Current schema does not contain journey
-           * duration/endDateTime, so overlap detection
-           * beyond the exact pickup timestamp must be
-           * implemented when journey-duration fields
-           * are introduced.
-           */
           const conflictingBooking =
-            await tx.booking.findFirst({
-              where: {
-                vehicleId:
-                  currentVehicle.id,
+            await tx.booking.findFirst(
+              {
+                where: {
+                  vehicleId:
+                    currentVehicle.id,
 
-                pickupDateTime:
-                  pickupDate,
+                  pickupDateTime:
+                    pickupDate,
 
-                deletedAt: null,
+                  deletedAt: null,
 
-                status: {
-                  in: [
-                    "PENDING",
-                    "CONFIRMED",
-                    "DRIVER_ASSIGNED",
-                    "TRIP_STARTED",
-                  ],
+                  status: {
+                    in: [
+                      "PENDING",
+                      "CONFIRMED",
+                      "DRIVER_ASSIGNED",
+                      "TRIP_STARTED",
+                    ],
+                  },
                 },
-              },
-              select: {
-                id: true,
-                bookingNumber: true,
-                status: true,
-              },
-            });
+                select: {
+                  id: true,
+                  bookingNumber:
+                    true,
+                  status: true,
+                },
+              }
+            );
 
-          if (conflictingBooking) {
+          if (
+            conflictingBooking
+          ) {
             throw new BookingConflictError(
               "This vehicle is already booked for the selected pickup time."
             );
           }
 
-          /*
-           * Create booking.
-           */
           const createdBooking =
-            await tx.booking.create({
-              data: {
-                customerId:
-                  customer.id,
+            await tx.booking.create(
+              {
+                data: {
+                  customerId:
+                    customer.id,
 
-                vendorId:
-                  currentVehicle.vendorId,
+                  vendorId:
+                    currentVehicle.vendorId,
 
-                vehicleId:
-                  currentVehicle.id,
+                  vehicleId:
+                    currentVehicle.id,
 
-                driverId:
-                  currentVehicle.driverId ??
-                  null,
+                  driverId:
+                    currentVehicle.driverId ??
+                    null,
 
-                pickupLocation:
-                  pickupLocation.trim(),
+                  pickupLocation:
+                    pickupLocation.trim(),
 
-                dropLocation:
-                  dropLocation.trim(),
+                  dropLocation:
+                    dropLocation.trim(),
 
-                pickupDateTime:
-                  pickupDate,
+                  pickupDateTime:
+                    pickupDate,
 
-                estimatedFare:
-                  fare,
-              },
-            });
+                  estimatedFare:
+                    pricing.finalFare,
 
-          /*
-           * Create initial status history.
-           */
+                  baseFare:
+                    pricing.baseFare,
+
+                  taxAmount:
+                    pricing.taxAmount,
+
+                  discountAmount:
+                    pricing.discountAmount,
+
+                  extraCharges:
+                    pricing.extraCharges,
+
+                  finalFare:
+                    pricing.finalFare,
+
+                  vendorEarning:
+                    pricing.vendorEarning,
+
+                  platformCommission:
+                    pricing.platformCommission,
+
+                  driverPayout:
+                    pricing.driverPayout,
+                },
+              }
+            );
+
           await tx.bookingStatusHistory.create(
             {
               data: {
@@ -485,7 +601,7 @@ export async function POST(
                   user.id,
 
                 remarks:
-                  "Marketplace booking created.",
+                  "Marketplace booking created with server-side pricing.",
               },
             }
           );
@@ -500,7 +616,7 @@ export async function POST(
 
     /*
      * ============================================================
-     * 9. SUCCESS RESPONSE
+     * 10. SUCCESS RESPONSE
      * ============================================================
      */
 
@@ -514,12 +630,6 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
-    /*
-     * ============================================================
-     * 10. BUSINESS CONFLICT
-     * ============================================================
-     */
-
     if (
       error instanceof
       BookingConflictError
@@ -527,17 +637,12 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          message: error.message,
+          message:
+            error.message,
         },
         { status: 409 }
       );
     }
-
-    /*
-     * ============================================================
-     * 11. DATABASE / SYSTEM ERROR
-     * ============================================================
-     */
 
     console.error(
       "POST /api/bookings/create error:",
@@ -555,18 +660,13 @@ export async function POST(
   }
 }
 
-/**
- * Business-level booking conflict.
- *
- * This is intentionally separate from generic
- * database/system errors so the frontend can
- * distinguish "vehicle unavailable" from
- * "server failure".
- */
 class BookingConflictError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string
+  ) {
     super(message);
     this.name =
       "BookingConflictError";
   }
 }
+
