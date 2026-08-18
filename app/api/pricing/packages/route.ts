@@ -235,10 +235,76 @@ export async function POST(
       enumValue(tripType, TripType)
         ? tripType
         : TripType.ONEWAY;
-    if (
-      typeof city !== "string" ||
-      !city.trim()
-    ) {
+
+    const isOutstationOneway =
+      pricingType === PricingType.OUTSTATION &&
+      effectiveTripType === TripType.ONEWAY;
+
+    /*
+     * OUTSTATION ONEWAY canonical route:
+     * From City -> To City
+     *
+     * `city` and `fromCity` are normalized so the API
+     * remains compatible with the existing PricingPackage
+     * database model.
+     */
+    const normalizedFromCity =
+      isOutstationOneway
+        ? (
+            typeof fromCity === "string" &&
+            fromCity.trim()
+              ? fromCity.trim()
+              : typeof city === "string"
+                ? city.trim()
+                : ""
+          )
+        : typeof city === "string"
+          ? city.trim()
+          : "";
+
+    const normalizedToCity =
+      isOutstationOneway &&
+      typeof toCity === "string"
+        ? toCity.trim()
+        : "";
+
+    if (isOutstationOneway) {
+      if (!normalizedFromCity) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "From City is required for Outstation One Way pricing.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!normalizedToCity) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "To City is required for Outstation One Way pricing.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (
+        normalizedFromCity.toLowerCase() ===
+        normalizedToCity.toLowerCase()
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "From City and To City must be different.",
+          },
+          { status: 400 }
+        );
+      }
+    } else if (!normalizedFromCity) {
       return NextResponse.json(
         {
           success: false,
@@ -247,50 +313,6 @@ export async function POST(
         { status: 400 }
       );
     }
-    if (
-      pricingType === PricingType.OUTSTATION &&
-      effectiveTripType === TripType.ONEWAY
-    ) {
-      if (
-        typeof fromCity !== "string" ||
-        !fromCity.trim()
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "From City is required for Outstation One Way pricing.",
-          },
-          { status: 400 }
-        );
-      }
-
-      if (
-        typeof toCity !== "string" ||
-        !toCity.trim()
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "To City is required for Outstation One Way pricing.",
-          },
-          { status: 400 }
-        );
-      }
-
-      if (
-        fromCity.trim().toLowerCase() ===
-        toCity.trim().toLowerCase()
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "From City and To City must be different.",
-          },
-          { status: 400 }
-        );
-      }
-    }
-
     if (
       !enumValue(
         pricingType,
@@ -316,19 +338,21 @@ export async function POST(
         ? chargeType
         : ChargeType.FIXED;
 
-    if (
-      typeof packageName !==
-        "string" ||
-      !packageName.trim()
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Package name is required.",
-        },
-        { status: 400 }
-      );
+    if (!isOutstationOneway) {
+      if (
+        typeof packageName !==
+          "string" ||
+        !packageName.trim()
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Package name is required.",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const base =
@@ -466,10 +490,12 @@ export async function POST(
       });
 
     const normalizedCity =
-      city.trim();
+      normalizedFromCity;
 
     const normalizedPackageName =
-      packageName.trim();
+      isOutstationOneway
+        ? `${normalizedFromCity} to ${normalizedToCity}`
+        : packageName.trim();
 
     const existing =
       await prisma.pricingPackage.findFirst({
@@ -629,6 +655,10 @@ export async function POST(
     );
   }
 }
+
+
+
+
 
 
 

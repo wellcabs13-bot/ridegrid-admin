@@ -360,32 +360,69 @@ export default function PricingPage() {
       return;
     }
 
-    if (
-      form.pricingType !== "OUTSTATION" ||
-      form.tripType !== "ONEWAY"
-    ) {
-      if (!form.city) {
-        setMessage("Select a pricing city.");
-        return;
-      }
+    const pricingType = form.pricingType;
+    const tripType =
+      pricingType === "OUTSTATION"
+        ? form.tripType
+        : "ONEWAY";
+
+    const isOutstationOneway =
+      pricingType === "OUTSTATION" &&
+      tripType === "ONEWAY";
+
+    const isOutstationRoundtrip =
+      pricingType === "OUTSTATION" &&
+      tripType === "ROUNDTRIP";
+
+    const saveFromCity = isOutstationOneway || isOutstationRoundtrip
+      ? String(form.fromCity || "").trim()
+      : String(form.city || "").trim();
+
+    if (!saveFromCity) {
+      setMessage(
+        isOutstationOneway || isOutstationRoundtrip
+          ? "Select a From City."
+          : "Select a pricing city."
+      );
+      return;
     }
 
-    if (
-      form.pricingType !== "OUTSTATION" ||
-      form.tripType !== "ONEWAY"
-    ) {
-      if (!form.packageName.trim()) {
+    if (isOutstationOneway) {
+      const toCity = String(form.toCity || "").trim();
+
+      if (!toCity) {
+        setMessage("Select a To City.");
+        return;
+      }
+
+      if (
+        saveFromCity.toLowerCase() ===
+        toCity.toLowerCase()
+      ) {
         setMessage(
-          "Select or enter a package name."
+          "From City and To City must be different."
         );
         return;
       }
     }
 
+    if (isOutstationRoundtrip && !String(form.toCity || "").trim()) {
+      setMessage("Select a Visit City.");
+      return;
+    }
+
     if (
-      !form.baseFare ||
-      Number(form.baseFare) < 0
+      !isOutstationOneway &&
+      !isOutstationRoundtrip &&
+      !String(form.packageName || "").trim()
     ) {
+      setMessage("Select or enter a package name.");
+      return;
+    }
+
+    const fare = Number(form.baseFare);
+
+    if (!Number.isFinite(fare) || fare < 0) {
       setMessage(
         "Valid base package price is required."
       );
@@ -393,8 +430,8 @@ export default function PricingPage() {
     }
 
     if (
-      form.pricingType === "AIRPORT" &&
-      !form.airportName.trim()
+      pricingType === "AIRPORT" &&
+      !String(form.airportName || "").trim()
     ) {
       setMessage(
         "Airport / Terminal is required."
@@ -402,120 +439,220 @@ export default function PricingPage() {
       return;
     }
 
+    /*
+     * ROUND TRIP:
+     * Always 300 KM / 12 Hours.
+     *
+     * If Visit City = ALL, create one pricing record
+     * for every available destination city.
+     */
+    let destinationCities: string[] = [];
+
+    if (isOutstationRoundtrip) {
+      const selectedVisitCity =
+        String(form.toCity || "").trim();
+
+      if (
+        selectedVisitCity.toUpperCase() === "ALL"
+      ) {
+        destinationCities = routeCities
+          .map((city) => String(city).trim())
+          .filter(
+            (city) =>
+              city &&
+              city.toLowerCase() !==
+                saveFromCity.toLowerCase()
+          );
+      } else {
+        destinationCities = [
+          selectedVisitCity,
+        ];
+      }
+
+      if (!destinationCities.length) {
+        setMessage(
+          "No destination cities are available."
+        );
+        return;
+      }
+    } else if (isOutstationOneway) {
+      destinationCities = [
+        String(form.toCity || "").trim(),
+      ];
+    } else {
+      destinationCities = [""];
+    }
+
     setLoading(true);
 
     try {
-      const response = await fetch(
-        "/api/pricing/packages",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            vendorId,
-            vehicleId,
-            city:
-              form.pricingType === "OUTSTATION" &&
-              form.tripType === "ONEWAY"
-                ? form.fromCity
-                : form.city,
-                        fromCity:
-              form.pricingType === "OUTSTATION" &&
-              form.tripType === "ONEWAY"
-                ? form.fromCity
-                : null,
+      let savedCount = 0;
 
-            toCity:
-              form.pricingType === "OUTSTATION" &&
-              form.tripType === "ONEWAY"
-                ? form.toCity
-                : null,
-pricingType:
-              form.pricingType,
-            tripType:
-              form.pricingType ===
-              "OUTSTATION"
-                ? form.tripType
-                : "ONEWAY",
-            chargeType: "FIXED",
-            packageType:
-              form.packageType,
-            packageName:
-              form.pricingType === "OUTSTATION" &&
-              form.tripType === "ONEWAY"
-                ? form.fromCity + " to " + form.toCity
-                : form.packageName.trim(),
-            includedHours:
-              form.includedHours,
-            includedKm:
-              form.includedKm,
-            baseFare:
-              Number(form.baseFare),
-            extraKmRate:
-              form.extraKmRate,
-            extraHourRate:
-              form.extraHourRate,
-            driverAllowance:
-              form.pricingType === "LOCAL"
+      for (const destination of destinationCities) {
+        const payload = {
+          vendorId,
+          vehicleId,
+
+          city: saveFromCity,
+
+          fromCity:
+            isOutstationOneway ||
+            isOutstationRoundtrip
+              ? saveFromCity
+              : null,
+
+          toCity:
+            isOutstationOneway ||
+            isOutstationRoundtrip
+              ? destination
+              : null,
+
+          pricingType,
+
+          tripType,
+
+          chargeType: "FIXED",
+
+          packageType:
+            isOutstationOneway
+              ? "OUTSTATION_ONEWAY"
+              : isOutstationRoundtrip
+                ? "OUTSTATION_ROUNDTRIP"
+                : form.packageType,
+
+          packageName:
+            isOutstationOneway ||
+            isOutstationRoundtrip
+              ? `${saveFromCity} to ${destination}`
+              : String(
+                  form.packageName || ""
+                ).trim(),
+
+          includedHours:
+            isOutstationRoundtrip
+              ? "12"
+              : isOutstationOneway
                 ? null
-                : form.driverAllowance,
+                : form.includedHours,
 
-            nightCharge:
-              form.pricingType === "LOCAL"
+          includedKm:
+            isOutstationRoundtrip
+              ? "300"
+              : isOutstationOneway
                 ? null
-                : form.nightCharge,
-            tollCharge:
-              form.pricingType === "LOCAL"
-                ? null
-                : form.tollCharge,
+                : form.includedKm,
 
-            parkingCharge:
-              form.pricingType === "LOCAL"
-                ? null
-                : form.parkingCharge,
+          baseFare: fare,
 
-            otherCharges:
-              form.pricingType === "LOCAL"
-                ? null
-                : form.otherCharges,
-            airportName:
-              form.airportName,
-            transferDirection:
-              form.transferDirection,
-            isActive:
-              form.isActive,
-          }),
-        }
-      );
+          extraKmRate:
+            isOutstationOneway ||
+            isOutstationRoundtrip
+              ? form.extraKmRate
+              : form.extraKmRate,
 
-      const json =
-        await response.json();
+          extraHourRate:
+            isOutstationOneway ||
+            isOutstationRoundtrip
+              ? form.extraHourRate
+              : form.extraHourRate,
 
-      if (!response.ok) {
-        throw new Error(
-          json?.message ||
-            "Failed to save pricing structure."
+          driverAllowance:
+            pricingType === "LOCAL"
+              ? null
+              : form.driverAllowance,
+
+          nightCharge:
+            pricingType === "LOCAL"
+              ? null
+              : form.nightCharge,
+
+          tollCharge:
+            pricingType === "LOCAL"
+              ? null
+              : form.tollCharge,
+
+          parkingCharge:
+            pricingType === "LOCAL"
+              ? null
+              : form.parkingCharge,
+
+          otherCharges:
+            pricingType === "LOCAL"
+              ? null
+              : form.otherCharges,
+
+          airportName:
+            form.airportName,
+
+          transferDirection:
+            form.transferDirection,
+
+          isActive:
+            form.isActive,
+        };
+
+        console.log(
+          "RIDEGRID PRICING SAVE PAYLOAD:",
+          payload
         );
-      }
 
-      setMessage(
-        "Pricing structure saved successfully."
-      );
+        const response = await fetch(
+          "/api/pricing/packages",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        const json =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            json?.message ||
+              `Failed to save ${saveFromCity} to ${destination}.`
+          );
+        }
+
+        savedCount++;
+      }
 
       await loadPackages(
         vendorId,
         vehicleId
       );
 
-      setForm({
+      setMessage(
+        isOutstationRoundtrip &&
+        String(form.toCity || "")
+          .trim()
+          .toUpperCase() === "ALL"
+          ? `Round Trip pricing saved successfully for ${savedCount} cities.`
+          : "Pricing structure saved successfully."
+      );
+
+      setForm((current) => ({
         ...initialForm,
-        city: form.city,
+        city: current.city,
         pricingType:
-          form.pricingType,
-      });
+          current.pricingType,
+        tripType:
+          current.tripType,
+        fromCity:
+          current.fromCity,
+        toCity: "",
+      }));
+
     } catch (error) {
+      console.error(
+        "RIDEGRID PRICING SAVE ERROR:",
+        error
+      );
+
       setMessage(
         error instanceof Error
           ? error.message
@@ -929,7 +1066,156 @@ pricingType:
 
             </div>
 
-            {(form.pricingType === "LOCAL" || form.pricingType === "AIRPORT" || (form.pricingType === "OUTSTATION" && form.tripType === "ROUNDTRIP")) && (
+            {form.pricingType === "OUTSTATION" &&
+              form.tripType === "ROUNDTRIP" && (
+              <div className="mt-6 rounded-lg border border-slate-200 p-5">
+
+                <h3 className="text-lg font-semibold text-slate-900">
+                  OUTSTATION ROUND TRIP
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Same-day return trip from the selected From City to the Visit City and back.
+                </p>
+
+                <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                  <Select
+                    label="From City"
+                    value={form.fromCity}
+                    onChange={(value) =>
+                      update("fromCity", value)
+                    }
+                    options={routeCities.map((city) => ({
+                      label: city,
+                      value: city,
+                    }))}
+                  />
+
+                  <Select
+  label="Visit City"
+  value={form.toCity}
+  onChange={(value) =>
+    update("toCity", value)
+  }
+  options={[
+    {
+      label: "All Cities",
+      value: "ALL",
+    },
+    ...routeCities
+      .filter(
+        (city) =>
+          city !== form.fromCity
+      )
+      .map((city) => ({
+        label: city,
+        value: city,
+      })),
+  ]}
+/>
+
+                </div>
+
+                <div className="mt-5 rounded-lg border border-slate-200 p-4">
+
+                  <h4 className="font-semibold text-slate-900">
+                    Round Trip Package
+                  </h4>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+
+                    <div>
+                      <label className="text-xs font-medium text-slate-600">
+                        Included KM
+                      </label>
+
+                      <div className="mt-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                        300 KM
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-slate-600">
+                        Included Hours
+                      </label>
+
+                      <div className="mt-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                        12 Hours
+                      </div>
+                    </div>
+
+                    <Input
+                      label="Base Package Price"
+                      value={form.baseFare}
+                      onChange={(value) =>
+                        update("baseFare", value)
+                      }
+                      placeholder="₹ 0.00"
+                      required
+                    />
+
+                  </div>
+
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                  <Input
+                    label="Extra KM Cost"
+                    value={form.extraKmRate}
+                    onChange={(value) =>
+                      update("extraKmRate", value)
+                    }
+                    placeholder="₹ 0.00 / KM"
+                  />
+
+                  <Input
+                    label="Extra Hour Cost"
+                    value={form.extraHourRate}
+                    onChange={(value) =>
+                      update("extraHourRate", value)
+                    }
+                    placeholder="₹ 0.00 / Hour"
+                  />
+
+                </div>
+
+                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+
+                  <h4 className="font-semibold text-slate-900">
+                    Important Note
+                  </h4>
+
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
+
+                    <li>
+                      Package includes up to <strong>300 KM</strong> and <strong>12 Hours</strong>.
+                    </li>
+
+                    <li>
+                      Extra KM above 300 KM will be charged at the configured Extra KM Cost.
+                    </li>
+
+                    <li>
+                      Extra Hours above 12 Hours will be charged at the configured Extra Hour Cost.
+                    </li>
+
+                    <li>
+                      Toll and Parking charges are extra.
+                    </li>
+
+                    <li>
+                      Any other applicable charges are extra.
+                    </li>
+
+                  </ul>
+
+                </div>
+
+              </div>
+            )}
+            {(form.pricingType === "LOCAL" || form.pricingType === "AIRPORT") && (
               <div className="mt-6 rounded-lg border border-slate-200 p-5">
 
                 <h3 className="font-semibold">
@@ -1286,6 +1572,13 @@ function Info({
     </div>
   );
 }
+
+
+
+
+
+
+
 
 
 

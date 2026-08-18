@@ -48,6 +48,82 @@ export async function GET(
     const vehicleId =
       searchParams.get("vehicleId") ||
       undefined;
+    const section =
+      searchParams.get("section") || "dashboard";
+
+    const corporateId =
+      searchParams.get("corporateId") || undefined;
+
+    if (section === "marketplace") {
+      const data =
+        await analyticsService.getMarketplaceAnalytics({
+          from,
+          to,
+          city,
+          vendorId,
+          driverId,
+          vehicleId,
+        });
+
+      return NextResponse.json({
+        success: true,
+        data,
+      });
+    }
+
+    if (section === "finance") {
+      const data =
+        await analyticsService.getFinanceAnalytics({
+          from,
+          to,
+          city,
+          vendorId,
+          driverId,
+          vehicleId,
+        });
+
+      return NextResponse.json({
+        success: true,
+        data,
+      });
+    }
+
+    if (section === "corporate") {
+      const data =
+        await analyticsService.getCorporateAnalytics(
+          {
+            from,
+            to,
+            city,
+            vendorId,
+            driverId,
+            vehicleId,
+          },
+          corporateId
+        );
+
+      return NextResponse.json({
+        success: true,
+        data,
+      });
+    }
+
+    if (section === "predictive") {
+      const data =
+        await analyticsService.getPredictiveInsights({
+          from,
+          to,
+          city,
+          vendorId,
+          driverId,
+          vehicleId,
+        });
+
+      return NextResponse.json({
+        success: true,
+        data,
+      });
+    }
 
     const dashboard =
       await analyticsService.getDashboard({
