@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -14,6 +14,22 @@ interface Props {
   item: Item;
 }
 
+function sectionSlug(title: string) {
+  return title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function childHref(child: NavigationChild) {
+  if (!child.href) return '#';
+
+  const separator = child.href.includes('?') ? '&' : '?';
+
+  return `${child.href}${separator}section=${sectionSlug(child.title)}`;
+}
+
 export default function NavigationItem({ item }: Props) {
   const pathname = usePathname();
   const Icon = item.icon;
@@ -21,15 +37,24 @@ export default function NavigationItem({ item }: Props) {
   const hasChildren = Boolean(item.children?.length);
 
   const [open, setOpen] = useState(item.defaultOpen ?? false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+
+  /*
+   * Read the section query parameter only in the browser.
+   * This avoids Next.js useSearchParams() CSR bailout requirements.
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setActiveSection(params.get('section'));
+  }, [pathname]);
 
   const active =
-    item.href === '/'
-      ? pathname === '/'
-      : Boolean(
-          item.href &&
-            (pathname === item.href ||
-              pathname.startsWith(`${item.href}/`))
-        );
+    !hasChildren &&
+    (
+      item.href === '/'
+        ? pathname === '/'
+        : Boolean(item.href && pathname === item.href)
+    );
 
   return (
     <div className="space-y-1">
@@ -74,36 +99,22 @@ export default function NavigationItem({ item }: Props) {
       {hasChildren && open && (
         <div className="ml-8 space-y-1 border-l border-slate-700 pl-4">
           {item.children!.map((child: NavigationChild) => {
-            const childActive =
-              child.href &&
-              (pathname === child.href ||
-                pathname.startsWith(`${child.href}/`));
-
-            if (child.disabled) {
-              return (
-                <div
-                  key={child.title}
-                  className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-slate-500"
-                >
-                  <span>{child.title}</span>
-
-                  {child.badge && (
-                    <span className="rounded bg-yellow-500/20 px-2 py-1 text-[10px] font-semibold text-yellow-300">
-                      {child.badge}
-                    </span>
-                  )}
-                </div>
-              );
-            }
-
-            if (!child.href) {
+            if (child.disabled || !child.href) {
               return null;
             }
+
+            const section = sectionSlug(child.title);
+            const href = childHref(child);
+
+            const childActive =
+              pathname === child.href &&
+              activeSection === section;
 
             return (
               <Link
                 key={child.title}
-                href={child.href}
+                href={href}
+                onClick={() => setActiveSection(section)}
                 className={`block rounded-lg px-3 py-2 text-sm transition ${
                   childActive
                     ? 'bg-blue-500 text-white'
