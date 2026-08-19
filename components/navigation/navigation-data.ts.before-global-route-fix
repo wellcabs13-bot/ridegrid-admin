@@ -1,0 +1,299 @@
+﻿import { NavigationGroup } from "./navigation-types";
+import { NavigationIcons } from "./navigation-icons";
+
+export const navigation: NavigationGroup[] = [
+  // ==========================
+  // Dashboard
+  // ==========================
+  {
+    title: "Dashboard",
+    defaultOpen: true,
+    items: [
+      {
+        title: "Dashboard",
+        href: "/crm/leads",
+        icon: NavigationIcons.dashboard,
+      },
+    ],
+  },
+
+  // ==========================
+  // Operations
+  // ==========================
+  {
+    title: "Operations",
+    defaultOpen: true,
+    items: [
+      {
+        title: "Bookings",
+        href: "/crm/leads",
+        icon: NavigationIcons.bookings,
+        children: [
+          { title: "All Bookings", href: "/crm/leads" },
+          { title: "New Booking", href: "/crm/leads" },
+          { title: "Trip Monitor", href: "/crm/leads" },
+          { title: "Booking Calendar", href: "/crm/leads" },
+        ],
+      },
+      {
+        title: "Customers",
+        href: "/crm/leads",
+        icon: NavigationIcons.customers,
+        children: [
+          { title: "Customer List", href: "/crm/leads" },
+          { title: "Customer Wallet", href: "/crm/leads" },
+          { title: "Reviews", href: "/crm/leads" },
+          { title: "Loyalty", href: "/crm/leads" },
+        ],
+      },
+      {
+        title: "Drivers",
+        href: "/crm/leads",
+        icon: NavigationIcons.drivers,
+        children: [
+          { title: "Driver List", href: "/crm/leads" },
+          { title: "Driver Documents", href: "/crm/leads" },
+          { title: "Attendance", href: "/crm/leads" },
+          { title: "Performance", href: "/crm/leads" },
+        ],
+      },
+      {
+        title: "Vehicles",
+        href: "/crm/leads",
+        icon: NavigationIcons.vehicles,
+        children: [
+          { title: "Vehicle List", href: "/crm/leads" },
+          { title: "Maintenance", href: "/crm/leads" },
+          { title: "Insurance", href: "/crm/leads" },
+          { title: "GPS Tracking", href: "/crm/leads" },
+        ],
+      },
+      {
+        title: "Vendors",
+        href: "/crm/leads",
+        icon: NavigationIcons.vendors,
+        children: [
+          { title: "Vendor List", href: "/crm/leads" },
+          { title: "Vendor Wallet", href: "/crm/leads" },
+          { title: "Vendor Payouts", href: "/crm/leads" },
+          { title: "Vendor Performance", href: "/crm/leads" },
+        ],
+      },
+    ],
+  },
+
+  // ==========================
+  // Corporate
+  // ==========================
+  {
+    title: "Corporate",
+    items: [
+      {
+        title: "Corporate",
+        href: "/crm/leads",
+        icon: NavigationIcons.corporate,
+        children: [
+          { title: "Companies", href: "/crm/leads" },
+          { title: "Employees", href: "/crm/leads" },
+          { title: "Travel Policy", href: "/crm/leads" },
+          { title: "Corporate Wallet", href: "/crm/leads" },
+        ],
+      },
+    ],
+  },
+
+  // ==========================
+  // Finance
+  // ==========================
+  {
+    title: "Finance",
+    items: [
+      {
+        title: "Finance",
+        href: "/crm/leads",
+        icon: NavigationIcons.finance,
+        children: [
+          { title: "Dashboard", href: "/crm/leads" },
+          { title: "Transactions", href: "/crm/leads" },
+          { title: "Revenue", href: "/crm/leads" },
+          { title: "Expenses", href: "/crm/leads" },
+          { title: "Wallet", href: "/crm/leads" },
+          { title: "Settlements", href: "/crm/leads" },
+          { title: "Invoices", href: "/crm/leads" },
+        ],
+      },
+      {
+        title: "Reports",
+        href: "/crm/leads",
+        icon: NavigationIcons.reports,
+        children: [
+          { title: "Financial Reports", href: "/crm/leads" },
+          { title: "GST Reports", href: "/crm/leads" },
+          { title: "Tax Reports", href: "/crm/leads" },
+        ],
+      },
+    ],
+  },
+
+  // ==========================
+  // Analytics
+  // ==========================
+  {
+    title: "Analytics",
+    items: [
+      {
+        title: "Analytics",
+        href: "/crm/leads",
+        icon: NavigationIcons.analytics,
+        children: [
+          { title: "Dashboard", href: "/crm/leads" },
+          { title: "Business Insights", href: "/crm/leads" },
+          { title: "Fleet Analytics", href: "/crm/leads" },
+          { title: "Customer Analytics", href: "/crm/leads" },
+          { title: "Revenue Analytics", href: "/crm/leads" },
+        ],
+      },
+    ],
+  },
+
+  // ==========================
+  // Communication
+  // ==========================
+  {
+    title: "Communication",
+    items: [
+      {
+        title: "Notifications",
+        href: "/crm/leads",
+        icon: NavigationIcons.notifications,
+        children: [
+          { title: "Notification Center", href: "/crm/leads" },
+          { title: "Email", href: "/crm/leads" },
+          { title: "SMS", href: "/crm/leads" },
+          { title: "WhatsApp", href: "/crm/leads" },
+          { title: "Push Notifications", href: "/crm/leads" },
+        ],
+      },
+    ],
+  },
+
+  // ==========================
+  // AI
+  // ==========================
+  {
+    title: "AI",
+    items: [
+      {
+        title: "AI Center",
+        href: "/crm/leads",
+        icon: NavigationIcons.ai,
+        children: [
+          { title: "AI Dashboard", href: "/crm/leads" },
+          { title: "Predictions", href: "/crm/leads" },
+          { title: "AI Logs", href: "/crm/leads" },
+        ],
+      },
+      {
+        title: "Automation",
+        href: "/crm/leads",
+        icon: NavigationIcons.automation,
+        children: [
+          { title: "Automation Rules", href: "/crm/leads" },
+          { title: "Schedulers", href: "/crm/leads" },
+          { title: "Workflow Engine", href: "/crm/leads" },
+        ],
+      },
+    ],
+  },
+
+  // ==========================
+  // Security
+  // ==========================
+  {
+    title: "Security",
+    items: [
+      {
+        title: "Security",
+        href: "/crm/leads",
+        icon: NavigationIcons.security,
+        children: [
+          { title: "Security Center", href: "/crm/leads" },
+          { title: "Audit Logs", href: "/crm/leads" },
+          { title: "Permissions", href: "/crm/leads" },
+          { title: "Sessions", href: "/crm/leads" },
+          { title: "Roles", href: "/crm/leads" },
+        ],
+      },
+    ],
+  },
+
+  // ==========================
+  // CRM
+  // ==========================
+  {
+    title: "CRM",
+    items: [
+      {
+        title: "CRM",
+        icon: NavigationIcons.crm,
+        children: [
+          {
+            title: "Dashboard", href: "/crm/leads",
+          },
+          {
+            title: "Leads", href: "/crm/leads",
+          },
+          {
+            title: "Opportunities", href: "/crm/leads",
+          },
+          {
+            title: "Campaigns", href: "/crm/leads",
+          },
+        ],
+      },
+      {
+        title: "Support",
+        href: "/crm/leads",
+        icon: NavigationIcons.support,
+        children: [
+          { title: "Support Tickets", href: "/crm/leads" },
+          { title: "Knowledge Base", href: "/crm/leads" },
+        ],
+      },
+    ],
+  },
+
+  // ==========================
+  // Administration
+  // ==========================
+  {
+    title: "Administration",
+    items: [
+      {
+        title: "Pricing",
+        icon: NavigationIcons.pricing,
+        children: [
+          {
+            title: "Pricing Rules", href: "/crm/leads",
+          },
+          {
+            title: "Dynamic Pricing", href: "/crm/leads",
+          },
+        ],
+      },
+      {
+        title: "Settings",
+        href: "/crm/leads",
+        icon: NavigationIcons.settings,
+        children: [
+          { title: "General", href: "/crm/leads" },
+          { title: "Integrations", href: "/crm/leads" },
+          { title: "API Keys", href: "/crm/leads" },
+          { title: "Platform Settings", href: "/crm/leads" },
+          { title: "Promotions", href: "/crm/leads" },
+        ],
+      },
+    ],
+  },
+];
+
