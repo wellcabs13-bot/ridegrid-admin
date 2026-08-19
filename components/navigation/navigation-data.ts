@@ -1,4 +1,4 @@
-import { NavigationGroup } from "./navigation-types";
+﻿import { NavigationGroup } from "./navigation-types";
 import { NavigationIcons } from "./navigation-icons";
 
 export const navigation: NavigationGroup[] = [
@@ -31,8 +31,8 @@ export const navigation: NavigationGroup[] = [
         children: [
           { title: "All Bookings", href: "/bookings" },
           { title: "New Booking", href: "/marketplace" },
-          { title: "Trip Monitor", badge: "Soon", disabled: true },
-          { title: "Booking Calendar", badge: "Soon", disabled: true },
+          { title: "Trip Monitor", href: "/bookings" },
+          { title: "Booking Calendar", href: "/bookings" },
         ],
       },
       {
@@ -41,9 +41,9 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.customers,
         children: [
           { title: "Customer List", href: "/customers" },
-          { title: "Customer Wallet", badge: "Soon", disabled: true },
-          { title: "Reviews", badge: "Soon", disabled: true },
-          { title: "Loyalty", badge: "Soon", disabled: true },
+          { title: "Customer Wallet", href: "/customers" },
+          { title: "Reviews", href: "/customers" },
+          { title: "Loyalty", href: "/customers" },
         ],
       },
       {
@@ -52,9 +52,9 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.drivers,
         children: [
           { title: "Driver List", href: "/drivers" },
-          { title: "Driver Documents", badge: "Soon", disabled: true },
-          { title: "Attendance", badge: "Soon", disabled: true },
-          { title: "Performance", badge: "Soon", disabled: true },
+          { title: "Driver Documents", href: "/drivers" },
+          { title: "Attendance", href: "/drivers" },
+          { title: "Performance", href: "/drivers" },
         ],
       },
       {
@@ -63,9 +63,9 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.vehicles,
         children: [
           { title: "Vehicle List", href: "/vehicles" },
-          { title: "Maintenance", badge: "Soon", disabled: true },
-          { title: "Insurance", badge: "Soon", disabled: true },
-          { title: "GPS Tracking", badge: "Soon", disabled: true },
+          { title: "Maintenance", href: "/vehicles" },
+          { title: "Insurance", href: "/vehicles" },
+          { title: "GPS Tracking", href: "/vehicles" },
         ],
       },
       {
@@ -74,9 +74,9 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.vendors,
         children: [
           { title: "Vendor List", href: "/vendors" },
-          { title: "Vendor Wallet", badge: "Soon", disabled: true },
-          { title: "Vendor Payouts", badge: "Soon", disabled: true },
-          { title: "Vendor Performance", badge: "Soon", disabled: true },
+          { title: "Vendor Wallet", href: "/vendors" },
+          { title: "Vendor Payouts", href: "/vendors" },
+          { title: "Vendor Performance", href: "/vendors" },
         ],
       },
     ],
@@ -93,10 +93,10 @@ export const navigation: NavigationGroup[] = [
         href: "/corporate",
         icon: NavigationIcons.corporate,
         children: [
-          { title: "Companies", badge: "Soon", disabled: true },
-          { title: "Employees", badge: "Soon", disabled: true },
-          { title: "Travel Policy", badge: "Soon", disabled: true },
-          { title: "Corporate Wallet", badge: "Soon", disabled: true },
+          { title: "Companies", href: "/corporate" },
+          { title: "Employees", href: "/corporate" },
+          { title: "Travel Policy", href: "/corporate" },
+          { title: "Corporate Wallet", href: "/corporate" },
         ],
       },
     ],
@@ -114,12 +114,12 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.finance,
         children: [
           { title: "Dashboard", href: "/finance" },
-          { title: "Transactions", badge: "Soon", disabled: true },
-          { title: "Revenue", badge: "Soon", disabled: true },
-          { title: "Expenses", badge: "Soon", disabled: true },
-          { title: "Wallet", badge: "Soon", disabled: true },
-          { title: "Settlements", badge: "Soon", disabled: true },
-          { title: "Invoices", badge: "Soon", disabled: true },
+          { title: "Transactions", href: "/finance" },
+          { title: "Revenue", href: "/finance" },
+          { title: "Expenses", href: "/finance" },
+          { title: "Wallet", href: "/finance" },
+          { title: "Settlements", href: "/finance" },
+          { title: "Invoices", href: "/finance" },
         ],
       },
       {
@@ -128,8 +128,8 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.reports,
         children: [
           { title: "Financial Reports", href: "/reports" },
-          { title: "GST Reports", badge: "Soon", disabled: true },
-          { title: "Tax Reports", badge: "Soon", disabled: true },
+          { title: "GST Reports", href: "/reports" },
+          { title: "Tax Reports", href: "/reports" },
         ],
       },
     ],
@@ -147,10 +147,10 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.analytics,
         children: [
           { title: "Dashboard", href: "/analytics" },
-          { title: "Business Insights", badge: "Soon", disabled: true },
-          { title: "Fleet Analytics", badge: "Soon", disabled: true },
-          { title: "Customer Analytics", badge: "Soon", disabled: true },
-          { title: "Revenue Analytics", badge: "Soon", disabled: true },
+          { title: "Business Insights", href: "/analytics" },
+          { title: "Fleet Analytics", href: "/analytics" },
+          { title: "Customer Analytics", href: "/analytics" },
+          { title: "Revenue Analytics", href: "/analytics" },
         ],
       },
     ],
@@ -168,10 +168,10 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.notifications,
         children: [
           { title: "Notification Center", href: "/notifications" },
-          { title: "Email", badge: "Soon", disabled: true },
-          { title: "SMS", badge: "Soon", disabled: true },
-          { title: "WhatsApp", badge: "Soon", disabled: true },
-          { title: "Push Notifications", badge: "Soon", disabled: true },
+          { title: "Email", href: "/notifications" },
+          { title: "SMS", href: "/notifications" },
+          { title: "WhatsApp", href: "/notifications" },
+          { title: "Push Notifications", href: "/notifications" },
         ],
       },
     ],
@@ -189,8 +189,8 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.ai,
         children: [
           { title: "AI Dashboard", href: "/ai" },
-          { title: "Predictions", badge: "Soon", disabled: true },
-          { title: "AI Logs", badge: "Soon", disabled: true },
+          { title: "Predictions", href: "/ai" },
+          { title: "AI Logs", href: "/ai" },
         ],
       },
       {
@@ -199,8 +199,8 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.automation,
         children: [
           { title: "Automation Rules", href: "/automation" },
-          { title: "Schedulers", badge: "Soon", disabled: true },
-          { title: "Workflow Engine", badge: "Soon", disabled: true },
+          { title: "Schedulers", href: "/automation" },
+          { title: "Workflow Engine", href: "/automation" },
         ],
       },
     ],
@@ -218,10 +218,10 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.security,
         children: [
           { title: "Security Center", href: "/security" },
-          { title: "Audit Logs", badge: "Soon", disabled: true },
-          { title: "Permissions", badge: "Soon", disabled: true },
-          { title: "Sessions", badge: "Soon", disabled: true },
-          { title: "Roles", badge: "Soon", disabled: true },
+          { title: "Audit Logs", href: "/security" },
+          { title: "Permissions", href: "/security" },
+          { title: "Sessions", href: "/security" },
+          { title: "Roles", href: "/security" },
         ],
       },
     ],
@@ -238,24 +238,16 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.crm,
         children: [
           {
-            title: "Dashboard",
-            badge: "Coming Soon",
-            disabled: true,
+            title: "Dashboard", href: "/corporate",
           },
           {
-            title: "Leads",
-            badge: "Coming Soon",
-            disabled: true,
+            title: "Leads", href: "/corporate",
           },
           {
-            title: "Opportunities",
-            badge: "Coming Soon",
-            disabled: true,
+            title: "Opportunities", href: "/corporate",
           },
           {
-            title: "Campaigns",
-            badge: "Coming Soon",
-            disabled: true,
+            title: "Campaigns", href: "/corporate",
           },
         ],
       },
@@ -265,7 +257,7 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.support,
         children: [
           { title: "Support Tickets", href: "/support" },
-          { title: "Knowledge Base", badge: "Soon", disabled: true },
+          { title: "Knowledge Base", href: "/support" },
         ],
       },
     ],
@@ -282,14 +274,10 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.pricing,
         children: [
           {
-            title: "Pricing Rules",
-            badge: "Coming Soon",
-            disabled: true,
+            title: "Pricing Rules", href: "/pricing",
           },
           {
-            title: "Dynamic Pricing",
-            badge: "Coming Soon",
-            disabled: true,
+            title: "Dynamic Pricing", href: "/pricing",
           },
         ],
       },
@@ -299,10 +287,10 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.settings,
         children: [
           { title: "General", href: "/settings" },
-          { title: "Integrations", badge: "Soon", disabled: true },
-          { title: "API Keys", badge: "Soon", disabled: true },
-          { title: "Platform Settings", badge: "Soon", disabled: true },
-          { title: "Promotions", badge: "Soon", disabled: true },
+          { title: "Integrations", href: "/settings" },
+          { title: "API Keys", href: "/settings" },
+          { title: "Platform Settings", href: "/settings" },
+          { title: "Promotions", href: "/settings" },
         ],
       },
     ],
