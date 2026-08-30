@@ -1,0 +1,1210 @@
+===== PAGE =====
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+
+import DashboardLayout from "../../components/DashboardLayout";
+
+import VendorHeader from "../../components/vendors/VendorHeader";
+import VendorStats from "../../components/vendors/VendorStats";
+import VendorFilters from "../../components/vendors/VendorFilters";
+import VendorTable from "../../components/vendors/VendorTable";
+
+import AddVendorModal from "../../components/vendors/AddVendorModal";
+import VendorForm, {
+  VendorFormData,
+} from "../../components/vendors/VendorForm";
+
+import VendorDetailsDrawer from "../../components/vendors/VendorDetailsDrawer";
+
+import { Vendor } from "../../data/vendors";
+
+export default function VendorsPage() {
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [city, setCity] = useState("");
+
+  const [openAddModal, setOpenAddModal] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const [selectedVendor, setSelectedVendor] =
+    useState<Vendor | null>(null);
+
+  const [editingVendor, setEditingVendor] =
+    useState<Vendor | null>(null);
+
+  const fetchVendors = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const params = new URLSearchParams();
+
+      if (search.trim()) params.set("search", search.trim());
+      if (status) params.set("status", status);
+      if (city.trim()) params.set("city", city.trim());
+
+      params.set("page", "1");
+      params.set("limit", "100");
+
+      const response = await fetch(
+        `/api/vendors?${params.toString()}`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Failed to load vendors."
+        );
+      }
+
+      setVendors(result.data || []);
+    } catch (error) {
+      console.error("Failed to load vendors:", error);
+      setVendors([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, status, city]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchVendors();
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [fetchVendors]);
+
+  const totalVendors = vendors.length;
+
+  const activeVendors = vendors.filter(
+    (vendor) => vendor.status === "Active"
+  ).length;
+
+  const inactiveVendors = vendors.filter(
+    (vendor) => vendor.status !== "Active"
+  ).length;
+
+  const totalEarnings = vendors.reduce((sum, vendor) => {
+    return (
+      sum +
+      Number(
+        String(vendor.totalEarnings)
+          .replace(/[^\d.-]/g, "")
+      )
+    );
+  }, 0);
+
+  function resetFilters() {
+    setSearch("");
+    setStatus("");
+    setCity("");
+  }
+
+  function handleViewVendor(vendor: Vendor) {
+    setSelectedVendor(vendor);
+    setDrawerOpen(true);
+  }
+
+  function handleEditVendor(vendor: Vendor) {
+    setEditingVendor(vendor);
+    setOpenAddModal(true);
+  }
+
+  async function handleSaveVendor(data: VendorFormData) {
+    try {
+      setSaving(true);
+
+      const isEditing = Boolean(editingVendor);
+
+      const response = await fetch("/api/vendors", {
+        method: isEditing ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          isEditing
+            ? {
+                id: editingVendor?.id,
+                companyName: data.companyName,
+                ownerName: data.ownerName,
+                mobile: data.mobile,
+                email: data.email,
+                city: data.city,
+                status: data.status,
+              }
+            : {
+                companyName: data.companyName,
+                ownerName: data.ownerName,
+                mobile: data.mobile,
+                email: data.email,
+                city: data.city,
+              }
+        ),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            (isEditing
+              ? "Failed to update vendor."
+              : "Failed to create vendor.")
+        );
+      }
+
+      setOpenAddModal(false);
+      setEditingVendor(null);
+
+      await fetchVendors();
+
+      alert(
+        isEditing
+          ? "Vendor updated successfully."
+          : "Vendor added successfully."
+      );
+    } catch (error) {
+      console.error("Vendor save failed:", error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to save vendor."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteVendor(vendor: Vendor) {
+    const confirmed = window.confirm(
+      `Delete ${vendor.companyName}?\n\nThis will remove the vendor from the Super Admin vendor list.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(
+        `/api/vendors?id=${encodeURIComponent(vendor.id)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Failed to delete vendor."
+        );
+      }
+
+      await fetchVendors();
+
+      if (selectedVendor?.id === vendor.id) {
+        setSelectedVendor(null);
+        setDrawerOpen(false);
+      }
+
+      alert("Vendor deleted successfully.");
+    } catch (error) {
+      console.error("Vendor delete failed:", error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete vendor."
+      );
+    }
+  }
+
+  function closeModal() {
+    if (saving) return;
+
+    setOpenAddModal(false);
+    setEditingVendor(null);
+  }
+
+  return (
+    <DashboardLayout>
+      <VendorHeader
+        totalVendors={totalVendors}
+        onAddVendor={() => {
+          setEditingVendor(null);
+          setOpenAddModal(true);
+        }}
+      />
+
+      <VendorStats
+        total={totalVendors}
+        active={activeVendors}
+        inactive={inactiveVendors}
+        earnings={totalEarnings}
+      />
+
+      <VendorFilters
+        search={search}
+        status={status}
+        city={city}
+        onSearchChange={setSearch}
+        onStatusChange={setStatus}
+        onCityChange={setCity}
+        onReset={resetFilters}
+      />
+
+      {loading ? (
+        <div className="rounded-xl bg-white p-10 text-center text-slate-500 shadow-sm">
+          Loading vendors...
+        </div>
+      ) : (
+        <VendorTable
+          vendors={vendors}
+          onView={handleViewVendor}
+          onEdit={handleEditVendor}
+          onDelete={handleDeleteVendor}
+        />
+      )}
+
+      <VendorDetailsDrawer
+        open={drawerOpen}
+        vendor={selectedVendor}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSelectedVendor(null);
+        }}
+      />
+
+      <AddVendorModal
+        isOpen={openAddModal}
+        title={editingVendor ? "Edit Vendor" : "Add New Vendor"}
+        onClose={closeModal}
+      >
+        <VendorForm
+          initialData={
+            editingVendor
+              ? {
+                  companyName: editingVendor.companyName,
+                  ownerName: editingVendor.ownerName,
+                  mobile: editingVendor.mobile,
+                  email: editingVendor.email,
+                  city: editingVendor.city,
+                  status: editingVendor.status,
+                }
+              : undefined
+          }
+          onSave={handleSaveVendor}
+          onCancel={closeModal}
+          saving={saving}
+        />
+      </AddVendorModal>
+    </DashboardLayout>
+  );
+}
+===== FORM =====
+"use client";
+
+import { useEffect, useState } from "react";
+
+export type VendorStatus =
+  | "Active"
+  | "Suspended"
+  | "Inactive"
+  | "Pending";
+
+export interface VendorFormData {
+  companyName: string;
+  ownerName: string;
+  mobile: string;
+  email: string;
+  city: string;
+  status: VendorStatus;
+}
+
+interface VendorFormProps {
+  initialData?: Partial<VendorFormData>;
+  onSave: (vendor: VendorFormData) => void;
+  onCancel: () => void;
+  saving?: boolean;
+}
+
+const emptyForm: VendorFormData = {
+  companyName: "",
+  ownerName: "",
+  mobile: "",
+  email: "",
+  city: "",
+  status: "Pending",
+};
+
+export default function VendorForm({
+  initialData,
+  onSave,
+  onCancel,
+  saving = false,
+}: VendorFormProps) {
+  const [form, setForm] =
+    useState<VendorFormData>(emptyForm);
+
+  useEffect(() => {
+    setForm({
+      companyName: initialData?.companyName || "",
+      ownerName: initialData?.ownerName || "",
+      mobile: initialData?.mobile || "",
+      email: initialData?.email || "",
+      city: initialData?.city || "",
+      status: initialData?.status || "Pending",
+    });
+  }, [initialData]);
+
+  function updateField(
+    field: keyof VendorFormData,
+    value: string
+  ) {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }
+
+  function handleSubmit(
+    e: React.FormEvent<HTMLFormElement>
+  ) {
+    e.preventDefault();
+
+    if (
+      !form.companyName.trim() ||
+      !form.ownerName.trim() ||
+      !form.mobile.trim() ||
+      !form.email.trim() ||
+      !form.city.trim()
+    ) {
+      alert("Please fill all fields.");
+      return;
+    }
+
+    onSave(form);
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+    >
+      <div className="grid gap-5 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Company Name
+          </label>
+
+          <input
+            value={form.companyName}
+            onChange={(e) =>
+              updateField(
+                "companyName",
+                e.target.value
+              )
+            }
+            placeholder="Company Name"
+            disabled={saving}
+            className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Owner Name
+          </label>
+
+          <input
+            value={form.ownerName}
+            onChange={(e) =>
+              updateField(
+                "ownerName",
+                e.target.value
+              )
+            }
+            placeholder="Owner Name"
+            disabled={saving}
+            className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Mobile Number
+          </label>
+
+          <input
+            value={form.mobile}
+            onChange={(e) =>
+              updateField(
+                "mobile",
+                e.target.value
+              )
+            }
+            placeholder="+91 9876543210"
+            disabled={saving}
+            className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Email Address
+          </label>
+
+          <input
+            type="email"
+            value={form.email}
+            onChange={(e) =>
+              updateField(
+                "email",
+                e.target.value
+              )
+            }
+            placeholder="vendor@email.com"
+            disabled={saving}
+            className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            City
+          </label>
+
+          <input
+            value={form.city}
+            onChange={(e) =>
+              updateField(
+                "city",
+                e.target.value
+              )
+            }
+            placeholder="City"
+            disabled={saving}
+            className="w-full rounded-lg border px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Vendor Status
+          </label>
+
+          <select
+            value={form.status}
+            onChange={(e) =>
+              updateField(
+                "status",
+                e.target.value
+              )
+            }
+            disabled={saving}
+            className="w-full rounded-lg border bg-white px-4 py-3 outline-none focus:border-blue-500 disabled:bg-slate-100"
+          >
+            <option value="Active">
+              Active
+            </option>
+
+            <option value="Suspended">
+              Suspended
+            </option>
+
+            <option value="Inactive">
+              Inactive
+            </option>
+
+            <option value="Pending">
+              Pending
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3 border-t pt-6">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="rounded-lg border px-6 py-3 hover:bg-slate-100 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saving ? "Saving..." : "Save Vendor"}
+        </button>
+      </div>
+    </form>
+  );
+}
+===== DRAWER =====
+'use client';
+
+import { Vendor } from '../../data/vendors';
+import VendorInfoCard from './VendorInfoCard';
+import VendorVehicleCard from './VendorVehicleCard';
+import VendorPaymentCard from './VendorPaymentCard';
+import VendorDocumentCard from './VendorDocumentCard';
+import VendorPerformanceCard from './VendorPerformanceCard';
+
+interface VendorDetailsDrawerProps {
+  open: boolean;
+  vendor: Vendor | null;
+  onClose: () => void;
+}
+
+export default function VendorDetailsDrawer({
+  open,
+  vendor,
+  onClose,
+}: VendorDetailsDrawerProps) {
+  if (!open || !vendor) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+
+      <div className="fixed right-0 top-0 z-50 h-screen w-full max-w-2xl overflow-y-auto bg-slate-100 shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white px-6 py-5">
+          <div>
+            <h2 className="text-2xl font-bold">Vendor Details</h2>
+
+            <p className="text-sm text-slate-500">{vendor.companyName}</p>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-2xl hover:bg-slate-100"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-6 p-6">
+          <VendorInfoCard vendor={vendor} />
+
+          <VendorVehicleCard vendor={vendor} />
+
+          <VendorPaymentCard vendor={vendor} />
+
+          <VendorDocumentCard vendor={vendor} />
+
+          <VendorPerformanceCard vendor={vendor} />
+        </div>
+      </div>
+    </>
+  );
+}
+===== DOCUMENT =====
+'use client';
+
+import { Vendor } from '../../data/vendors';
+
+interface VendorDocumentCardProps {
+  vendor: Vendor;
+}
+
+export default function VendorDocumentCard({
+  vendor,
+}: VendorDocumentCardProps) {
+  const docs = [
+    'Aadhaar Card',
+    'PAN Card',
+    'Driving License',
+    'RC Book',
+    'Vehicle Insurance',
+    'PUC Certificate',
+    'Bank Passbook',
+    'GST Certificate',
+  ];
+
+  return (
+    <div className="rounded-xl bg-white p-6 shadow">
+      <h3 className="mb-6 text-lg font-bold">Uploaded Documents</h3>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {docs.map((doc) => (
+          <div
+            key={doc}
+            className="flex items-center justify-between rounded-lg border p-4"
+          >
+            <span className="font-medium">{doc}</span>
+
+            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+              Verified
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+===== PAYMENT =====
+'use client';
+
+import { Vendor } from '../../data/vendors';
+
+interface VendorPaymentCardProps {
+  vendor: Vendor;
+}
+
+export default function VendorPaymentCard({ vendor }: VendorPaymentCardProps) {
+  return (
+    <div className="rounded-xl bg-white p-6 shadow">
+      <h3 className="mb-6 text-lg font-bold">Payment Summary</h3>
+
+      <div className="grid grid-cols-2 gap-5">
+        <div className="rounded-xl bg-green-50 p-5">
+          <p className="text-sm text-slate-500">Total Earnings</p>
+
+          <h2 className="mt-2 text-3xl font-bold text-green-700">
+            {vendor.totalEarnings}
+          </h2>
+        </div>
+
+        <div className="rounded-xl bg-yellow-50 p-5">
+          <p className="text-sm text-slate-500">Pending Payment</p>
+
+          <h2 className="mt-2 text-3xl font-bold text-yellow-700">
+            {vendor.pendingPayment}
+          </h2>
+        </div>
+      </div>
+
+      <div className="mt-6 overflow-hidden rounded-lg border">
+        <table className="min-w-full">
+          <thead className="bg-slate-100">
+            <tr>
+              <th className="px-3 py-2 text-left">Date</th>
+
+              <th className="px-3 py-2 text-left">Amount</th>
+
+              <th className="px-3 py-2 text-left">Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {[
+              ['01 Jul', '₹18,000'],
+              ['15 Jun', '₹25,000'],
+              ['05 Jun', '₹32,500'],
+            ].map((row, index) => (
+              <tr key={index} className="border-b">
+                <td className="px-3 py-3">{row[0]}</td>
+
+                <td className="px-3 py-3">{row[1]}</td>
+
+                <td className="px-3 py-3">
+                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs text-green-700">
+                    Paid
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+===== VEHICLE =====
+'use client';
+
+import { Vendor } from '../../data/vendors';
+
+interface VendorVehicleCardProps {
+  vendor: Vendor;
+}
+
+export default function VendorVehicleCard({ vendor }: VendorVehicleCardProps) {
+  return (
+    <div className="rounded-xl bg-white p-6 shadow">
+      <h3 className="mb-6 text-lg font-bold">Vehicle Summary</h3>
+
+      <div className="grid grid-cols-2 gap-5">
+        <div className="rounded-xl bg-blue-50 p-5">
+          <p className="text-sm text-slate-500">Total Vehicles</p>
+
+          <h2 className="mt-2 text-3xl font-bold text-blue-700">
+            {vendor.totalVehicles}
+          </h2>
+        </div>
+
+        <div className="rounded-xl bg-green-50 p-5">
+          <p className="text-sm text-slate-500">Active Vehicles</p>
+
+          <h2 className="mt-2 text-3xl font-bold text-green-700">
+            {vendor.activeVehicles}
+          </h2>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <table className="min-w-full">
+          <thead className="bg-slate-100">
+            <tr>
+              <th className="px-3 py-2 text-left">Vehicle</th>
+
+              <th className="px-3 py-2 text-left">Number</th>
+
+              <th className="px-3 py-2 text-left">Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {[
+              ['Innova Crysta', 'MH12AB1234'],
+              ['Ertiga', 'MH14XY4567'],
+              ['Swift Dzire', 'MH13CD7788'],
+            ].map((v, index) => (
+              <tr key={index} className="border-b">
+                <td className="px-3 py-3">{v[0]}</td>
+
+                <td className="px-3 py-3">{v[1]}</td>
+
+                <td className="px-3 py-3">
+                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs text-green-700">
+                    Active
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+===== DRIVER API =====
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(req: NextRequest) {
+  try {
+    const vendorId = req.nextUrl.searchParams.get("vendorId");
+
+    if (!vendorId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor ID is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const drivers = await prisma.driver.findMany({
+      where: {
+        deletedAt: null,
+        vehicles: {
+          some: {
+            vendorId,
+          },
+        },
+      },
+      include: {
+        user: true,
+        vehicles: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: drivers,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to fetch drivers.",
+      },
+      { status: 500 }
+    );
+  }
+}
+===== VEHICLE API =====
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(req: NextRequest) {
+  try {
+    const vendorId = req.nextUrl.searchParams.get("vendorId");
+
+    if (!vendorId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor ID is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const vehicles = await prisma.vehicle.findMany({
+      where: {
+        vendorId,
+        deletedAt: null,
+      },
+      include: {
+        driver: {
+          include: {
+            user: true,
+          },
+        },
+        bookings: {
+          take: 5,
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+        documents: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const statistics = {
+      total: vehicles.length,
+      available: vehicles.filter(
+        (v) => v.status === "AVAILABLE"
+      ).length,
+      onTrip: vehicles.filter(
+        (v) => v.status === "ON_TRIP"
+      ).length,
+      maintenance: vehicles.filter(
+        (v) => v.status === "MAINTENANCE"
+      ).length,
+    };
+
+    return NextResponse.json({
+      success: true,
+      statistics,
+      data: vehicles,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to fetch vehicles.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+===== BOOKING API =====
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(req: NextRequest) {
+  try {
+    const vendorId = req.nextUrl.searchParams.get("vendorId");
+
+    if (!vendorId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor ID is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const bookings = await prisma.booking.findMany({
+      where: {
+        vendorId,
+        deletedAt: null,
+      },
+      include: {
+        customer: {
+          include: {
+            user: true,
+          },
+        },
+        driver: {
+          include: {
+            user: true,
+          },
+        },
+        vehicle: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: bookings,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to fetch bookings.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+===== SETTLEMENT API =====
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+
+import {
+  SecurityRole,
+} from "@/types/security";
+
+import {
+  authorize,
+} from "@/lib/auth/middleware";
+
+import {
+  prisma,
+} from "@/lib/prisma";
+
+export async function GET(
+  request: NextRequest
+) {
+  try {
+    const authorization =
+      request.headers.get("authorization");
+
+    const headerToken =
+      authorization?.startsWith("Bearer ")
+        ? authorization.slice(7)
+        : undefined;
+
+    const cookieToken =
+      request.cookies.get(
+        "ridegrid_access_token"
+      )?.value ??
+      request.cookies.get(
+        "ridegrid-token"
+      )?.value;
+
+    const result =
+      await authorize(
+        headerToken ?? cookieToken,
+        [
+          SecurityRole.SUPER_ADMIN,
+          SecurityRole.OPERATIONS,
+          SecurityRole.FINANCE,
+          SecurityRole.VENDOR,
+        ]
+      );
+
+    if (!result.authorized) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const vendorId =
+      request.nextUrl.searchParams.get(
+        "vendorId"
+      );
+
+    if (!vendorId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Vendor ID is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const settlements =
+      await prisma.vendorSettlement.findMany({
+        where: {
+          vendorId,
+        },
+        include: {
+          wallet: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+    return NextResponse.json({
+      success: true,
+      data: settlements,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Failed to fetch settlements.",
+      },
+      { status: 500 }
+    );
+  }
+}
+===== WALLET API =====
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+
+import { prisma } from "@/lib/prisma";
+import { authenticate } from "@/lib/auth/middleware";
+import { SecurityRole } from "@/types/security";
+
+function getToken(request: NextRequest) {
+  const authorization =
+    request.headers.get("authorization");
+
+  const headerToken =
+    authorization?.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : undefined;
+
+  return (
+    headerToken ??
+    request.cookies.get(
+      "ridegrid_access_token"
+    )?.value ??
+    request.cookies.get(
+      "ridegrid-token"
+    )?.value
+  );
+}
+
+export async function GET(
+  request: NextRequest
+) {
+  try {
+    const user =
+      await authenticate(getToken(request));
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const allowedRoles = [
+      SecurityRole.SUPER_ADMIN,
+      SecurityRole.FINANCE,
+      SecurityRole.OPERATIONS,
+      SecurityRole.VENDOR,
+    ];
+
+    if (!allowedRoles.includes(user.role)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Forbidden.",
+        },
+        { status: 403 }
+      );
+    }
+
+    const vendorId =
+      request.nextUrl.searchParams.get(
+        "vendorId"
+      );
+
+    if (!vendorId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor ID is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const wallet =
+      await prisma.vendorWallet.findUnique({
+        where: {
+          vendorId,
+        },
+        include: {
+          transactions: {
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+          settlements: {
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+        },
+      });
+
+    if (!wallet) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor wallet not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: wallet,
+    });
+  } catch (error) {
+    console.error(
+      "GET /api/vendors/wallet:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to fetch wallet.",
+      },
+      { status: 500 }
+    );
+  }
+}

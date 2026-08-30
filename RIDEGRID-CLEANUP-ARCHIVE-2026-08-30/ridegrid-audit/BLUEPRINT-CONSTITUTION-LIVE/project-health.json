@@ -1,0 +1,12 @@
+{
+    "Files":  681,
+    "TypeScript":  216,
+    "TSX":  323,
+    "APIs":  82,
+    "Tests":  5,
+    "PrismaModels":  135,
+    "PrismaEnums":  86,
+    "Docker":  true,
+    "CI_CD":  true,
+    "NextConfig":  true
+}

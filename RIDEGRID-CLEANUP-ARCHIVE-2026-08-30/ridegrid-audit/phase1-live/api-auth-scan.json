@@ -1,0 +1,330 @@
+[
+    {
+        "Route":  "app\\api\\admin\\test\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\ai\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\analytics\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\auth\\forgot-password\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\auth\\login\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\auth\\logout\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\auth\\me\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\auth\\refresh\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\auth\\reset-password\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\automation\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\bookings\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\bookings\\assign-driver\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\bookings\\cancel\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\bookings\\create\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\bookings\\delete\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\bookings\\history\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\bookings\\status\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\bookings\\update\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\bookings\\[id]\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\corporate\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\corporate\\approvals\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\corporate\\budgets\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\corporate\\travel-policy\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\crm\\activities\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\crm\\leads\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\crm\\opportunities\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\crm\\pipeline\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\crm\\tasks\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\customers\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\customers\\bookings\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\customers\\profile\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\customers\\search\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\customers\\[id]\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\documents\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\driver\\dashboard\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\driver\\documents\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\driver\\earnings\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\driver\\location\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\driver\\notifications\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\driver\\profile\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\driver\\sos\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\driver\\today\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\driver\\trips\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\drivers\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\finance\\overview\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\finance\\settlements\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\finance\\transactions\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\finance\\wallet\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\health\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\invoices\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\invoices\\pdf\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\marketplace\\listings\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\marketplace\\search\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\marketplace\\twin\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\notifications\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\payments\\create-order\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\payments\\verify\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\payments\\webhook\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\penalties\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\pricing\\packages\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\pricing\\rules\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\pricing\\vehicles\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\refunds\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\reports\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\security\\audit\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\security\\permissions\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\security\\sessions\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\support\\tickets\\route.ts",
+        "AuthDetected":  true
+    },
+    {
+        "Route":  "app\\api\\support\\tickets\\[id]\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\support\\tickets\\[id]\\escalations\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\support\\tickets\\[id]\\messages\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\support\\tickets\\[id]\\sla\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\vehicles\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\vendors\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\vendors\\bookings\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\vendors\\dashboard\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\vendors\\drivers\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\vendors\\profile\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\vendors\\settlements\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\vendors\\smart-return\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\vendors\\vehicles\\route.ts",
+        "AuthDetected":  false
+    },
+    {
+        "Route":  "app\\api\\vendors\\wallet\\route.ts",
+        "AuthDetected":  true
+    }
+]

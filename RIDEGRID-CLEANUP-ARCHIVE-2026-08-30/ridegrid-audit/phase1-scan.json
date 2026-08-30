@@ -1,0 +1,42 @@
+{
+    "ProjectPath":  "C:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin",
+    "Timestamp":  "2026-08-30 14:31:50",
+    "TypeScriptFiles":  216,
+    "TSXFiles":  323,
+    "JavaScriptFiles":  2,
+    "PrismaFiles":  1,
+    "TestFiles":  5,
+    "ApiRoutes":  82,
+    "Prism?Models":  135,
+    "PrismaEnums":  86,
+    "Security":  23,
+    "RBAC":  11,
+    "Booking":  72,
+    "EventBus":  1,
+    "Authentication":  38,
+    "Monitoring":  7,
+    "Marketplace":  14,
+    "CRM":  11,
+    "Audit":  7,
+    "Automation":  14,
+    "AI":  33,
+    "Corporate":  12,
+    "Finance":  66,
+    "Notification":  36,
+    "ApiRoutesWithoutDetectedAuth":  54,
+    "EnvironmentFiles":  2,
+    "EnvironmentFileNames":  [
+                                 ".env",
+                                 ".env.local"
+                             ],
+    "GitHubWorkflowExists":  true,
+    "DockerfileExists":  true,
+    "NextConfigExists":  true,
+    "NextStandaloneConfigured":  false,
+    "BuildScript":  "next build",
+    "TestScript":  "vitest run",
+    "TypecheckScript":  "MISSING",
+    "MissingStandardDirectories":  [
+
+                                   ]
+}

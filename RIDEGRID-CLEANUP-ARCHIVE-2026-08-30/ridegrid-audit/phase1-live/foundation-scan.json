@@ -1,0 +1,21 @@
+{
+    "Timestamp":  "2026-08-30T14:38:27",
+    "Project":  "C:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin",
+    "TypeScript":  216,
+    "TSX":  323,
+    "API_Routes":  82,
+    "Test_Files":  5,
+    "Prisma_Models":  135,
+    "Prisma_Enums":  86,
+    "Auth_Files":  38,
+    "RBAC_Files":  11,
+    "Audit_Files":  8,
+    "EventBus_Files":  1,
+    "Notification_Files":  36,
+    "AI_Files":  13,
+    "Automation_Files":  14,
+    "CI_CD":  true,
+    "Docker":  true,
+    "Next_Config":  1,
+    "Env_Files":  2
+}

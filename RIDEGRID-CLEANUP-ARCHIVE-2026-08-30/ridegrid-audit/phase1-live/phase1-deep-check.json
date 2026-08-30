@@ -1,0 +1,42 @@
+[
+    {
+        "Module":  "Prisma",
+        "EvidenceFiles":  8,
+        "SampleFiles":  "C:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\prisma\\schema.prisma\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\prisma\\schema.prisma.BACKUP\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\prisma\\schema.prisma.backup-before-exact-invoice-repair\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\prisma\\schema.prisma.backup-before-invoice-relation-fix\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\prisma\\schema.prisma.backup-before-invoice-repair\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\prisma\\schema.prisma.issue3-backup\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\prisma\\migrations\\20260729031151_init\\migration.sql\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\prisma\\migrations\\20260809100000_restore_enterprise_schema\\migration.sql"
+    },
+    {
+        "Module":  "Auth",
+        "EvidenceFiles":  14,
+        "SampleFiles":  "C:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth-server.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth\\auth.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth\\jwt.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth\\middleware.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\security\\auth.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\security\\encryption.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\security\\session.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\middleware.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\page.tsx\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\(auth)\\forgot-password\\page.tsx\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\auth\\logout\\route.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\auth\\me\\route.ts"
+    },
+    {
+        "Module":  "RBAC",
+        "EvidenceFiles":  56,
+        "SampleFiles":  "C:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth-server.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\authorize.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\permissions.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\rbac.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\security.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\ai-engine.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\ai-types.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\AIService.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\providers\\AIProviderAdapter.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth\\auth-utils.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth\\auth.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth\\jwt.ts"
+    },
+    {
+        "Module":  "Audit",
+        "EvidenceFiles":  12,
+        "SampleFiles":  "C:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\audit.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\events\\event-dispatcher.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\security\\audit-log.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\security\\auth.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\services\\audit\\AuditService.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\services\\penalty\\PenaltyService.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\services\\refund\\RefundService.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\payments\\create-order\\route.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\payments\\verify\\route.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\payments\\webhook\\route.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\security\\audit\\route.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\security\\page.tsx"
+    },
+    {
+        "Module":  "EventBus",
+        "EvidenceFiles":  4,
+        "SampleFiles":  "C:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\events\\event-bus.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\events\\event-dispatcher.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\payments\\verify\\route.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\payments\\webhook\\route.ts"
+    },
+    {
+        "Module":  "Notification",
+        "EvidenceFiles":  52,
+        "SampleFiles":  "C:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth-server.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\ai-types.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\ai-utils.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth\\auth.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth\\jwt.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth\\password.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\automation\\automation-engine.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\automation\\automation-rules.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\events\\event-bus.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\events\\event-dispatcher.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\repositories\\corporate.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\repositories\\customer.ts"
+    },
+    {
+        "Module":  "AI",
+        "EvidenceFiles":  170,
+        "SampleFiles":  "C:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\api-response.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\audit.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\auth-server.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\security.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\utils.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\ai-engine.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\ai-prompts.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\ai-types.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\ai-utils.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\AIRepository.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\AIService.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\providers\\AIProviderAdapter.ts"
+    },
+    {
+        "Module":  "Automation",
+        "EvidenceFiles":  18,
+        "SampleFiles":  "C:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\ai\\ai-prompts.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\automation\\automation-engine.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\automation\\automation-events.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\automation\\automation-rules.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\automation\\automation-types.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\events\\event-bus.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\events\\event-dispatcher.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\security\\permissions.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\lib\\services\\corporate\\CorporateApprovalService.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\automation\\route.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\corporate\\approvals\\route.ts\nC:\\Users\\Wellcabs\\Desktop\\RideGrid\\ridegrid-admin\\app\\api\\payments\\verify\\route.ts"
+    }
+]
