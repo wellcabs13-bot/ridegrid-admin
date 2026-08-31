@@ -58,28 +58,29 @@ model Customer {
 }
 
 model Vendor {
-  id                 String              @id @default(cuid())
-  userId             String              @unique
-  companyName        String
-  isApproved         Boolean             @default(false)
-  deletedAt          DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  bookings           Booking[]
-  pricingRules       PricingRule[]
-  revenueReports     RevenueSummary[]
-  reviews            Review[]
-  supportTickets     SupportTicket[]
-  transactions       Transaction[]
-  invoices           Invoice[]
-  vehicles           Vehicle[]
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  analytics          VendorAnalytics[]
-  documents          VendorDocument[]
-  performanceReports VendorPerformance[]
-  promotions         VendorPromotion[]
-  settlements        VendorSettlement[]
-  wallet             VendorWallet?
+  id                  String               @id @default(cuid())
+  userId              String               @unique
+  companyName         String
+  isApproved          Boolean              @default(false)
+  deletedAt           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  bookings            Booking[]
+  pricingRules        PricingRule[]
+  revenueReports      RevenueSummary[]
+  reviews             Review[]
+  supportTickets      SupportTicket[]
+  transactions        Transaction[]
+  invoices            Invoice[]
+  vehicles            Vehicle[]
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analytics           VendorAnalytics[]
+  documents           VendorDocument[]
+  performanceReports  VendorPerformance[]
+  promotions          VendorPromotion[]
+  settlements         VendorSettlement[]
+  wallet              VendorWallet?
+  smartReturnListings SmartReturnListing[]
 }
 
 enum DriverStatus {
@@ -123,51 +124,52 @@ model Driver {
 }
 
 model Vehicle {
-  id                 String               @id @default(cuid())
-  vendorId           String
-  driverId           String?
-  registrationNumber String               @unique
-  make               String
-  model              String
-  variant            String?
-  year               Int?
-  color              String?
-  category           VehicleCategory
-  fuelType           FuelType
-  transmission       TransmissionType
-  seatingCapacity    Int
-  luggageCapacity    Int?
-  homeCity           String
-  status             VehicleStatus        @default(AVAILABLE)
-  baseFare           Decimal              @db.Decimal(10, 2)
-  pricePerKm         Decimal?             @db.Decimal(10, 2)
-  waitingCharge      Decimal?             @db.Decimal(10, 2)
-  nightCharge        Decimal?             @db.Decimal(10, 2)
-  rating             Float                @default(0)
-  totalTrips         Int                  @default(0)
-  isVerified         Boolean              @default(false)
-  deletedAt          DateTime?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  bookings           Booking[]
-  fuelLogs           FuelLog[]
-  gpsDevice          GPSDevice?
-  geofenceEvents     GeofenceEvent[]
-  dometerLogs        OdometerLog[]
-  reviews            Review[]
-  routeDeviations    RouteDeviation[]
-  sosEvents          SOSEvent[]
-  serviceSchedules   ServiceSchedule[]
-  trips              Trip[]
-  tripLocations      TripLocation[]
-  driver             Driver?              @relation(fields: [driverId], references: [id])
-  vendor             Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  analytics          VehicleAnalytics[]
-  breakdowns         VehicleBreakdown[]
-  documents          VehicleDocument[]
-  maintenanceRecords VehicleMaintenance[]
-  performanceReports VehiclePerformance[]
-  PricingPackage     PricingPackage[]
+  id                  String               @id @default(cuid())
+  vendorId            String
+  driverId            String?
+  registrationNumber  String               @unique
+  make                String
+  model               String
+  variant             String?
+  year                Int?
+  color               String?
+  category            VehicleCategory
+  fuelType            FuelType
+  transmission        TransmissionType
+  seatingCapacity     Int
+  luggageCapacity     Int?
+  homeCity            String
+  status              VehicleStatus        @default(AVAILABLE)
+  baseFare            Decimal              @db.Decimal(10, 2)
+  pricePerKm          Decimal?             @db.Decimal(10, 2)
+  waitingCharge       Decimal?             @db.Decimal(10, 2)
+  nightCharge         Decimal?             @db.Decimal(10, 2)
+  rating              Float                @default(0)
+  totalTrips          Int                  @default(0)
+  isVerified          Boolean              @default(false)
+  deletedAt           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  bookings            Booking[]
+  fuelLogs            FuelLog[]
+  gpsDevice           GPSDevice?
+  geofenceEvents      GeofenceEvent[]
+  dometerLogs         OdometerLog[]
+  reviews             Review[]
+  routeDeviations     RouteDeviation[]
+  sosEvents           SOSEvent[]
+  serviceSchedules    ServiceSchedule[]
+  trips               Trip[]
+  tripLocations       TripLocation[]
+  driver              Driver?              @relation(fields: [driverId], references: [id])
+  vendor              Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  analytics           VehicleAnalytics[]
+  breakdowns          VehicleBreakdown[]
+  documents           VehicleDocument[]
+  maintenanceRecords  VehicleMaintenance[]
+  performanceReports  VehiclePerformance[]
+  PricingPackage      PricingPackage[]
+  smartReturnListings SmartReturnListing[]
 
   @@index([vendorId])
   @@index([driverId])
@@ -182,47 +184,49 @@ model Vehicle {
 }
 
 model Booking {
-  id                 String                 @id @default(cuid())
-  bookingNumber      String                 @unique @default(uuid())
-  customerId         String
-  vendorId           String
-  vehicleId          String
-  driverId           String?
-  pickupLocation     String
-  dropLocation       String
-  pickupDateTime     DateTime
-  status             BookingStatus          @default(PENDING)
-  estimatedFare      Decimal                @db.Decimal(10, 2)
-  baseFare           Decimal?               @db.Decimal(10, 2)
-  taxAmount          Decimal?               @db.Decimal(10, 2)
-  discountAmount     Decimal?               @db.Decimal(10, 2)
-  couponAmount       Decimal?               @db.Decimal(10, 2)
-  extraCharges       Decimal?               @db.Decimal(10, 2)
-  finalFare          Decimal?               @db.Decimal(10, 2)
-  vendorEarning      Decimal?               @db.Decimal(10, 2)
-  platformCommission Decimal?               @db.Decimal(10, 2)
-  driverPayout       Decimal?               @db.Decimal(10, 2)
-  cancelledBy        String?
-  cancelReason       String?
-  cancelledAt        DateTime?
-  cancellationCharge Decimal?               @db.Decimal(10, 2)
-  refundAmount       Decimal?               @db.Decimal(10, 2)
-  deletedAt          DateTime?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  customer           Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  driver             Driver?                @relation(fields: [driverId], references: [id])
-  vehicle            Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  vendor             Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  analytics          BookingAnalytics[]
-  statusHistory      BookingStatusHistory[]
-  couponUsages       CouponUsage[]
-  fraudChecks        FraudDetection[]
-  reviews            Review[]
-  supportTickets     SupportTicket[]
-  transactions       Transaction[]
-  invoice            Invoice?
-  trip               Trip?
+  id                  String                 @id @default(cuid())
+  bookingNumber       String                 @unique @default(uuid())
+  customerId          String
+  vendorId            String
+  vehicleId           String
+  driverId            String?
+  pickupLocation      String
+  dropLocation        String
+  pickupDateTime      DateTime
+  tripType            TripType               @default(ONEWAY)
+  status              BookingStatus          @default(PENDING)
+  estimatedFare       Decimal                @db.Decimal(10, 2)
+  baseFare            Decimal?               @db.Decimal(10, 2)
+  taxAmount           Decimal?               @db.Decimal(10, 2)
+  discountAmount      Decimal?               @db.Decimal(10, 2)
+  couponAmount        Decimal?               @db.Decimal(10, 2)
+  extraCharges        Decimal?               @db.Decimal(10, 2)
+  finalFare           Decimal?               @db.Decimal(10, 2)
+  vendorEarning       Decimal?               @db.Decimal(10, 2)
+  platformCommission  Decimal?               @db.Decimal(10, 2)
+  driverPayout        Decimal?               @db.Decimal(10, 2)
+  cancelledBy         String?
+  cancelReason        String?
+  cancelledAt         DateTime?
+  cancellationCharge  Decimal?               @db.Decimal(10, 2)
+  refundAmount        Decimal?               @db.Decimal(10, 2)
+  deletedAt           DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  customer            Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  driver              Driver?                @relation(fields: [driverId], references: [id])
+  vehicle             Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vendor              Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  analytics           BookingAnalytics[]
+  statusHistory       BookingStatusHistory[]
+  couponUsages        CouponUsage[]
+  fraudChecks         FraudDetection[]
+  reviews             Review[]
+  supportTickets      SupportTicket[]
+  transactions        Transaction[]
+  invoice             Invoice?
+  trip                Trip?
+  smartReturnListings SmartReturnListing[]
 
   @@index([customerId])
   @@index([vendorId])
@@ -257,41 +261,42 @@ model BookingStatusHistory {
 }
 
 model Trip {
-  id                 String            @id @default(cuid())
-  bookingId          String            @unique
-  driverId           String
-  vehicleId          String
-  status             TripStatus        @default(ASSIGNED)
-  driverAssignedAt   DateTime?
-  driverAcceptedAt   DateTime?
-  arrivedPickupAt    DateTime?
-  passengerBoardedAt DateTime?
-  tripStartedAt      DateTime?
-  tripCompletedAt    DateTime?
-  cancelledAt        DateTime?
-  startTime          DateTime?
-  endTime            DateTime?
-  startKm            Int?
-  endKm              Int?
-  totalDistance      Decimal?          @db.Decimal(10, 2)
-  totalDuration      Int?
-  deletedAt          DateTime?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  damageReports      DamageReport[]
-  etaPredictions     ETAPrediction[]
-  extraCharges       ExtraCharge[]
-  geofenceEvents     GeofenceEvent[]
-  rentalExtensions   RentalExtension[]
-  returnApprovals    ReturnApproval[]
-  routeDeviations    RouteDeviation[]
-  sosevents          SOSEvent[]
-  booking            Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  driver             Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  vehicle            Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  tripCheckpoints    TripCheckpoint[]
-  tripExpenses       TripExpense[]
-  tripLocations      TripLocation[]
+  id                  String               @id @default(cuid())
+  bookingId           String               @unique
+  driverId            String
+  vehicleId           String
+  status              TripStatus           @default(ASSIGNED)
+  driverAssignedAt    DateTime?
+  driverAcceptedAt    DateTime?
+  arrivedPickupAt     DateTime?
+  passengerBoardedAt  DateTime?
+  tripStartedAt       DateTime?
+  tripCompletedAt     DateTime?
+  cancelledAt         DateTime?
+  startTime           DateTime?
+  endTime             DateTime?
+  startKm             Int?
+  endKm               Int?
+  totalDistance       Decimal?             @db.Decimal(10, 2)
+  totalDuration       Int?
+  deletedAt           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  damageReports       DamageReport[]
+  etaPredictions      ETAPrediction[]
+  extraCharges        ExtraCharge[]
+  geofenceEvents      GeofenceEvent[]
+  rentalExtensions    RentalExtension[]
+  returnApprovals     ReturnApproval[]
+  routeDeviations     RouteDeviation[]
+  sosevents           SOSEvent[]
+  booking             Booking              @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  driver              Driver               @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle             Vehicle              @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  tripCheckpoints     TripCheckpoint[]
+  tripExpenses        TripExpense[]
+  tripLocations       TripLocation[]
+  smartReturnListings SmartReturnListing[]
 }
 
 model VehicleDocument {
@@ -375,6 +380,177 @@ model PricingRule {
   @@index([isActive])
   @@index([vendorId, isActive])
   @@index([vehicleCategory, pricingType])
+}
+
+enum FinanceAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+model FinanceAccount {
+  id        String             @id @default(cuid())
+  code      String             @unique
+  name      String
+  type      FinanceAccountType
+  currency  String             @default("INR")
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  entries   JournalEntry[]
+
+  @@index([type])
+  @@index([isActive])
+}
+
+model Journal {
+  id            String         @id @default(cuid())
+  journalNumber String         @unique @default(uuid())
+  referenceType String?
+  referenceId   String?
+  description   String?
+  status        JournalStatus  @default(DRAFT)
+  postedAt      DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  entries       JournalEntry[]
+
+  @@index([referenceType, referenceId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model JournalEntry {
+  id          String         @id @default(cuid())
+  journalId   String
+  accountId   String
+  debit       Decimal        @default(0) @db.Decimal(14, 2)
+  credit      Decimal        @default(0) @db.Decimal(14, 2)
+  description String?
+  createdAt   DateTime       @default(now())
+  journal     Journal        @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account     FinanceAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([journalId])
+  @@index([accountId])
+}
+
+enum FinanceSettlementStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REVERSED
+}
+
+enum FinanceRefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+enum FinancePenaltyStatus {
+  PENDING
+  APPLIED
+  WAIVED
+  REVERSED
+}
+
+enum ReconciliationStatus {
+  MATCHED
+  MISMATCH
+  UNRESOLVED
+}
+
+model FinanceSettlement {
+  id               String                  @id @default(cuid())
+  settlementNumber String                  @unique @default(uuid())
+  vendorId         String?
+  driverId         String?
+  amount           Decimal                 @db.Decimal(14, 2)
+  commission       Decimal                 @default(0) @db.Decimal(14, 2)
+  netAmount        Decimal                 @db.Decimal(14, 2)
+  currency         String                  @default("INR")
+  status           FinanceSettlementStatus @default(PENDING)
+  referenceType    String?
+  referenceId      String?
+  paidAt           DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([vendorId, status])
+  @@index([driverId, status])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+}
+
+model FinanceRefund {
+  id              String              @id @default(cuid())
+  refundNumber    String              @unique @default(uuid())
+  bookingId       String?
+  transactionId   String?
+  amount          Decimal             @db.Decimal(14, 2)
+  currency        String              @default("INR")
+  reason          String?
+  status          FinanceRefundStatus @default(PENDING)
+  gatewayName     String?
+  gatewayRefundId String?
+  processedAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([bookingId])
+  @@index([transactionId])
+  @@index([status])
+  @@index([gatewayRefundId])
+}
+
+model FinancePenalty {
+  id            String               @id @default(cuid())
+  penaltyNumber String               @unique @default(uuid())
+  vendorId      String?
+  driverId      String?
+  bookingId     String?
+  amount        Decimal              @db.Decimal(14, 2)
+  reason        String
+  status        FinancePenaltyStatus @default(PENDING)
+  appliedAt     DateTime?
+  waivedAt      DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([vendorId, status])
+  @@index([driverId, status])
+  @@index([bookingId])
+  @@index([status])
+}
+
+model FinanceReconciliation {
+  id             String               @id @default(cuid())
+  sourceType     String
+  sourceId       String
+  expectedAmount Decimal              @db.Decimal(14, 2)
+  actualAmount   Decimal              @db.Decimal(14, 2)
+  difference     Decimal              @db.Decimal(14, 2)
+  status         ReconciliationStatus
+  notes          String?
+  reconciledAt   DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([sourceType, sourceId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Transaction {
@@ -937,6 +1113,47 @@ model RouteDeviation {
   vehicle    Vehicle? @relation(fields: [vehicleId], references: [id])
 }
 
+model SmartReturnListing {
+  id              String                   @id @default(cuid())
+  tripId          String
+  bookingId       String
+  vendorId        String
+  vehicleId       String
+  pickupLocation  String
+  dropLocation    String
+  originalPickup  String
+  originalDrop    String
+  fare            Decimal                  @db.Decimal(10, 2)
+  baseFare        Decimal                  @db.Decimal(10, 2)
+  discountPercent Decimal                  @default(15) @db.Decimal(5, 2)
+  status          SmartReturnListingStatus @default(DRAFT)
+  publishedAt     DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  trip            Trip                     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  booking         Booking                  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendor          Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle                  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([bookingId])
+  @@index([vendorId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([pickupLocation, dropLocation])
+  @@index([createdAt])
+}
+
+enum SmartReturnListingStatus {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  BOOKED
+  EXPIRED
+  CANCELLED
+}
+
 model ReturnApproval {
   id         String               @id @default(cuid())
   tripId     String
@@ -1477,6 +1694,50 @@ model ETAPrediction {
   calculatedAt      DateTime
   createdAt         DateTime @default(now())
   trip              Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+enum CRMAccountStatus {
+  PROSPECT
+  ACTIVE
+  INACTIVE
+  LOST
+}
+
+model CRMAccount {
+  id          String           @id @default(cuid())
+  corporateId String?
+  accountName String
+  contactName String?
+  email       String?
+  phone       String?
+  status      CRMAccountStatus @default(PROSPECT)
+  industry    String?
+  city        String?
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([corporateId])
+  @@index([status])
+  @@index([accountName])
+  @@index([createdAt])
+}
+
+model CRMConversionEvent {
+  id         String   @id @default(cuid())
+  sourceType String
+  sourceId   String?
+  targetType String
+  targetId   String?
+  stage      String?
+  value      Decimal? @db.Decimal(14, 2)
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([sourceType, sourceId])
+  @@index([targetType, targetId])
+  @@index([stage])
+  @@index([occurredAt])
 }
 
 model Lead {

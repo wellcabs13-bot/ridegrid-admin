@@ -1,89 +1,169 @@
-﻿import {
-  AutomationExecutionRequest,
-  AutomationExecutionResponse,
-} from "@/lib/automation/automation-types";
+export type RideGridEventDomain = "booking" | "finance" | "crm" | "analytics" | "system";
 
-import { AutomationTrigger } from "@/types/automation";
-import { automationEngine } from "@/lib/automation/automation-engine";
-
-export interface RideGridEvent {
+export type RideGridEvent<T = unknown> = {
   id: string;
-  type: AutomationTrigger;
+  type: string;
   module: string;
-  occurredAt: Date;
   userId?: string;
   bookingId?: string;
   vendorId?: string;
   driverId?: string;
   customerId?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: T;
+  payload?: T;
+  occurredAt: Date;
+  createdAt: Date;
+  attempts: number;
+};
+
+type EventHandler = (event: RideGridEvent) => void | Promise<void>;
+
+const handlers = new Map<string, Set<EventHandler>>();
+const deadLetters: RideGridEvent[] = [];
+
+function key(module: string, type: string) {
+  return `${module}:${type}`;
 }
 
-type EventHandler = (event: RideGridEvent) => Promise<void>;
+export function createRideGridEvent<T = unknown>(input: {
+  type: string;
+  module: string;
+  userId?: string;
+  bookingId?: string;
+  vendorId?: string;
+  driverId?: string;
+  customerId?: string;
+  metadata?: T;
+}): RideGridEvent<T> {
+  const now = new Date();
 
-class EventBus {
-  private handlers =
-    new Map<AutomationTrigger, EventHandler[]>();
-
-  subscribe(
-    eventType: AutomationTrigger,
-    handler: EventHandler
-  ): () => void {
-    const existing = this.handlers.get(eventType) ?? [];
-    existing.push(handler);
-    this.handlers.set(eventType, existing);
-
-    return () => {
-      const current = this.handlers.get(eventType) ?? [];
-      this.handlers.set(
-        eventType,
-        current.filter((item) => item !== handler)
-      );
-    };
-  }
-
-  async publish(event: RideGridEvent): Promise<void> {
-    const handlers = this.handlers.get(event.type) ?? [];
-
-    for (const handler of handlers) {
-      await handler(event);
-    }
-  }
-
-  async publishAutomation(
-    event: RideGridEvent
-  ): Promise<AutomationExecutionResponse> {
-    const request: AutomationExecutionRequest = {
-      trigger: event.type,
-      context: {
-        module: event.module,
-        userId: event.userId,
-        bookingId: event.bookingId,
-        vendorId: event.vendorId,
-        driverId: event.driverId,
-        customerId: event.customerId,
-        metadata: event.metadata ?? {},
-      },
-    };
-
-    return automationEngine.execute(request);
-  }
-
-  clear(): void {
-    this.handlers.clear();
-  }
-}
-
-export const eventBus = new EventBus();
-
-export function createRideGridEvent(
-  input: Omit<RideGridEvent, "id" | "occurredAt">
-): RideGridEvent {
   return {
-    ...input,
     id: crypto.randomUUID(),
-    occurredAt: new Date(),
-    metadata: input.metadata ?? {},
+    type: input.type,
+    module: input.module,
+    userId: input.userId,
+    bookingId: input.bookingId,
+    vendorId: input.vendorId,
+    driverId: input.driverId,
+    customerId: input.customerId,
+    metadata: input.metadata,
+    payload: input.metadata,
+    occurredAt: now,
+    createdAt: now,
+    attempts: 0,
   };
 }
 
+export function subscribe(
+  module: RideGridEventDomain | string,
+  type: string,
+  handler: EventHandler
+) {
+  const k = key(module, type);
+
+  if (!handlers.has(k)) {
+    handlers.set(k, new Set());
+  }
+
+  handlers.get(k)!.add(handler);
+
+  return () => {
+    handlers.get(k)?.delete(handler);
+  };
+}
+
+async function dispatch(event: RideGridEvent) {
+  const set = handlers.get(key(event.module.toLowerCase() as RideGridEventDomain, event.type))
+    ?? handlers.get(key(event.module, event.type));
+
+  if (!set || set.size === 0) {
+    return;
+  }
+
+  for (const handler of set) {
+    let completed = false;
+
+    for (let attempt = 1; attempt <= 3 && !completed; attempt++) {
+      try {
+        event.attempts = attempt;
+        await handler(event);
+        completed = true;
+      } catch (error) {
+        if (attempt === 3) {
+          deadLetters.push({ ...event });
+        }
+      }
+    }
+  }
+}
+
+export async function publish<T = unknown>(
+  module: RideGridEventDomain | string,
+  type: string,
+  payload: T
+): Promise<RideGridEvent<T>>;
+export async function publish(event: RideGridEvent): Promise<RideGridEvent>;
+export async function publish<T = unknown>(
+  moduleOrEvent: RideGridEventDomain | string | RideGridEvent,
+  type?: string,
+  payload?: T
+) {
+  const event: RideGridEvent =
+    typeof moduleOrEvent === "object"
+      ? moduleOrEvent
+      : createRideGridEvent({
+          module: moduleOrEvent,
+          type: type ?? "unknown",
+          metadata: payload,
+        });
+
+  await dispatch(event);
+
+  return event;
+}
+
+export async function publishAutomation(event: RideGridEvent) {
+  await dispatch(event);
+  return event;
+}
+
+export function getDeadLetterEvents() {
+  return [...deadLetters];
+}
+
+export function clearDeadLetterEvents() {
+  deadLetters.length = 0;
+}
+
+export const eventBus = {
+  publish,
+  publishAutomation,
+  subscribe,
+  getDeadLetterEvents,
+  clearDeadLetterEvents,
+};
+
+export const BookingEvents = {
+  CREATED: "booking.created",
+  CONFIRMED: "booking.confirmed",
+  CANCELLED: "booking.cancelled",
+  COMPLETED: "booking.completed",
+} as const;
+
+export const FinanceEvents = {
+  PAYMENT_CREATED: "finance.payment.created",
+  PAYMENT_VERIFIED: "finance.payment.verified",
+  REFUND_CREATED: "finance.refund.created",
+  SETTLEMENT_CREATED: "finance.settlement.created",
+} as const;
+
+export const CRMEvents = {
+  LEAD_CREATED: "crm.lead.created",
+  OPPORTUNITY_CREATED: "crm.opportunity.created",
+  TASK_CREATED: "crm.task.created",
+} as const;
+
+export const AnalyticsEvents = {
+  EVENT_RECORDED: "analytics.event.recorded",
+  BOOKING_ANALYZED: "analytics.booking.analyzed",
+} as const;

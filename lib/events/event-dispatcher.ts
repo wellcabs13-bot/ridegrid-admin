@@ -1,4 +1,4 @@
-﻿import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import {
   RideGridEvent,
   eventBus,
@@ -217,7 +217,8 @@ export async function processRetryQueue() {
           event.payload &&
           typeof event.payload === "object"
             ? (event.payload as Record<string, unknown>)
-            : {},
+            : {},      createdAt: new Date(),
+      attempts: 0,
       };
 
       // EVENT BUS
