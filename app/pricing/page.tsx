@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -77,6 +77,31 @@ const pricingTypes = [
   "OUTSTATION",
   "AIRPORT",
 ];
+
+const airportOptions = [
+  { city: "Pune", airport: "Pune International Airport" },
+  { city: "Mumbai", airport: "Chhatrapati Shivaji Maharaj International Airport" },
+  { city: "Delhi", airport: "Indira Gandhi International Airport" },
+  { city: "Bengaluru", airport: "Kempegowda International Airport" },
+  { city: "Hyderabad", airport: "Rajiv Gandhi International Airport" },
+  { city: "Chennai", airport: "Chennai International Airport" },
+  { city: "Kolkata", airport: "Netaji Subhas Chandra Bose International Airport" },
+  { city: "Ahmedabad", airport: "Sardar Vallabhbhai Patel International Airport" },
+  { city: "Jaipur", airport: "Jaipur International Airport" },
+  { city: "Goa", airport: "Manohar International Airport" },
+  { city: "Goa", airport: "Dabolim Airport" },
+  { city: "Kochi", airport: "Cochin International Airport" },
+  { city: "Thiruvananthapuram", airport: "Trivandrum International Airport" },
+  { city: "Chandigarh", airport: "Chandigarh International Airport" },
+  { city: "Lucknow", airport: "Chaudhary Charan Singh International Airport" },
+  { city: "Guwahati", airport: "Lokpriya Gopinath Bordoloi International Airport" },
+  { city: "Nagpur", airport: "Dr. Babasaheb Ambedkar International Airport" },
+  { city: "Indore", airport: "Devi Ahilyabai Holkar Airport" },
+  { city: "Surat", airport: "Surat Airport" },
+  { city: "Bhubaneswar", airport: "Biju Patnaik International Airport" },
+];
+
+const airportKmSlabs = [5, 10, 15, 20, 30];
 
 const cities = [
   "Pune",
@@ -413,7 +438,8 @@ export default function PricingPage() {
 
     if (
       !isOutstationOneway &&
-      !isOutstationRoundtrip &&
+      !isOutstationOneway && !isOutstationRoundtrip &&
+      pricingType !== "AIRPORT" &&
       !String(form.packageName || "").trim()
     ) {
       setMessage("Select or enter a package name.");
@@ -437,6 +463,14 @@ export default function PricingPage() {
         "Airport / Terminal is required."
       );
       return;
+    }
+
+    if (pricingType === "AIRPORT") {
+      const airportSlab = Number(form.includedKm);
+      if (!airportKmSlabs.includes(airportSlab)) {
+        setMessage("Select a valid airport distance slab.");
+        return;
+      }
     }
 
     /*
@@ -521,39 +555,43 @@ export default function PricingPage() {
                 : form.packageType,
 
           packageName:
-            isOutstationOneway ||
-            isOutstationRoundtrip
-              ? `${saveFromCity} to ${destination}`
-              : String(
-                  form.packageName || ""
-                ).trim(),
+            pricingType === "AIRPORT"
+              ? `${String(form.airportName).trim()} €” ${form.transferDirection === "PICKUP" ? "Airport Pickup" : "Airport Drop"} €” ${form.includedKm} KM`
+              : isOutstationOneway ||
+                isOutstationRoundtrip
+                ? `${saveFromCity} to ${destination}`
+                : String(
+                    form.packageName || ""
+                  ).trim(),
 
           includedHours:
-            isOutstationRoundtrip
-              ? "12"
-              : isOutstationOneway
-                ? null
-                : form.includedHours,
+            pricingType === "AIRPORT"
+              ? null
+              : isOutstationRoundtrip
+                ? "12"
+                : isOutstationOneway
+                  ? null
+                  : form.includedHours,
 
           includedKm:
-            isOutstationRoundtrip
-              ? "300"
-              : isOutstationOneway
-                ? null
-                : form.includedKm,
+            pricingType === "AIRPORT"
+              ? form.includedKm
+              : isOutstationRoundtrip
+                ? "300"
+                : isOutstationOneway
+                  ? null
+                  : form.includedKm,
 
           baseFare: fare,
 
           extraKmRate:
-            isOutstationOneway ||
-            isOutstationRoundtrip
-              ? form.extraKmRate
+            pricingType === "AIRPORT"
+              ? null
               : form.extraKmRate,
 
           extraHourRate:
-            isOutstationOneway ||
-            isOutstationRoundtrip
-              ? form.extraHourRate
+            pricingType === "AIRPORT"
+              ? null
               : form.extraHourRate,
 
           driverAllowance:
@@ -704,7 +742,7 @@ export default function PricingPage() {
           </h2>
 
           <p className="mt-1 text-sm text-slate-500">
-            Vendor → Vehicle → Assigned Driver → City → Pricing Structure
+            Vendor â†’ Vehicle â†’ Assigned Driver â†’ City â†’ Pricing Structure
           </p>
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -751,7 +789,7 @@ export default function PricingPage() {
                 ...vehicles.map(
                   (vehicle) => ({
                     value: vehicle.id,
-                    label: `${vehicle.registrationNumber} — ${vehicle.make} ${vehicle.model}`,
+                    label: `${vehicle.registrationNumber} €” ${vehicle.make} ${vehicle.model}`,
                   })
                 ),
               ]}
@@ -987,7 +1025,7 @@ export default function PricingPage() {
 
                     <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
                       <li>
-                        Route fare is fixed for the selected From City → To City.
+                        Route fare is fixed for the selected From City â†’ To City.
                       </li>
                       <li>
                         Extra pickup and extra drop charges are additional.
@@ -1006,60 +1044,33 @@ export default function PricingPage() {
                 </div>
               )}
 
-{form.pricingType ===
-                "AIRPORT" && (
+{form.pricingType === "AIRPORT" && (
                 <>
-                  <Input
-                    label="Airport / Terminal"
-                    value={
-                      form.airportName
-                    }
+                  <Select
+                    label="Airport Service"
+                    value={form.transferDirection}
                     onChange={(value) =>
-                      update(
-                        "airportName",
-                        value
-                      )
+                      update("transferDirection", value)
                     }
-                    placeholder="Pune Airport"
+                    options={[
+                      { value: "PICKUP", label: "Airport Pickup" },
+                      { value: "DROP", label: "Airport Drop" },
+                    ]}
                   />
 
                   <Select
-                    label="Transfer Direction"
-                    value={
-                      form.transferDirection
-                    }
+                    label="Airport"
+                    value={form.airportName}
                     onChange={(value) =>
-                      update(
-                        "transferDirection",
-                        value
-                      )
+                      update("airportName", value)
                     }
                     options={[
-                      {
-                        value:
-                          "PICKUP",
-                        label:
-                          "Airport Pickup",
-                      },
-                      {
-                        value:
-                          "DROP",
-                        label:
-                          "Airport Drop",
-                      },
+                      { value: "", label: "Select Airport" },
+                      ...airportOptions.map((item) => ({
+                        value: item.airport,
+                        label: `${item.city} €” ${item.airport}`,
+                      })),
                     ]}
-                  /><Input
-                    label="Package Name"
-                    value={
-                      form.packageName
-                    }
-                    onChange={(value) =>
-                      update(
-                        "packageName",
-                        value
-                      )
-                    }
-                    placeholder="Airport Transfer"
                   />
                 </>
               )}
@@ -1215,7 +1226,7 @@ export default function PricingPage() {
 
               </div>
             )}
-            {(form.pricingType === "LOCAL" || form.pricingType === "AIRPORT") && (
+            {form.pricingType === "LOCAL" && (
               <div className="mt-6 rounded-lg border border-slate-200 p-5">
 
                 <h3 className="font-semibold">
@@ -1294,6 +1305,46 @@ export default function PricingPage() {
               </div>
             )}
 
+            {form.pricingType === "AIRPORT" && (
+              <div className="mt-6 rounded-lg border border-slate-200 p-5">
+                <h3 className="font-semibold text-slate-900">Airport Fare Structure</h3>
+                <p className="mt-1 text-sm text-slate-500">Configure one fixed fare for the selected airport distance slab.</p>
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <Select
+                    label="Distance Slab"
+                    value={form.includedKm}
+                    onChange={(value) => update("includedKm", value)}
+                    options={[
+                      { value: "", label: "Select Distance Slab" },
+                      ...airportKmSlabs.map((km) => ({ value: String(km), label: `${km} KM` })),
+                    ]}
+                  />
+                  <Input
+                    label="Fixed Rate"
+                    value={form.baseFare}
+                    onChange={(value) => update("baseFare", value)}
+                    placeholder="₹ 0.00"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {form.pricingType === "AIRPORT" && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <h3 className="font-semibold text-slate-900">Important Note</h3>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
+                  <li>Toll and Parking charges are extra.</li>
+                  <li>Toll and Parking charges are not included in the airport transfer fare.</li>
+                  <li>Applicable Toll and Parking charges are payable directly to the driver.</li>
+                  <li>The displayed fare is the fixed fare for the selected distance slab.</li>
+                  <li>No additional per-KM or per-hour charge is applied within the selected slab.</li>
+                  <li>Applicable airport entry, terminal or parking charges are extra and payable directly to the driver.</li>
+                  <li>Please confirm the pickup/drop location and airport terminal before starting the trip.</li>
+                </ul>
+              </div>
+            )}
+
 
               {form.pricingType === "LOCAL" && (
                 <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
@@ -1303,16 +1354,16 @@ export default function PricingPage() {
 
                   <ul className="mt-2 space-y-1 text-sm text-slate-600">
                     <li>
-                      • Toll, Parking and Other Charges are extra.
+                      €¢ Toll, Parking and Other Charges are extra.
                     </li>
                     <li>
-                      • These charges are not included in the base package price.
+                      €¢ These charges are not included in the base package price.
                     </li>
                     <li>
-                      • These amounts are paid directly to the driver during the trip.
+                      €¢ These amounts are paid directly to the driver during the trip.
                     </li>
                     <li>
-                      • RideGrid does not calculate or include these charges in the package fare.
+                      €¢ RideGrid does not calculate or include these charges in the package fare.
                     </li>
                   </ul>
                 </div>
@@ -1358,10 +1409,12 @@ export default function PricingPage() {
                     <tr>
                       <th className="px-4 py-3">City</th>
                       <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Airport</th>
+                      <th className="px-4 py-3">Direction</th>
                       <th className="px-4 py-3">Package</th>
                       <th className="px-4 py-3">Hours</th>
                       <th className="px-4 py-3">KM</th>
-                      <th className="px-4 py-3">Base</th>
+                      <th className="px-4 py-3">Base / Fixed Rate</th>
                       <th className="px-4 py-3">Extra KM</th>
                       <th className="px-4 py-3">Extra Hour</th>
                       <th className="px-4 py-3">Toll</th>
@@ -1383,6 +1436,14 @@ export default function PricingPage() {
 
                           <td className="px-4 py-3">
                             {item.packageType}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {item.airportName || "-"}
+                          </td>
+
+                          <td className="px-4 py-3">
+                            {item.transferDirection === "PICKUP" ? "PICKUP" : item.transferDirection === "DROP" ? "DROP" : "-"}
                           </td>
 
                           <td className="px-4 py-3 font-medium">
@@ -1572,6 +1633,8 @@ function Info({
     </div>
   );
 }
+
+
 
 
 

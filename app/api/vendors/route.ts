@@ -9,7 +9,19 @@ function serializeVendor(vendor: any) {
     ownerName: vendor.user?.name ?? "",
     mobile: vendor.user?.mobile ?? "",
     email: vendor.user?.email ?? "",
-    city: "",
+
+    homeCity: vendor.homeCity ?? "",
+    fleetSize: vendor.fleetSize ?? null,
+    address: vendor.address ?? "",
+    city: vendor.city ?? "",
+    state: vendor.state ?? "",
+    pinCode: vendor.pinCode ?? "",
+
+    bankName: vendor.bankName ?? "",
+    accountNumber: vendor.accountNumber ?? "",
+    ifscCode: vendor.ifscCode ?? "",
+    branchName: vendor.branchName ?? "",
+
     totalVehicles: vendor.vehicles?.length ?? 0,
     activeVehicles:
       vendor.vehicles?.filter(
@@ -19,18 +31,35 @@ function serializeVendor(vendor: any) {
       vendor.bookings?.filter(
         (booking: any) => booking.status === "COMPLETED"
       ).length ?? 0,
-    totalEarnings: "₹0",
-    pendingPayment: "₹0",
+
+    totalEarnings: "?0",
+    pendingPayment: "?0",
     rating: 0,
     status: vendor.isApproved ? "Active" : "Pending",
     joinedDate: new Date(vendor.createdAt).toLocaleDateString("en-IN"),
   };
 }
 
+const vendorInclude = {
+  user: true,
+  vehicles: {
+    where: {
+      deletedAt: null,
+    },
+  },
+  bookings: {
+    where: {
+      deletedAt: null,
+    },
+    select: {
+      status: true,
+    },
+  },
+};
+
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
-
     const search = searchParams.get("search")?.trim() || "";
     const status = searchParams.get("status") || "";
 
@@ -81,24 +110,7 @@ export async function GET(req: NextRequest) {
           : {}),
       },
 
-      include: {
-        user: true,
-
-        vehicles: {
-          where: {
-            deletedAt: null,
-          },
-        },
-
-        bookings: {
-          where: {
-            deletedAt: null,
-          },
-          select: {
-            status: true,
-          },
-        },
-      },
+      include: vendorInclude,
 
       orderBy: {
         createdAt: "desc",
@@ -126,11 +138,23 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
+    const documents = body.documents ?? {};
+
     const {
       companyName,
       ownerName,
       mobile,
       email,
+      homeCity,
+      fleetSize,
+      address,
+      city,
+      state,
+      pinCode,
+      bankName,
+      accountNumber,
+      ifscCode,
+      branchName,
     } = body;
 
     if (
@@ -154,12 +178,8 @@ export async function POST(req: NextRequest) {
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [
-          {
-            email: normalizedEmail,
-          },
-          {
-            mobile: normalizedMobile,
-          },
+          { email: normalizedEmail },
+          { mobile: normalizedMobile },
         ],
         deletedAt: null,
       },
@@ -179,11 +199,7 @@ export async function POST(req: NextRequest) {
     }
 
     const temporaryPassword = crypto.randomUUID();
-
-    const hashedPassword = await bcrypt.hash(
-      temporaryPassword,
-      12
-    );
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 12);
 
     const vendor = await prisma.$transaction(async (tx: any) => {
       const user = await tx.user.create({
@@ -198,29 +214,52 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      return tx.vendor.create({
+      const createdVendor = await tx.vendor.create({
         data: {
           userId: user.id,
           companyName: companyName.trim(),
+
+          homeCity: homeCity?.trim() || null,
+          fleetSize:
+            fleetSize !== undefined &&
+            fleetSize !== null &&
+            String(fleetSize).trim() !== ""
+              ? Number(fleetSize)
+              : null,
+          address: address?.trim() || null,
+          city: city?.trim() || null,
+          state: state?.trim() || null,
+          pinCode: pinCode?.trim() || null,
+
+          bankName: bankName?.trim() || null,
+          accountNumber: accountNumber?.trim() || null,
+          ifscCode: ifscCode?.trim().toUpperCase() || null,
+          branchName: branchName?.trim() || null,
+
           isApproved: false,
         },
-        include: {
-          user: true,
-          vehicles: {
-            where: {
-              deletedAt: null,
-            },
-          },
-          bookings: {
-            where: {
-              deletedAt: null,
-            },
-            select: {
-              status: true,
-            },
-          },
-        },
+        include: vendorInclude,
       });
+
+      const documentInputs = [
+        { type: "AADHAAR", file: documents.aadhaarCard },
+        { type: "PAN", file: documents.panCard },
+        { type: "OTHER", file: documents.cancelledCheque },
+      ];
+
+      for (const item of documentInputs) {
+        if (item.file?.fileName && item.file?.fileUrl) {
+          await tx.vendorDocument.create({
+            data: {
+              vendorId: createdVendor.id,
+              documentType: item.type,
+              fileUrl: item.file.fileUrl,
+              status: "PENDING",
+            },
+          });
+        }
+      }
+      return createdVendor;
     });
 
     return NextResponse.json(
@@ -237,7 +276,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: "Failed to create vendor.",
+        message: error instanceof Error ? error.message : "Failed to create vendor.",
       },
       { status: 500 }
     );
@@ -254,6 +293,16 @@ export async function PUT(req: NextRequest) {
       ownerName,
       mobile,
       email,
+      homeCity,
+      fleetSize,
+      address,
+      city,
+      state,
+      pinCode,
+      bankName,
+      accountNumber,
+      ifscCode,
+      branchName,
       status,
     } = body;
 
@@ -268,12 +317,8 @@ export async function PUT(req: NextRequest) {
     }
 
     const vendor = await prisma.vendor.findUnique({
-      where: {
-        id,
-      },
-      include: {
-        user: true,
-      },
+      where: { id },
+      include: { user: true },
     });
 
     if (!vendor || vendor.deletedAt) {
@@ -287,70 +332,93 @@ export async function PUT(req: NextRequest) {
     }
 
     const updatedVendor = await prisma.$transaction(async (tx: any) => {
+      const userData: any = {};
+
+      if (ownerName !== undefined) {
+        userData.name = ownerName;
+      }
+
+      if (mobile !== undefined) {
+        userData.mobile = mobile;
+      }
+
+      if (email !== undefined) {
+        userData.email = email.trim().toLowerCase();
+      }
+
+      if (Object.keys(userData).length > 0) {
         await tx.user.update({
-          where: {
-            id: vendor.userId,
-          },
-          data: {
-            ...(ownerName !== undefined
-              ? { name: ownerName }
-              : {}),
-
-            ...(mobile !== undefined
-              ? { mobile }
-              : {}),
-
-            ...(email !== undefined
-              ? { email }
-              : {}),
-          },
-        });
-
-        return tx.vendor.update({
-          where: {
-            id,
-          },
-
-          data: {
-            ...(companyName !== undefined
-              ? { companyName }
-              : {}),
-
-            ...(status !== undefined
-              ? {
-                  isApproved: status === "Active",
-                }
-              : {}),
-          },
-
-          include: {
-            user: true,
-
-            vehicles: {
-              where: {
-                deletedAt: null,
-              },
-            },
-
-            bookings: {
-              where: {
-                deletedAt: null,
-              },
-              select: {
-                status: true,
-              },
-            },
-          },
+          where: { id: vendor.userId },
+          data: userData,
         });
       }
-    );
+
+      const vendorData: any = {};
+
+      if (companyName !== undefined) {
+        vendorData.companyName = companyName;
+      }
+
+      if (homeCity !== undefined) {
+        vendorData.homeCity = homeCity || null;
+      }
+
+      if (fleetSize !== undefined) {
+        vendorData.fleetSize =
+          fleetSize === null ||
+          String(fleetSize).trim() === ""
+            ? null
+            : Number(fleetSize);
+      }
+
+      if (address !== undefined) {
+        vendorData.address = address || null;
+      }
+
+      if (city !== undefined) {
+        vendorData.city = city || null;
+      }
+
+      if (state !== undefined) {
+        vendorData.state = state || null;
+      }
+
+      if (pinCode !== undefined) {
+        vendorData.pinCode = pinCode || null;
+      }
+
+      if (bankName !== undefined) {
+        vendorData.bankName = bankName || null;
+      }
+
+      if (accountNumber !== undefined) {
+        vendorData.accountNumber = accountNumber || null;
+      }
+
+      if (ifscCode !== undefined) {
+        vendorData.ifscCode = ifscCode
+          ? ifscCode.toUpperCase()
+          : null;
+      }
+
+      if (branchName !== undefined) {
+        vendorData.branchName = branchName || null;
+      }
+
+      if (status !== undefined) {
+        vendorData.isApproved = status === "Active";
+      }
+
+      return tx.vendor.update({
+        where: { id },
+        data: vendorData,
+        include: vendorInclude,
+      });
+    });
 
     return NextResponse.json({
       success: true,
-      message:
-        status === "Active"
-          ? "Vendor activated successfully."
-          : "Vendor updated successfully.",
+      message: "Vendor updated successfully.",
       data: serializeVendor(updatedVendor),
     });
   } catch (error) {
@@ -381,9 +449,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const vendor = await prisma.vendor.findUnique({
-      where: {
-        id,
-      },
+      where: { id },
     });
 
     if (!vendor || vendor.deletedAt) {
@@ -397,12 +463,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     await prisma.vendor.update({
-      where: {
-        id,
-      },
-      data: {
-        deletedAt: new Date(),
-      },
+      where: { id },
+      data: { deletedAt: new Date() },
     });
 
     return NextResponse.json({

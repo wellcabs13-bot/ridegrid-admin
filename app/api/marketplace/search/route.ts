@@ -1,105 +1,44 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { marketplaceListingService } from "@/lib/services/marketplace/MarketplaceListingService";
 
-import {
-  success,
-  failure,
-} from "@/lib/api-response";
-
-import {
-  marketplaceListingService,
-} from "@/lib/services/marketplace/MarketplaceListingService";
-
-export async function GET(
-  request: NextRequest
-) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } =
-      new URL(request.url);
+    const p = request.nextUrl.searchParams;
 
-    const pageValue = Number(
-      searchParams.get("page") || "1"
-    );
+    const data = await marketplaceListingService.search({
+      serviceType: p.get("serviceType") || "",
+      tripType: p.get("tripType") || "",
+      pickupCity: p.get("pickupCity") || "",
+      dropCity: p.get("dropCity") || "",
+      city: p.get("city") || "",
+      packageName: p.get("packageName") || "",
+      airport: p.get("airport") || "",
+      airportDirection: p.get("airportDirection") || "",
+      airportSlab: p.get("airportSlab") || "",
+      category: p.get("category") || "",
+      date: p.get("date") || "",
+      time: p.get("time") || "",
+      search: p.get("search") || p.get("q") || "",
+      page: Number(p.get("page") || 1),
+      limit: Number(p.get("limit") || 20),
+    });
 
-    const limitValue = Number(
-      searchParams.get("limit") || "20"
-    );
-
-    const result =
-      await marketplaceListingService.search({
-        serviceType:
-          searchParams
-            .get("serviceType")
-            ?.trim() || undefined,
-
-        tripType:
-          searchParams
-            .get("tripType")
-            ?.trim() || undefined,
-
-        pickupCity:
-          searchParams
-            .get("pickupCity")
-            ?.trim() || undefined,
-
-        dropCity:
-          searchParams
-            .get("dropCity")
-            ?.trim() || undefined,
-
-        date:
-          searchParams
-            .get("date")
-            ?.trim() || undefined,
-
-        time:
-          searchParams
-            .get("time")
-            ?.trim() || undefined,
-
-        search:
-          searchParams
-            .get("q")
-            ?.trim() ||
-          searchParams
-            .get("search")
-            ?.trim() ||
-          undefined,
-
-        // Backward compatibility
-        city:
-          searchParams
-            .get("city")
-            ?.trim() || undefined,
-
-        category:
-          searchParams
-            .get("category")
-            ?.trim() || undefined,
-
-        page:
-          Number.isFinite(pageValue)
-            ? pageValue
-            : 1,
-
-        limit:
-          Number.isFinite(limitValue)
-            ? limitValue
-            : 20,
-      });
-
-    return success(
-      result,
-      "Marketplace search completed successfully."
-    );
+    return NextResponse.json({
+      success: true,
+      data,
+    });
   } catch (error) {
-    console.error(
-      "GET /api/marketplace/search error:",
-      error
-    );
+    console.error("GET /api/marketplace/search:", error);
 
-    return failure(
-      "Marketplace search failed.",
-      500
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Marketplace search failed.",
+      },
+      { status: 500 }
     );
   }
 }

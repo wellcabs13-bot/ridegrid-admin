@@ -8,7 +8,7 @@ export const navigation: NavigationGroup[] = [
     items: [
       {
         title: "Dashboard",
-        href: "/",
+        href: "/admin",
         icon: NavigationIcons.dashboard,
       },
     ],
@@ -133,6 +133,16 @@ export const navigation: NavigationGroup[] = [
     ],
   },
   {
+    title: "Website & SEO",
+    defaultOpen: true,
+    items: [
+      {
+        title: "Website & SEO",
+        href: "/website-seo",
+        icon: NavigationIcons.websiteSeo,
+      },
+    ],
+  },  {
     title: "Administration",
     items: [
       {
@@ -148,3 +158,4 @@ export const navigation: NavigationGroup[] = [
     ],
   },
 ];
+

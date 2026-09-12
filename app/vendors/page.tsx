@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -117,11 +117,42 @@ export default function VendorsPage() {
     setOpenAddModal(true);
   }
 
+  async function fileToPayload(file: File | null) {
+    if (!file) return null;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/files/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "File upload failed.");
+    }
+
+    return {
+      fileName: file.name,
+      mimeType: file.type,
+      fileSize: file.size,
+      fileUrl: result.data.fileUrl,
+      storageKey: result.data.storageKey,
+    };
+  }
   async function handleSaveVendor(data: VendorFormData) {
     try {
       setSaving(true);
 
       const isEditing = Boolean(editingVendor);
+
+      const documents = {
+        aadhaarCard: await fileToPayload(data.aadhaarCard),
+        panCard: await fileToPayload(data.panCard),
+        cancelledCheque: await fileToPayload(data.cancelledCheque),
+      };
 
       const response = await fetch("/api/vendors", {
         method: isEditing ? "PUT" : "POST",
@@ -136,7 +167,17 @@ export default function VendorsPage() {
                 ownerName: data.ownerName,
                 mobile: data.mobile,
                 email: data.email,
+                homeCity: data.homeCity,
+                fleetSize: data.fleetSize,
+                address: data.address,
                 city: data.city,
+                state: data.state,
+                pinCode: data.pinCode,
+                bankName: data.bankName,
+                accountNumber: data.accountNumber,
+                ifscCode: data.ifscCode,
+                branchName: data.branchName,
+                documents,
                 status: data.status,
               }
             : {
@@ -144,7 +185,17 @@ export default function VendorsPage() {
                 ownerName: data.ownerName,
                 mobile: data.mobile,
                 email: data.email,
+                homeCity: data.homeCity,
+                fleetSize: data.fleetSize,
+                address: data.address,
                 city: data.city,
+                state: data.state,
+                pinCode: data.pinCode,
+                bankName: data.bankName,
+                accountNumber: data.accountNumber,
+                ifscCode: data.ifscCode,
+                branchName: data.branchName,
+                documents,
               }
         ),
       });
@@ -182,7 +233,6 @@ export default function VendorsPage() {
       setSaving(false);
     }
   }
-
   async function handleDeleteVendor(vendor: Vendor) {
     const confirmed = window.confirm(
       `Delete ${vendor.companyName}?\n\nThis will remove the vendor from the Super Admin vendor list.`
@@ -294,7 +344,19 @@ export default function VendorsPage() {
                   ownerName: editingVendor.ownerName,
                   mobile: editingVendor.mobile,
                   email: editingVendor.email,
-                  city: editingVendor.city,
+                  homeCity: editingVendor.homeCity ?? "",
+                  fleetSize:
+                    editingVendor.fleetSize != null
+                      ? String(editingVendor.fleetSize)
+                      : "",
+                  address: editingVendor.address ?? "",
+                  city: editingVendor.city ?? "",
+                  state: editingVendor.state ?? "",
+                  pinCode: editingVendor.pinCode ?? "",
+                  bankName: editingVendor.bankName ?? "",
+                  accountNumber: editingVendor.accountNumber ?? "",
+                  ifscCode: editingVendor.ifscCode ?? "",
+                  branchName: editingVendor.branchName ?? "",
                   status: editingVendor.status,
                 }
               : undefined

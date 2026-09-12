@@ -1,21 +1,14 @@
 ﻿import { Suspense } from "react";
 import MarketplaceResultsClient from "./MarketplaceResultsClient";
 
-function ResultsLoading() {
+function MarketplaceResultsLoading() {
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto flex min-h-screen max-w-7xl items-center justify-center px-6">
-        <div className="w-full max-w-xl rounded-3xl border bg-white p-12 text-center shadow-sm">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-
-          <h1 className="mt-6 text-xl font-bold text-slate-900">
-            Loading marketplace
-          </h1>
-
-          <p className="mt-2 text-sm text-slate-500">
-            Finding available vehicles for your journey.
-          </p>
-        </div>
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+      <div className="text-center">
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-cyan-400" />
+        <p className="mt-4 text-sm font-semibold text-slate-300">
+          Loading available vehicles...
+        </p>
       </div>
     </main>
   );
@@ -23,7 +16,7 @@ function ResultsLoading() {
 
 export default function MarketplaceResultsPage() {
   return (
-    <Suspense fallback={<ResultsLoading />}>
+    <Suspense fallback={<MarketplaceResultsLoading />}>
       <MarketplaceResultsClient />
     </Suspense>
   );

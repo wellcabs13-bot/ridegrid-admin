@@ -4,11 +4,42 @@ import { prisma } from "@/lib/prisma";
 export async function GET() {
   try {
     const bookings = await prisma.booking.findMany({
+      where: {
+        deletedAt: null,
+      },
       include: {
-        customer: true,
-        vendor: true,
+        customer: {
+          include: {
+            user: true,
+          },
+        },
+        vendor: {
+          include: {
+            user: true,
+          },
+        },
+        corporate: true,
         vehicle: true,
-        driver: true,
+        driver: {
+          include: {
+            user: true,
+          },
+        },
+        transactions: {
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+        couponUsages: {
+          include: {
+            coupon: true,
+          },
+        },
+        statusHistory: {
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -20,12 +51,12 @@ export async function GET() {
       data: bookings,
     });
   } catch (error) {
-    console.error(error);
+    console.error("GET /api/bookings error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message: "Failed to fetch bookings",
+        message: "Failed to fetch bookings.",
       },
       { status: 500 }
     );

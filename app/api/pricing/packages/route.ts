@@ -329,6 +329,51 @@ export async function POST(
       );
     }
 
+    if (pricingType === PricingType.AIRPORT) {
+      const airportNameValue =
+        typeof airportName === "string"
+          ? airportName.trim()
+          : "";
+
+      const transferDirectionValue =
+        typeof transferDirection === "string"
+          ? transferDirection.trim().toUpperCase()
+          : "";
+
+      const airportSlab = Number(includedKm);
+      const allowedAirportSlabs = [5, 10, 15, 20, 30];
+
+      if (!airportNameValue) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Airport is required for Airport pricing.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!["PICKUP", "DROP"].includes(transferDirectionValue)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Airport service must be Pickup or Drop.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!allowedAirportSlabs.includes(airportSlab)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Airport distance slab must be 5, 10, 15, 20 or 30 KM.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
 
     const effectiveChargeType =
       enumValue(
@@ -338,7 +383,7 @@ export async function POST(
         ? chargeType
         : ChargeType.FIXED;
 
-    if (!isOutstationOneway) {
+    if (!isOutstationOneway && pricingType !== PricingType.AIRPORT) {
       if (
         typeof packageName !==
           "string" ||
@@ -495,7 +540,9 @@ export async function POST(
     const normalizedPackageName =
       isOutstationOneway
         ? `${normalizedFromCity} to ${normalizedToCity}`
-        : packageName.trim();
+        : pricingType === PricingType.AIRPORT
+      ? `${String(airportName || "").trim()} - ${String(transferDirection || "").trim()} - ${String(includedKm || "").trim()} KM`
+      : packageName.trim();
 
     const existing =
       await prisma.pricingPackage.findFirst({
@@ -513,6 +560,19 @@ export async function POST(
             pricingType === PricingType.OUTSTATION
               ? toCity.trim()
               : null,
+          ...(pricingType === PricingType.AIRPORT
+            ? {
+                airportName:
+                  typeof airportName === "string"
+                    ? airportName.trim()
+                    : null,
+                transferDirection:
+                  typeof transferDirection === "string"
+                    ? transferDirection.trim().toUpperCase()
+                    : null,
+                includedKm: Number(includedKm),
+              }
+            : {}),
         },
       });
 
@@ -544,14 +604,14 @@ export async function POST(
       baseFare: base,
 
       extraKmRate:
-        numberOrNull(
-          extraKmRate
-        ),
+        pricingType === PricingType.AIRPORT
+          ? null
+          : numberOrNull(extraKmRate),
 
       extraHourRate:
-        numberOrNull(
-          extraHourRate
-        ),
+        pricingType === PricingType.AIRPORT
+          ? null
+          : numberOrNull(extraHourRate),
 
       driverAllowance:
         numberOrNull(
@@ -579,17 +639,17 @@ export async function POST(
         ),
 
       airportName:
-        typeof airportName ===
-          "string" &&
+        pricingType === PricingType.AIRPORT &&
+        typeof airportName === "string" &&
         airportName.trim()
           ? airportName.trim()
           : null,
 
       transferDirection:
-        typeof transferDirection ===
-          "string" &&
+        pricingType === PricingType.AIRPORT &&
+        typeof transferDirection === "string" &&
         transferDirection.trim()
-          ? transferDirection.trim()
+          ? transferDirection.trim().toUpperCase()
           : null,
 
       isActive:
@@ -655,6 +715,8 @@ export async function POST(
     );
   }
 }
+
+
 
 
 

@@ -15,6 +15,7 @@ const PUBLIC_API_ROUTES = [
   "/api/auth/reset-password",
   "/api/auth/refresh",
   "/api/health",
+  "/api/marketplace/cash-booking",
 ];
 
 const ACCESS_COOKIE = "ridegrid_access_token";
@@ -183,3 +184,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };
+

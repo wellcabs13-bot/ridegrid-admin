@@ -947,6 +947,24 @@ export async function PUT(
         );
     }
 
+    if (
+      body.isVerified !==
+      undefined
+    ) {
+      if (
+        typeof body.isVerified !==
+        "boolean"
+      ) {
+        return failure(
+          "Vehicle verification value must be true or false.",
+          400
+        );
+      }
+
+      data.isVerified =
+        body.isVerified;
+    }
+
     const vehicle =
       await prisma.vehicle.update({
         where: { id },

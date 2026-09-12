@@ -1,15 +1,13 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Listing = {
   id: string;
-
   vehicle: {
+    id?: string;
+    registrationNumber?: string | null;
     make: string;
     model: string;
     variant?: string | null;
@@ -21,18 +19,31 @@ type Listing = {
     luggageCapacity?: number | null;
     color?: string | null;
   };
-
-  location: {
-    city: string;
-  };
-
+  location: { city: string };
   pricing: {
+    pricingPackageId?: string;
+    pricingRuleId?: string;
+    pricingType?: string;
+    tripType?: string | null;
+    packageType?: string | null;
+    packageName?: string | null;
+    city?: string | null;
+    fromCity?: string | null;
+    toCity?: string | null;
     baseFare: number;
-    pricePerKm: number | null;
-    waitingCharge?: number | null;
+    includedHours?: number | null;
+    includedKm?: number | null;
+    extraKmRate?: number | null;
+    extraHourRate?: number | null;
+    driverAllowance?: number | null;
     nightCharge?: number | null;
+    waitingCharge?: number | null;
+    tollCharge?: number | null;
+    parkingCharge?: number | null;
+    otherCharges?: number | null;
+    airportName?: string | null;
+    transferDirection?: string | null;
   };
-
   marketplace: {
     rating: number;
     totalTrips: number;
@@ -40,19 +51,26 @@ type Listing = {
     status: string;
     available?: boolean;
   };
-
   vendor: {
     id: string;
     companyName: string;
     name?: string;
     mobile?: string | null;
   } | null;
-
   driver?: {
     id: string;
     name: string;
     mobile?: string | null;
   } | null;
+  media?: {
+    vehiclePhotos?: string[];
+    driverPhoto?: string | null;
+  };
+  ratings?: {
+    vehicle?: { average: number | null; count: number };
+    vendor?: { average: number | null; count: number };
+    driver?: { average: number | null; count: number };
+  };
 };
 
 type SearchResponse = {
@@ -61,13 +79,16 @@ type SearchResponse = {
     tripType?: string | null;
     pickupCity?: string | null;
     dropCity?: string | null;
+    city?: string | null;
+    packageName?: string | null;
+    airport?: string | null;
+    airportDirection?: string | null;
+    airportSlab?: string | null;
     date?: string | null;
     time?: string | null;
     category?: string | null;
   };
-
   listings?: Listing[];
-
   pagination?: {
     page: number;
     limit: number;
@@ -76,914 +97,622 @@ type SearchResponse = {
   };
 };
 
-function formatCategory(value: string) {
+function title(value?: string | null) {
+  if (!value) return "";
   return value
     .replaceAll("_", " ")
     .toLowerCase()
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase()
-    );
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function formatTripType(value: string) {
+function serviceLabel(value: string) {
   switch (value) {
-    case "ROUNDTRIP":
-      return "Round Trip";
-
-    case "MULTICITY":
-      return "Multi City";
-
-    default:
-      return "One Way";
-  }
-}
-
-function formatServiceType(value: string) {
-  switch (value) {
-    case "OUTSTATION":
-      return "Outstation";
-
-    case "LOCAL":
-      return "Local";
-
+    case "OUTSTATION": return "Outstation";
+    case "LOCAL": return "Local";
     case "AIRPORT":
-    case "AIRPORT_TRANSFER":
-      return "Airport Transfer";
-
-    case "TOUR":
-    case "TOUR_PACKAGE":
-      return "Tour Package";
-
-    case "CORPORATE":
-      return "Corporate";
-
-    default:
-      return value
-        ? value
-            .replaceAll("_", " ")
-            .toLowerCase()
-            .replace(/\b\w/g, (letter) =>
-              letter.toUpperCase()
-            )
-        : "Marketplace";
+    case "AIRPORT_TRANSFER": return "Airport";
+    default: return title(value) || "Marketplace";
   }
 }
 
-function formatDate(value: string) {
-  if (!value) {
-    return "Date not selected";
-  }
-
-  const date = new Date(
-    `${value}T00:00:00`
-  );
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }
-  );
+function tripLabel(value?: string | null) {
+  if (!value) return "";
+  return value === "ROUNDTRIP" ? "Round Trip" : value === "ONEWAY" ? "One Way" : title(value);
 }
 
-function formatCurrency(value: number) {
-  return `â‚¹${value.toLocaleString(
-    "en-IN",
-    {
-      maximumFractionDigits: 0,
-    }
-  )}`;
+function currency(value?: number | null) {
+  if (value == null || Number.isNaN(Number(value))) return "â€”";
+  return `â‚¹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
-export default function MarketplaceResultsPage() {
+function stars(value?: number | null) {
+  if (value == null || Number.isNaN(Number(value))) return "â€”";
+  return Number(value).toFixed(1);
+}
+
+function dateLabel(value?: string | null) {
+  if (!value) return "";
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime())
+    ? value
+    : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function initials(value?: string | null) {
+  const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+  return (parts.slice(0, 2).map((p) => p[0]).join("") || "?").toUpperCase();
+}
+
+function packageHeadline(listing: Listing) {
+  const p = listing.pricing;
+  if (p.packageName) return p.packageName;
+  if (p.includedHours != null && p.includedKm != null) return `${p.includedHours} Hrs / ${p.includedKm} KM`;
+  if (p.includedKm != null) return `${p.includedKm} KM`;
+  return title(p.packageType || p.pricingType || "Saved Pricing");
+}
+
+function locationLine(listing: Listing) {
+  const p = listing.pricing;
+  if (p.pricingType === "OUTSTATION" && p.fromCity && p.toCity) {
+    return `${p.fromCity} â†’ ${p.toCity}`;
+  }
+  if (p.pricingType === "AIRPORT") {
+    return [p.airportName, p.transferDirection === "PICKUP" ? "Pickup" : p.transferDirection === "DROP" ? "Drop" : ""]
+      .filter(Boolean).join(" â€¢ ");
+  }
+  return listing.location.city || p.city || "";
+}
+
+function ratingBlock(rating?: { average: number | null; count: number }) {
+  if (!rating || rating.average == null) return "No reviews yet";
+  return `${Number(rating.average).toFixed(1)} (${rating.count})`;
+}
+
+export default function MarketplaceResultsClient() {
   const router = useRouter();
-  const searchParams =
-    useSearchParams();
+  const searchParams = useSearchParams();
+  const corporateId = searchParams.get("corporateId") || "";
+  const corporateName = searchParams.get("corporateName") || "";
+  
 
-  const serviceType =
-    searchParams.get(
-      "serviceType"
-    ) || "";
+  const serviceType = searchParams.get("serviceType") || "";
+  const tripType = searchParams.get("tripType") || "";
+  const pickupCity = searchParams.get("pickupCity") || "";
+  const dropCity = searchParams.get("dropCity") || "";
+  const city = searchParams.get("city") || pickupCity;
+  const packageName = searchParams.get("packageName") || "";
+  const airport = searchParams.get("airport") || "";
+  const airportDirection = searchParams.get("airportDirection") || "";
+  const airportSlab = searchParams.get("airportSlab") || "";
+  const date = searchParams.get("date") || "";
+  const time = searchParams.get("time") || "";
+  const category = searchParams.get("category") || "";
 
-  const tripType =
-    searchParams.get(
-      "tripType"
-    ) || "ONEWAY";
-
-  const pickupCity =
-    searchParams.get(
-      "pickupCity"
-    ) || "";
-
-  const dropCity =
-    searchParams.get(
-      "dropCity"
-    ) || "";
-
-  const date =
-    searchParams.get("date") ||
-    "";
-
-  const time =
-    searchParams.get("time") ||
-    "";
-
-  const category =
-    searchParams.get(
-      "category"
-    ) || "";
-
-  const [listings, setListings] =
-    useState<Listing[]>([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
-
-  const [sortBy, setSortBy] =
-    useState("recommended");
-
-  const [selectedListingId, setSelectedListingId] =
-    useState<string | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [sortBy, setSortBy] = useState("recommended");
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
+  const [galleryIndex, setGalleryIndex] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadListings() {
+    async function load() {
       try {
         setLoading(true);
         setError("");
 
-        const params =
-          new URLSearchParams();
-
+        const params = new URLSearchParams();
         params.set("page", "1");
         params.set("limit", "100");
-
-        if (serviceType) {
-          params.set(
-            "serviceType",
-            serviceType
-          );
+        for (const [key, value] of Object.entries({
+          serviceType, tripType, pickupCity, dropCity, city, packageName,
+          airport, airportDirection, airportSlab, date, time, category
+        })) {
+          if (value) params.set(key, value);
         }
 
-        if (tripType) {
-          params.set(
-            "tripType",
-            tripType
-          );
+        const response = await fetch(`/api/marketplace/search?${params.toString()}`, { cache: "no-store" });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || "Failed to load marketplace listings.");
         }
 
-        if (pickupCity) {
-          params.set(
-            "pickupCity",
-            pickupCity
-          );
-        }
+        const data = result.data as SearchResponse;
+        let nextListings = data.listings ?? [];
 
-        if (dropCity) {
-          params.set(
-            "dropCity",
-            dropCity
+        // Enrich the already-resolved real listings with real uploaded photos
+        // and published review aggregates. No placeholder/demo images are used.
+        const ids = nextListings.map((item) => item.id).filter(Boolean);
+        if (ids.length) {
+          const mediaResponse = await fetch(
+            `/api/marketplace/listing-assets?vehicleIds=${encodeURIComponent(ids.join(","))}`,
+            { cache: "no-store" }
           );
-        }
-
-        if (date) {
-          params.set(
-            "date",
-            date
-          );
-        }
-
-        if (time) {
-          params.set(
-            "time",
-            time
-          );
-        }
-
-        if (category) {
-          params.set(
-            "category",
-            category
-          );
-        }
-
-        const response =
-          await fetch(
-            `/api/marketplace/search?${params.toString()}`,
-            {
-              cache: "no-store",
+          if (mediaResponse.ok) {
+            const mediaResult = await mediaResponse.json();
+            if (mediaResult.success) {
+              const byVehicle = mediaResult.data as Record<string, Listing["media"] & { ratings?: Listing["ratings"] }>;
+              nextListings = nextListings.map((item) => ({
+                ...item,
+                media: byVehicle[item.id] || item.media,
+                ratings: byVehicle[item.id]?.ratings || item.ratings,
+              }));
             }
-          );
-
-        const result =
-          await response.json();
-
-        if (
-          !response.ok ||
-          !result.success
-        ) {
-          throw new Error(
-            result.message ||
-              "Failed to load marketplace listings."
-          );
+          }
         }
 
-        if (!cancelled) {
-          const data =
-            result.data as SearchResponse;
-
-          setListings(
-            data.listings ?? []
-          );
-        }
+        if (!cancelled) setListings(nextListings);
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load marketplace listings."
-          );
+          setError(err instanceof Error ? err.message : "Failed to load marketplace listings.");
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
-    loadListings();
+    load();
+    return () => { cancelled = true; };
+  }, [serviceType, tripType, pickupCity, dropCity, city, packageName, airport, airportDirection, airportSlab, date, time, category]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    serviceType,
-    tripType,
-    pickupCity,
-    dropCity,
-    date,
-    time,
-    category,
-  ]);
+  const sortedListings = useMemo(() => {
+    const items = [...listings];
+    if (sortBy === "price_low") return items.sort((a, b) => a.pricing.baseFare - b.pricing.baseFare);
+    if (sortBy === "price_high") return items.sort((a, b) => b.pricing.baseFare - a.pricing.baseFare);
+    if (sortBy === "rating") return items.sort((a, b) => (b.ratings?.vehicle?.average ?? b.marketplace.rating ?? 0) - (a.ratings?.vehicle?.average ?? a.marketplace.rating ?? 0));
+    if (sortBy === "trips") return items.sort((a, b) => b.marketplace.totalTrips - a.marketplace.totalTrips);
+    return items.sort((a, b) => {
+      const ra = a.ratings?.vehicle?.average ?? a.marketplace.rating ?? 0;
+      const rb = b.ratings?.vehicle?.average ?? b.marketplace.rating ?? 0;
+      if (rb !== ra) return rb - ra;
+      return b.marketplace.totalTrips - a.marketplace.totalTrips;
+    });
+  }, [listings, sortBy]);
 
-  const sortedListings =
-    useMemo(() => {
-      const items = [
-        ...listings,
-      ];
-
-      switch (sortBy) {
-        case "price_low":
-          return items.sort(
-            (a, b) =>
-              a.pricing.baseFare -
-              b.pricing.baseFare
-          );
-
-        case "price_high":
-          return items.sort(
-            (a, b) =>
-              b.pricing.baseFare -
-              a.pricing.baseFare
-          );
-
-        case "rating":
-          return items.sort(
-            (a, b) =>
-              b.marketplace.rating -
-              a.marketplace.rating
-          );
-
-        case "trips":
-          return items.sort(
-            (a, b) =>
-              b.marketplace.totalTrips -
-              a.marketplace.totalTrips
-          );
-
-        default:
-          return items.sort(
-            (a, b) => {
-              const ratingDifference =
-                b.marketplace.rating -
-                a.marketplace.rating;
-
-              if (
-                ratingDifference !== 0
-              ) {
-                return ratingDifference;
-              }
-
-              return (
-                b.marketplace.totalTrips -
-                a.marketplace.totalTrips
-              );
-            }
-          );
-      }
-    }, [
-      listings,
-      sortBy,
-    ]);
-
-  function handleBook(
-    listing: Listing
-  ) {
-    setSelectedListingId(
-      listing.id
-    );
-
-    const params =
-      new URLSearchParams({
-        listingId:
-          listing.id,
-
-        serviceType,
-
-        tripType,
-
-        pickupCity,
-
-        dropCity,
-
-        date,
-
-        time,
-      });
-
-    if (category) {
-      params.set(
-        "category",
-        category
-      );
-    }
-
-    router.push(
-      `/marketplace/booking?${params.toString()}`
-    );
+  function handleBook(listing: Listing) {
+    setSelectedListingId(listing.id);
+    const params = new URLSearchParams({
+      listingId: listing.id,
+      serviceType,
+      tripType,
+      pickupCity,
+      dropCity,
+      date,
+      time,
+    });
+    if (category) params.set("category", category);
+    if (packageName) params.set("packageName", packageName);
+    if (airport) params.set("airport", airport);
+    if (airportDirection) params.set("airportDirection", airportDirection);
+    if (airportSlab) params.set("airportSlab", airportSlab);
+    if (corporateId) params.set("corporateId", corporateId);
+    if (corporateName) params.set("corporateName", corporateName);
+    router.push(`/marketplace/booking?${params.toString()}`);
   }
 
+  const heading = serviceType === "OUTSTATION" && pickupCity && dropCity
+    ? `${serviceLabel(serviceType)} Â· ${tripLabel(tripType)}`
+    : `${serviceLabel(serviceType)}${city ? ` Â· ${city}` : ""}`;
+
+  const subtitle = serviceType === "OUTSTATION"
+    ? `${pickupCity}${dropCity ? ` â†’ ${dropCity}` : ""}`
+    : serviceType === "AIRPORT"
+      ? `${airport || "Airport"}${airportDirection ? ` Â· ${title(airportDirection)}` : ""}`
+      : `Pickup${city ? ` anywhere in ${city}` : ""}`;
+
   return (
-    <main className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="border-b bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-5">
-          <button
-            type="button"
-            onClick={() =>
-              router.push(
-                "/marketplace"
-              )
-            }
-            className="mb-4 text-sm font-semibold text-blue-600 hover:text-blue-700"
-          >
-            â† Modify Search
-          </button>
-
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <main className="min-h-screen bg-[#020617] text-white">
+      <header className="border-b border-white/10 bg-[#020617]">
+        <div className="mx-auto max-w-[1500px] px-6 py-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                  {formatServiceType(
-                    serviceType
-                  )}
-                </span>
-
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                  {formatTripType(
-                    tripType
-                  )}
-                </span>
-
-                {category && (
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                    {formatCategory(
-                      category
-                    )}
-                  </span>
-                )}
+              <div className="text-[11px] font-black tracking-[0.28em] text-cyan-300">
+                LIVE MARKETPLACE RESULTS
               </div>
+              <h1 className="mt-2 text-3xl font-black tracking-tight">{heading}</h1>
+              <p className="mt-1 text-sm text-slate-300">{subtitle}</p>
 
-              <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
-                Available Vehicles
-              </h1>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Compare verified vehicles,
-                vendors, drivers and pricing
-                before choosing your ride.
-              </p>
-            </div>
-
-            <div className="rounded-xl border bg-slate-50 px-5 py-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Journey
-              </div>
-
-              <div className="mt-1 font-bold text-slate-900">
-                {pickupCity || "Pickup"}
-                <span className="mx-2 text-slate-400">
-                  â†’
-                </span>
-                {dropCity || "Drop"}
-              </div>
-
-              <div className="mt-1 text-sm text-slate-500">
-                {formatDate(date)}
-                {time
-                  ? ` â€¢ ${time}`
-                  : ""}
+              <div className="mt-5 flex flex-wrap gap-2">
+                <InfoPill label="Service" value={serviceLabel(serviceType)} />
+                {tripType && <InfoPill label="Trip" value={tripLabel(tripType)} />}
+                {pickupCity && <InfoPill label="Pickup" value={pickupCity} />}
+                {dropCity && <InfoPill label="Drop" value={dropCity} />}
+                {date && <InfoPill label="Date" value={dateLabel(date)} />}
+                {time && <InfoPill label="Time" value={time} />}
+                {category && <InfoPill label="Category" value={title(category)} />}
+                {packageName && <InfoPill label="Package" value={packageName} />}
+                {airport && <InfoPill label="Airport" value={airport} />}
+                {airportSlab && <InfoPill label="KM Slab" value={`${airportSlab} KM`} />}
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => router.push("/marketplace")}
+              className="rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-bold text-white hover:bg-white/10"
+            >
+              Change Search
+            </button>
           </div>
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-6 py-8">
-        {/* Search Summary */}
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <SummaryCard
-            label="Service"
-            value={
-              formatServiceType(
-                serviceType
-              )
-            }
-          />
-
-          <SummaryCard
-            label="Trip"
-            value={
-              formatTripType(
-                tripType
-              )
-            }
-          />
-
-          <SummaryCard
-            label="Pickup"
-            value={
-              pickupCity ||
-              "Not selected"
-            }
-          />
-
-          <SummaryCard
-            label="Drop"
-            value={
-              dropCity ||
-              "Not selected"
-            }
-          />
-
-          <SummaryCard
-            label="Date & Time"
-            value={`${formatDate(
-              date
-            )}${time ? ` â€¢ ${time}` : ""}`}
-          />
-        </div>
-
-        {/* Toolbar */}
-        <div className="mb-5 flex flex-col gap-4 rounded-2xl border bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+      <section className="mx-auto max-w-[1500px] px-6 py-7">
+        <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-lg font-bold text-slate-900">
-              {loading
-                ? "Finding vehicles..."
-                : `${sortedListings.length} vehicles available`}
+            <div className="text-xl font-black">
+              {loading ? "Finding vehicles..." : `${sortedListings.length} Vehicle${sortedListings.length === 1 ? "" : "s"} Found`}
             </div>
-
-            <div className="text-sm text-slate-500">
-              Showing verified marketplace
-              listings matching your search.
+            <div className="mt-1 text-xs text-slate-400">
+              Real vehicles matched to active saved PricingPackage records.
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <label
-              htmlFor="sort"
-              className="text-sm font-medium text-slate-500"
-            >
-              Sort
+          {!loading && sortedListings.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              Sort by
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="rounded-xl border border-white/10 bg-slate-900 px-4 py-2.5 font-semibold text-white outline-none"
+              >
+                <option value="recommended">Recommended</option>
+                <option value="price_low">Price: Low to High</option>
+                <option value="price_high">Price: High to Low</option>
+                <option value="rating">Highest Rated</option>
+                <option value="trips">Most Trips</option>
+              </select>
             </label>
-
-            <select
-              id="sort"
-              value={sortBy}
-              onChange={(event) =>
-                setSortBy(
-                  event.target.value
-                )
-              }
-              className="rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500"
-            >
-              <option value="recommended">
-                Recommended
-              </option>
-
-              <option value="price_low">
-                Price: Low to High
-              </option>
-
-              <option value="price_high">
-                Price: High to Low
-              </option>
-
-              <option value="rating">
-                Highest Rated
-              </option>
-
-              <option value="trips">
-                Most Trips
-              </option>
-            </select>
-          </div>
+          )}
         </div>
 
-        {/* Loading */}
         {loading && (
-          <div className="rounded-2xl border bg-white p-16 text-center shadow-sm">
-            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-
-            <p className="mt-4 font-semibold text-slate-700">
-              Finding the best available
-              vehicles...
-            </p>
-
-            <p className="mt-1 text-sm text-slate-400">
-              Checking marketplace availability.
-            </p>
+          <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-14 text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-cyan-400" />
+            <div className="mt-5 font-bold">Finding your best vehicles</div>
           </div>
         )}
 
-        {/* Error */}
-        {!loading && error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
-            <h2 className="font-bold text-red-800">
-              Unable to load vehicles
-            </h2>
+        {error && !loading && (
+          <div className="rounded-3xl border border-red-400/20 bg-red-400/10 p-8 text-center text-red-200">{error}</div>
+        )}
 
-            <p className="mt-2 text-sm text-red-600">
-              {error}
+        {!loading && !error && sortedListings.length === 0 && (
+          <div className="rounded-3xl border border-amber-400/20 bg-amber-400/10 p-14 text-center">
+            <div className="text-xl font-black">No vehicles available</div>
+            <p className="mx-auto mt-2 max-w-xl text-sm text-slate-300">
+              No eligible vehicle is currently available for this exact saved pricing structure and selected time.
             </p>
-
             <button
               type="button"
-              onClick={() =>
-                window.location.reload()
-              }
-              className="mt-5 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-red-700"
+              onClick={() => router.push("/marketplace")}
+              className="mt-6 rounded-xl bg-cyan-400 px-6 py-3 font-black text-slate-950"
             >
-              Try Again
+              Modify Search
             </button>
           </div>
         )}
 
-        {/* Empty */}
-        {!loading &&
-          !error &&
-          sortedListings.length === 0 && (
-            <div className="rounded-2xl border bg-white p-14 text-center shadow-sm">
-              <div className="text-4xl">
-                ðŸš—
-              </div>
-
-              <h2 className="mt-4 text-xl font-bold text-slate-900">
-                No vehicles available
-              </h2>
-
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                We couldn&apos;t find a verified
-                vehicle matching this journey.
-                Try another pickup city,
-                category or time.
-              </p>
-
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(
-                    "/marketplace"
-                  )
+        {!loading && !error && sortedListings.length > 0 && (
+          <div className="space-y-6">
+            {sortedListings.map((listing, index) => (
+              <MarketplaceListingCard
+                key={listing.id}
+                listing={listing}
+                rank={index}
+                onBook={handleBook}
+                bookingLoading={selectedListingId === listing.id}
+                galleryIndex={galleryIndex[listing.id] || 0}
+                setGalleryIndex={(value) =>
+                  setGalleryIndex((previous) => ({ ...previous, [listing.id]: value }))
                 }
-                className="mt-6 rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white hover:bg-slate-800"
-              >
-                Modify Search
-              </button>
-            </div>
-          )}
-
-        {/* Listings */}
-        {!loading &&
-          !error &&
-          sortedListings.length > 0 && (
-            <div className="space-y-4">
-              {sortedListings.map(
-                (listing) => (
-                  <MarketplaceListingCard
-                    key={listing.id}
-                    listing={listing}
-                    onBook={handleBook}
-                    bookingLoading={
-                      selectedListingId ===
-                      listing.id
-                    }
-                  />
-                )
-              )}
-            </div>
-          )}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function InfoPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm">
-      <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
-        {label}
-      </div>
-
-      <div className="mt-1 truncate text-sm font-bold text-slate-800">
-        {value}
-      </div>
+    <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs">
+      <span className="text-slate-500">{label}: </span>
+      <span className="font-bold text-slate-200">{value}</span>
     </div>
   );
 }
 
 function MarketplaceListingCard({
   listing,
+  rank,
   onBook,
   bookingLoading,
+  galleryIndex,
+  setGalleryIndex,
 }: {
   listing: Listing;
-  onBook: (
-    listing: Listing
-  ) => void;
+  rank: number;
+  onBook: (listing: Listing) => void;
   bookingLoading: boolean;
+  galleryIndex: number;
+  setGalleryIndex: (value: number) => void;
 }) {
+  const photos = listing.media?.vehiclePhotos ?? [];
+  const currentPhoto = photos[galleryIndex];
+  const vehicleRating = listing.ratings?.vehicle?.average ?? listing.marketplace.rating;
+  const vendorRating = listing.ratings?.vendor;
+  const driverRating = listing.ratings?.driver;
+  const pkg = listing.pricing;
+
+  const saveAmount =
+    pkg.extraKmRate != null && pkg.baseFare > 0
+      ? null
+      : null;
+
+  const nextPhoto = () => {
+    if (photos.length) setGalleryIndex((galleryIndex + 1) % photos.length);
+  };
+  const previousPhoto = () => {
+    if (photos.length) setGalleryIndex((galleryIndex - 1 + photos.length) % photos.length);
+  };
+
   return (
-    <article className="overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-md">
-      <div className="p-5">
-        <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
-          {/* Vehicle */}
-          <div>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-bold text-slate-900">
-                    {listing.vehicle.make}{" "}
-                    {listing.vehicle.model}
-                  </h2>
-
-                  {listing.marketplace
-                    .verified && (
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                      âœ“ Verified
-                    </span>
-                  )}
-                </div>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  {listing.vehicle.variant ||
-                    "Standard"}
-                  {listing.vehicle.year
-                    ? ` â€¢ ${listing.vehicle.year}`
-                    : ""}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1 rounded-xl bg-amber-50 px-3 py-2">
-                <span className="text-amber-500">
-                  â˜…
-                </span>
-
-                <span className="font-bold text-slate-800">
-                  {Number(
-                    listing.marketplace
-                      .rating || 0
-                  ).toFixed(1)}
-                </span>
-
-                <span className="text-xs text-slate-500">
-                  ({listing.marketplace.totalTrips}{" "}
-                  trips)
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <VehicleAttribute
-                label="Category"
-                value={formatCategory(
-                  listing.vehicle
-                    .category
-                )}
+    <article className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/85 shadow-2xl shadow-black/20">
+      <div className="grid lg:grid-cols-[330px_minmax(0,1fr)_310px]">
+        {/* REAL VEHICLE MEDIA */}
+        <div className="border-b border-white/10 lg:border-b-0 lg:border-r">
+          <div className="relative h-[245px] bg-slate-950">
+            {currentPhoto ? (
+              <img
+                src={currentPhoto}
+                alt={`${listing.vehicle.make} ${listing.vehicle.model}`}
+                className="h-full w-full object-cover"
               />
-
-              <VehicleAttribute
-                label="Capacity"
-                value={`${listing.vehicle.seatingCapacity} Seats`}
-              />
-
-              <VehicleAttribute
-                label="Fuel"
-                value={formatCategory(
-                  listing.vehicle
-                    .fuelType
-                )}
-              />
-
-              <VehicleAttribute
-                label="Transmission"
-                value={formatCategory(
-                  listing.vehicle
-                    .transmission
-                )}
-              />
-            </div>
-
-            {/* Vendor + Driver */}
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <div className="rounded-xl bg-slate-50 p-4">
-                <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                  Vendor
-                </div>
-
-                <div className="mt-1 font-bold text-slate-800">
-                  {listing.vendor
-                    ?.companyName ||
-                    "Verified Vendor"}
-                </div>
-
-                {listing.vendor
-                  ?.name && (
-                  <div className="mt-1 text-sm text-slate-500">
-                    Contact:{" "}
-                    {listing.vendor.name}
-                  </div>
-                )}
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+                <div className="text-5xl">ðŸš—</div>
+                <div className="mt-3 text-sm font-bold text-slate-300">Vehicle photo not uploaded</div>
+                <div className="mt-1 text-xs text-slate-500">No demo image is used.</div>
               </div>
+            )}
 
-              <div className="rounded-xl bg-slate-50 p-4">
-                <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                  Driver
-                </div>
-
-                <div className="mt-1 font-bold text-slate-800">
-                  {listing.driver
-                    ?.name ||
-                    "Driver assigned by vendor"}
-                </div>
-
-                <div className="mt-1 text-sm text-emerald-600">
-                  Available for booking
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Pricing */}
-          <div className="flex flex-col justify-between rounded-2xl bg-slate-50 p-5">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                Starting Fare
-              </div>
-
-              <div className="mt-2 text-3xl font-black text-slate-900">
-                {formatCurrency(
-                  listing.pricing
-                    .baseFare
-                )}
-              </div>
-
-              {listing.pricing
-                .pricePerKm !==
-                null && (
-                <div className="mt-1 text-sm text-slate-500">
-                  {formatCurrency(
-                    listing.pricing
-                      .pricePerKm
-                  )}{" "}
-                  / km
-                </div>
-              )}
-
-              {listing.pricing
-                .waitingCharge !==
-                null &&
-                listing.pricing
-                  .waitingCharge !==
-                  undefined && (
-                  <div className="mt-3 text-xs text-slate-500">
-                    Waiting:{" "}
-                    {formatCurrency(
-                      listing.pricing
-                        .waitingCharge
-                    )}
-                  </div>
-                )}
-            </div>
-
-            <div className="mt-6">
-              <div className="mb-3 text-center text-xs font-medium text-emerald-600">
-                âœ“ Available for your journey
-              </div>
-
-              <button
-                type="button"
-                disabled={
-                  bookingLoading
-                }
-                onClick={() =>
-                  onBook(listing)
-                }
-                className="w-full rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {bookingLoading
-                  ? "Opening..."
-                  : "Select & Book"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t bg-slate-50 px-5 py-3">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
-          <span>
-            ðŸ“{" "}
-            {listing.location.city}
-          </span>
-
-          {listing.vehicle
-            .luggageCapacity !==
-            null &&
-            listing.vehicle
-              .luggageCapacity !==
-              undefined && (
-              <span>
-                ðŸ§³{" "}
-                {
-                  listing.vehicle
-                    .luggageCapacity
-                }{" "}
-                bags
+            {rank === 0 && (
+              <span className="absolute left-4 top-4 rounded-full bg-cyan-400 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
+                Best Price
               </span>
             )}
 
-          {listing.vehicle
-            .color && (
-            <span>
-              Color:{" "}
-              {listing.vehicle.color}
-            </span>
+            {photos.length > 1 && (
+              <>
+                <button type="button" onClick={previousPhoto} className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white">â€¹</button>
+                <button type="button" onClick={nextPhoto} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white">â€º</button>
+              </>
+            )}
+          </div>
+
+          {photos.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto border-t border-white/10 p-3">
+              {photos.slice(0, 5).map((photo, photoIndex) => (
+                <button
+                  key={`${photo}-${photoIndex}`}
+                  type="button"
+                  onClick={() => setGalleryIndex(photoIndex)}
+                  className={`h-14 w-16 shrink-0 overflow-hidden rounded-lg border-2 ${galleryIndex === photoIndex ? "border-cyan-300" : "border-white/10"}`}
+                >
+                  <img src={photo} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+              {photos.length > 5 && (
+                <button type="button" onClick={() => setGalleryIndex(5)} className="flex h-14 w-16 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xs font-black">
+                  +{photos.length - 5}
+                </button>
+              )}
+            </div>
           )}
 
-          <span>
-            {listing.marketplace
-              .totalTrips}{" "}
-            completed trips
-          </span>
+          <div className="border-t border-white/10 px-4 py-3 text-xs text-slate-400">
+            {photos.length ? `${photos.length} real vehicle photo${photos.length === 1 ? "" : "s"}` : "Real photos will appear after upload"}
+          </div>
+        </div>
+
+        {/* VEHICLE + VENDOR + DRIVER */}
+        <div className="p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-2xl font-black">{listing.vehicle.make} {listing.vehicle.model}</h2>
+                {listing.vehicle.variant && (
+                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-bold text-cyan-200">
+                    {listing.vehicle.variant}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-slate-400">
+                {listing.vehicle.registrationNumber || "Registration unavailable"} â€¢ {title(listing.vehicle.category)} â€¢ {listing.vehicle.seatingCapacity} Seater
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-amber-300/15 bg-amber-300/10 px-4 py-2 text-right">
+              <div className="text-[10px] font-black uppercase tracking-wider text-amber-200">Vehicle Rating</div>
+              <div className="mt-1 text-lg font-black text-white">
+                â˜… {stars(vehicleRating)}
+              </div>
+              <div className="text-[11px] text-slate-400">
+                {listing.ratings?.vehicle?.count ?? listing.marketplace.totalTrips} reviews
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Feature text={title(listing.vehicle.fuelType)} />
+            <Feature text={title(listing.vehicle.transmission)} />
+            {listing.vehicle.year != null && <Feature text={String(listing.vehicle.year)} />}
+            {listing.vehicle.color && <Feature text={listing.vehicle.color} />}
+            {listing.vehicle.luggageCapacity != null && <Feature text={`${listing.vehicle.luggageCapacity} bags`} />}
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Vendor</div>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-cyan-400/15 text-lg font-black text-cyan-200">
+                  {initials(listing.vendor?.companyName)}
+                </div>
+                <div>
+                  <div className="font-black">
+                    {listing.vendor?.companyName || "Verified Vendor"}
+                    <span className="ml-1 text-cyan-300">âœ“</span>
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-400">
+                    â˜… {ratingBlock(vendorRating)}
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-500">
+                    {listing.location.city || "India"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Assigned Driver</div>
+              <div className="mt-3 flex items-center gap-3">
+                {listing.media?.driverPhoto ? (
+                  <img src={listing.media.driverPhoto} alt={listing.driver?.name || "Driver"} className="h-12 w-12 rounded-full object-cover" />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-400/15 text-sm font-black text-emerald-200">
+                    {initials(listing.driver?.name)}
+                  </div>
+                )}
+                <div>
+                  <div className="font-black">
+                    {listing.driver?.name || "Assigned Driver"}
+                    <span className="ml-1 text-cyan-300">âœ“</span>
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-400">
+                    â˜… {ratingBlock(driverRating)}
+                  </div>
+                  <div className="mt-0.5 text-xs text-emerald-300">Active & assigned</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {listing.marketplace.verified && <Badge text="VERIFIED VEHICLE" />}
+            <Badge text="ACTIVE PRICING" />
+            {listing.marketplace.available !== false && <Badge text="AVAILABLE" />}
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+            <Stat label="Year" value={listing.vehicle.year != null ? String(listing.vehicle.year) : "â€”"} />
+            <Stat label="Seats" value={`${listing.vehicle.seatingCapacity}`} />
+            <Stat label="Luggage" value={listing.vehicle.luggageCapacity != null ? `${listing.vehicle.luggageCapacity} Bags` : "â€”"} />
+            <Stat label="Fuel" value={title(listing.vehicle.fuelType)} />
+            <Stat label="Gearbox" value={title(listing.vehicle.transmission)} />
+            <Stat label="Color" value={listing.vehicle.color || "â€”"} />
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <RatingStat label="Overall" value={vehicleRating} />
+            <RatingStat label="Vendor" value={vendorRating?.average ?? null} />
+            <RatingStat label="Driver" value={driverRating?.average ?? null} />
+            <RatingStat label="Completed Trips" value={listing.marketplace.totalTrips} suffix="" />
+          </div>
+        </div>
+
+        {/* PRICING */}
+        <div className="border-t border-white/10 bg-slate-950/60 p-6 lg:border-l lg:border-t-0">
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">Total Package</div>
+          <div className="mt-2 text-xl font-black">{packageHeadline(listing)}</div>
+
+          {locationLine(listing) && (
+            <div className="mt-2 text-xs text-slate-400">{locationLine(listing)}</div>
+          )}
+
+          <div className="mt-5 flex items-end gap-2">
+            <span className="text-4xl font-black text-cyan-300">{currency(pkg.baseFare)}</span>
+            <span className="pb-1 text-xs text-slate-500">saved pricing</span>
+          </div>
+
+          <div className="mt-5 space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-xs">
+            {pkg.includedKm != null && <PriceLine label="Included KM" value={`${pkg.includedKm} KM`} />}
+            {pkg.includedHours != null && <PriceLine label="Included Hours" value={`${pkg.includedHours} Hrs`} />}
+            {pkg.extraKmRate != null && <PriceLine label="Extra KM" value={`${currency(pkg.extraKmRate)} / KM`} />}
+            {pkg.extraHourRate != null && <PriceLine label="Extra Hour" value={`${currency(pkg.extraHourRate)} / Hr`} />}
+            {pkg.nightCharge != null && <PriceLine label="Night Charges" value={currency(pkg.nightCharge)} />}
+            {pkg.driverAllowance != null && <PriceLine label="Driver Allowance" value={pkg.driverAllowance === 0 ? "Included" : currency(pkg.driverAllowance)} />}
+            {pkg.waitingCharge != null && <PriceLine label="Waiting" value={currency(pkg.waitingCharge)} />}
+            {pkg.tollCharge != null && <PriceLine label="Toll" value={currency(pkg.tollCharge)} />}
+            {pkg.parkingCharge != null && <PriceLine label="Parking" value={currency(pkg.parkingCharge)} />}
+            {pkg.otherCharges != null && <PriceLine label="Other Charges" value={currency(pkg.otherCharges)} />}
+          </div>
+
+          {pkg.pricingType === "AIRPORT" && (
+            <div className="mt-3 rounded-xl border border-cyan-300/15 bg-cyan-300/5 px-3 py-2 text-xs text-cyan-100">
+              {pkg.airportName || "Airport"}{pkg.transferDirection ? ` â€¢ ${title(pkg.transferDirection)}` : ""}{pkg.includedKm != null ? ` â€¢ ${pkg.includedKm} KM slab` : ""}
+            </div>
+          )}
+
+          <button
+            type="button"
+            disabled={bookingLoading}
+            onClick={() => onBook(listing)}
+            className="mt-6 w-full rounded-2xl bg-cyan-400 px-5 py-4 text-sm font-black text-slate-950 shadow-lg shadow-cyan-400/10 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {bookingLoading ? "Opening..." : "Book Vehicle"}
+          </button>
+
+          <div className="mt-3 text-center text-xs font-bold text-emerald-300">
+            âš¡ Instant Confirmation
+          </div>
+          <div className="mt-2 text-center text-[11px] text-slate-500">
+            100% Secure Booking
+          </div>
         </div>
       </div>
     </article>
   );
 }
 
-function VehicleAttribute({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-xl border bg-white p-3">
-      <div className="text-xs font-medium text-slate-400">
-        {label}
-      </div>
+function Feature({ text }: { text: string }) {
+  return <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-300">{text}</span>;
+}
 
-      <div className="mt-1 text-sm font-bold text-slate-700">
-        {value}
+function Badge({ text }: { text: string }) {
+  return <span className="rounded-full border border-emerald-300/15 bg-emerald-300/10 px-3 py-1.5 text-[10px] font-black tracking-wider text-emerald-300">{text}</span>;
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-black text-white">{value}</div>
+    </div>
+  );
+}
+
+function RatingStat({ label, value, suffix = "â˜…" }: { label: string; value?: number | null; suffix?: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-black text-white">
+        {typeof value === "number" ? `${Number(value).toFixed(1)} ${suffix}` : "â€”"}
       </div>
     </div>
   );
 }
+
+function PriceLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-slate-400">{label}</span>
+      <span className="font-bold text-slate-100">{value}</span>
+    </div>
+  );
+}
+

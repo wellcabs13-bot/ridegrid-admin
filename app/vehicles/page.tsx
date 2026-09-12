@@ -44,6 +44,7 @@ interface ApiVehicle {
     id: string;
     name?: string;
   } | null;
+  isVerified?: boolean;
 }
 
 function categoryToLabel(value: string) {
@@ -164,7 +165,7 @@ function mapApiVehicle(vehicle: ApiVehicle): Vehicle {
       Number(vehicle.totalTrips) || 0,
 
     earnings:
-      `₹${Number(
+      `Ã¢â€šÂ¹${Number(
         vehicle.baseFare || 0
       ).toLocaleString()}`,
 
@@ -267,6 +268,9 @@ export default function VehiclesPage() {
   const [vehicles, setVehicles] =
     useState<Vehicle[]>([]);
 
+  const [verifiedMap, setVerifiedMap] =
+    useState<Record<string, boolean>>({});
+
   const [loading, setLoading] =
     useState(true);
 
@@ -346,6 +350,17 @@ export default function VehiclesPage() {
             mapApiVehicle
           )
         );
+
+        setVerifiedMap(
+          Object.fromEntries(
+            apiVehicles.map(
+              (vehicle: ApiVehicle) => [
+                vehicle.id,
+                vehicle.isVerified === true,
+              ]
+            )
+          )
+        );
       } catch (err) {
         console.error(
           "Vehicle loading error:",
@@ -419,7 +434,7 @@ export default function VehiclesPage() {
         const value =
           Number(
             vehicle.earnings.replace(
-              /[₹,]/g,
+              /[Ã¢â€šÂ¹,]/g,
               ""
             )
           ) || 0;
@@ -471,6 +486,80 @@ export default function VehiclesPage() {
   ) {
     setEditingVehicle(vehicle);
     setOpenVehicleModal(true);
+  }
+
+  async function handleVerifyVehicle(
+    vehicle: Vehicle
+  ) {
+    const alreadyVerified =
+      verifiedMap[vehicle.id] === true;
+
+    if (alreadyVerified) {
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Verify ${vehicle.vehicleName} (${vehicle.registrationNo}) for marketplace use?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response =
+        await fetch(
+          "/api/vehicles",
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              id: vehicle.id,
+              isVerified: true,
+            }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result.success
+      ) {
+        throw new Error(
+          result.message ||
+            "Failed to verify vehicle."
+        );
+      }
+
+      setVerifiedMap(
+        (previous) => ({
+          ...previous,
+          [vehicle.id]: true,
+        })
+      );
+
+      await loadVehicles();
+    } catch (err) {
+      console.error(
+        "Vehicle verification error:",
+        err
+      );
+
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Failed to verify vehicle."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDeleteVehicle(
@@ -543,108 +632,189 @@ export default function VehiclesPage() {
       setSaving(true);
 
       const payload = {
-        id:
-          editingVehicle?.id,
-
-        vendorId:
-          data.vendorId,
-
-        registrationNo:
-          data.registrationNo,
-
-        make:
-          data.brand,
-
-        model:
-          data.model ||
-          data.vehicleName,
-
-        variant:
-          data.vehicleName,
-
-        year:
-          data.year
-            ? Number(data.year)
-            : null,
-
-        category:
-          categoryToEnum(
-            data.category
-          ),
-
-        fuelType:
-          fuelToEnum(
-            data.fuelType
-          ),
-
-        transmission:
-          transmissionToEnum(
-            data.transmission
-          ),
-
-        seatingCapacity:
-          Number(
-            data.seatingCapacity
-          ),
-
-        homeCity:
-          data.city,
-
+        id: editingVehicle?.id,
+        vendorId: data.vendorId,
+        registrationNo: data.registrationNo,
+        make: data.brand,
+        model: data.model,
+        variant: data.model,
+        year: data.year ? Number(data.year) : null,
+        category: categoryToEnum(data.category),
+        fuelType: fuelToEnum(data.fuelType),
+        transmission: transmissionToEnum(data.transmission),
+        seatingCapacity: Number(data.seatingCapacity),
+        homeCity: data.city,
         baseFare: 0,
-
         pricePerKm: null,
-
         waitingCharge: null,
-
         nightCharge: null,
       };
 
-      const response =
-        await fetch(
-          "/api/vehicles",
-          {
-            method:
-              editingVehicle
-                ? "PUT"
-                : "POST",
+      const response = await fetch(
+        "/api/vehicles",
+        {
+          method: editingVehicle ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+      const result = await response.json();
 
-            body: JSON.stringify(
-              payload
-            ),
-          }
-        );
-
-      const result =
-        await response.json();
-
-      if (
-        !response.ok ||
-        !result.success
-      ) {
+      if (!response.ok || !result.success) {
         throw new Error(
-          result.message ||
-            "Failed to save vehicle."
+          result.message || "Failed to save vehicle."
         );
       }
 
-      /*
-       * IMPORTANT:
-       * Do not add the vehicle manually
-       * to React state.
-       *
-       * Reload from PostgreSQL so the
-       * displayed list is always the
-       * database truth.
-       */
+      const savedVehicleId =
+        result.data?.id || editingVehicle?.id;
+
+      if (!savedVehicleId) {
+        throw new Error(
+          "Vehicle saved but vehicle ID was not returned."
+        );
+      }
+
+      const documentMappings = [
+        ["rc", "RC"],
+        ["insurance", "INSURANCE"],
+        ["permit", "PERMIT"],
+        ["fitness", "FITNESS"],
+        ["pollution", "POLLUTION"],
+        ["tax", "TAX"],
+        ["fastag", "OTHER"],
+        ["other", "OTHER"],
+      ] as const;
+
+      for (
+        const [field, documentType]
+        of documentMappings
+      ) {
+        const file = data.documents?.[field];
+
+        if (!file) continue;
+
+        const uploadData = new FormData();
+        uploadData.append("file", file);
+
+        const uploadResponse = await fetch(
+          "/api/files/upload",
+          {
+            method: "POST",
+            body: uploadData,
+          }
+        );
+
+        const uploadResult =
+          await uploadResponse.json();
+
+        if (
+          !uploadResponse.ok ||
+          !uploadResult.success
+        ) {
+          throw new Error(
+            uploadResult.message ||
+              ("Failed to upload " + file.name)
+          );
+        }
+
+        const stored = uploadResult.data;
+
+        const documentResponse =
+          await fetch(
+            "/api/documents",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                entityType: "VEHICLE",
+                entityId: savedVehicleId,
+                documentType,
+                file: {
+                  fileName: stored.name,
+                  originalName: file.name,
+                  fileUrl: stored.fileUrl,
+                  storageKey: stored.storageKey,
+                  mimeType: stored.mimeType,
+                  fileSize: stored.size,
+                },
+              }),
+            }
+          );
+
+        const documentResult =
+          await documentResponse.json();
+
+        if (
+          !documentResponse.ok ||
+          !documentResult.success
+        ) {
+          throw new Error(
+            documentResult.error ||
+              documentResult.message ||
+              ("Failed to save " + file.name)
+          );
+        }
+      }
+
+      const photoFields = [
+        "main",
+        "exterior",
+        "interior",
+        "other",
+      ] as const;
+
+      for (const field of photoFields) {
+        const file = data.photos?.[field];
+
+        if (!file) continue;
+
+        const uploadData = new FormData();
+
+        uploadData.append("file", file);
+        uploadData.append(
+          "entityType",
+          "VEHICLE_PHOTO"
+        );
+        uploadData.append(
+          "entityId",
+          savedVehicleId
+        );
+
+        const uploadResponse = await fetch(
+          "/api/files/upload",
+          {
+            method: "POST",
+            body: uploadData,
+          }
+        );
+
+        const uploadResult =
+          await uploadResponse.json();
+
+        if (
+          !uploadResponse.ok ||
+          !uploadResult.success
+        ) {
+          throw new Error(
+            uploadResult.message ||
+              ("Failed to upload vehicle photo: " +
+                file.name)
+          );
+        }
+      }
+
       await loadVehicles();
 
       setEditingVehicle(null);
       setOpenVehicleModal(false);
+
     } catch (err) {
       console.error(
         "Vehicle save error:",
@@ -660,7 +830,6 @@ export default function VehiclesPage() {
       setSaving(false);
     }
   }
-
   function closeVehicleModal() {
     setOpenVehicleModal(false);
     setEditingVehicle(null);
@@ -674,8 +843,8 @@ export default function VehiclesPage() {
           registrationNo:
             editingVehicle.registrationNo,
 
-          vehicleName:
-            editingVehicle.vehicleName,
+
+
 
           brand:
             editingVehicle.brand,
@@ -689,8 +858,8 @@ export default function VehiclesPage() {
                 ""
             ),
 
-          vehicleType:
-            editingVehicle.vehicleType,
+
+
 
           category:
             editingVehicle.category,
@@ -749,7 +918,7 @@ export default function VehiclesPage() {
         maintenance={
           maintenanceVehicles
         }
-        revenue={`₹${totalRevenue.toLocaleString()}`}
+        revenue={`Ã¢â€šÂ¹${totalRevenue.toLocaleString()}`}
       />
 
       <VehicleFilters
@@ -795,6 +964,12 @@ export default function VehiclesPage() {
           }
           onDelete={
             handleDeleteVehicle
+          }
+          onVerify={
+            handleVerifyVehicle
+          }
+          verifiedMap={
+            verifiedMap
           }
         />
       )}

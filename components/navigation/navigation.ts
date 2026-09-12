@@ -37,7 +37,7 @@ export const navigation: NavigationItem[] = [
   {
     title: "Dashboard",
     icon: LayoutDashboard,
-    href: "/",
+    href: "/admin",
     permission: Permission.DASHBOARD_VIEW,
   },
 

@@ -7,6 +7,8 @@ interface VehicleRowProps {
   onView?: (vehicle: Vehicle) => void;
   onEdit?: (vehicle: Vehicle) => void;
   onDelete?: (vehicle: Vehicle) => void;
+  onVerify?: (vehicle: Vehicle) => void;
+  isVerified?: boolean;
 }
 
 export default function VehicleRow({
@@ -14,6 +16,8 @@ export default function VehicleRow({
   onView,
   onEdit,
   onDelete,
+  onVerify,
+  isVerified = false,
 }: VehicleRowProps) {
   const statusColor: Record<string, string> = {
     Available: "bg-green-100 text-green-700",
@@ -38,7 +42,6 @@ export default function VehicleRow({
         <div className="font-semibold">
           {vehicle.vehicleName}
         </div>
-
         <div className="text-sm text-slate-500">
           {vehicle.brand} • {vehicle.model}
         </div>
@@ -91,7 +94,7 @@ export default function VehicleRow({
       </td>
 
       <td className="px-4 py-4">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => onView?.(vehicle)}
@@ -107,6 +110,20 @@ export default function VehicleRow({
           >
             Edit
           </button>
+
+          {isVerified ? (
+            <span className="rounded-lg bg-green-100 px-3 py-2 text-sm font-semibold text-green-700">
+              Verified
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onVerify?.(vehicle)}
+              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Verify
+            </button>
+          )}
 
           <button
             type="button"

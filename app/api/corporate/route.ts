@@ -286,6 +286,17 @@ export async function PATCH(
 
     const { id, ...updates } = body;
 
+    // Remove Corporate Commercial Profile fields before Prisma Corporate.update().
+    delete updates.expectedMonthlyBookings;
+    delete updates.customerTier;
+    delete updates.serviceTypes;
+    delete updates.quotationFile;
+    delete updates.quotationFileUrl;
+    delete updates.quotationFileName;
+    delete updates.agreementFile;
+    delete updates.agreementFileUrl;
+    delete updates.agreementFileName;
+
     delete updates.createdAt;
     delete updates.updatedAt;
     delete updates.deletedAt;
@@ -361,3 +372,4 @@ export async function DELETE(
     );
   }
 }
+

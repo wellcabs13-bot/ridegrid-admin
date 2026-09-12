@@ -1,37 +1,15 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
-import {
-  useRouter,
-  useSearchParams,
-} from "next/navigation";
-
-type AuthUser = {
-  id: string;
-  name?: string;
-  email?: string;
-  role?: string;
-};
-
-type Customer = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  user?: {
-    id: string;
-    name?: string;
-    email?: string;
-    mobile?: string | null;
-  };
-};
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Listing = {
   id: string;
-
   vehicle: {
     make: string;
     model: string;
     variant?: string | null;
+    year?: number | null;
     category: string;
     fuelType: string;
     transmission: string;
@@ -39,429 +17,188 @@ type Listing = {
     luggageCapacity?: number | null;
     color?: string | null;
   };
-
-  location: {
-    city: string;
-  };
-
+  location?: { city?: string | null };
   pricing: {
+    pricingPackageId?: string;
+    packageName?: string | null;
+    packageType?: string | null;
     baseFare: number;
-    pricePerKm: number | null;
-    waitingCharge?: number | null;
+    includedHours?: number | null;
+    includedKm?: number | null;
+    pricePerKm?: number | null;
+    extraHourRate?: number | null;
+    driverAllowance?: number | null;
     nightCharge?: number | null;
+    waitingCharge?: number | null;
+    tollCharge?: number | null;
+    parkingCharge?: number | null;
+    otherCharges?: number | null;
+    airportName?: string | null;
+    transferDirection?: string | null;
   };
-
-  marketplace: {
-    rating: number;
-    totalTrips: number;
-    verified: boolean;
-    status: string;
+  marketplace?: {
+    rating?: number;
+    totalTrips?: number;
+    verified?: boolean;
+    status?: string;
     available?: boolean;
   };
-
-  vendor: {
+  vendor?: {
     id: string;
     companyName: string;
-    name?: string;
+    name?: string | null;
     mobile?: string | null;
   } | null;
-
-  driver: {
+  driver?: {
     id: string;
     name: string;
     mobile?: string | null;
   } | null;
 };
 
-function formatTripType(value: string) {
-  switch (value) {
-    case "ROUNDTRIP":
-      return "Round Trip";
+type Coupon = {
+  id: string;
+  code: string;
+  title: string;
+  description?: string | null;
+  couponType: "PERCENTAGE" | "FLAT";
+  couponScope: "GLOBAL" | "VENDOR" | "CITY" | "CORPORATE";
+  discountValue: number;
+  minimumBooking?: number | null;
+  maximumDiscount?: number | null;
+  usageLimit?: number | null;
+  usedCount: number;
+  validFrom: string;
+  validTo: string;
+  isFirstRideOnly: boolean;
+};
 
-    case "MULTICITY":
-      return "Multi City";
-
-    default:
-      return "One Way";
-  }
-}
-
-function formatServiceType(value: string) {
-  switch (value) {
-    case "OUTSTATION":
-      return "Outstation";
-
-    case "LOCAL":
-      return "Local";
-
-    case "AIRPORT":
-    case "AIRPORT_TRANSFER":
-      return "Airport Transfer";
-
-    case "TOUR":
-    case "TOUR_PACKAGE":
-      return "Tour Package";
-
-    case "CORPORATE":
-      return "Corporate";
-
-    default:
-      return value
-        ? value
-            .replaceAll("_", " ")
-            .toLowerCase()
-            .replace(/\b\w/g, (letter) =>
-              letter.toUpperCase()
-            )
-        : "Marketplace";
-  }
-}
-
-function formatCategory(value: string) {
+function title(value: string) {
   return value
-    .replaceAll("_", " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase()
-    );
+    ? value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+    : "â€”";
 }
 
-function formatCurrency(value: number) {
-  return `₹${value.toLocaleString("en-IN", {
+function currency(value: number | null | undefined) {
+  return `â‚¹${Number(value || 0).toLocaleString("en-IN", {
     maximumFractionDigits: 0,
   })}`;
 }
 
-function formatDate(value: string) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(
-    `${value}T00:00:00`
-  );
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+function tripLabel(value: string) {
+  if (value === "ROUNDTRIP") return "Round Trip";
+  if (value === "ONEWAY") return "One Way";
+  return title(value);
 }
 
-export default function MarketplaceBookingPage() {
+function serviceLabel(value: string) {
+  if (value === "OUTSTATION") return "Outstation";
+  if (value === "LOCAL") return "Local";
+  if (value === "AIRPORT") return "Airport";
+  return title(value);
+}
+
+export default function MarketplaceBookingClient() {
   const router = useRouter();
+  const params = useSearchParams();
 
-  const searchParams =
-    useSearchParams();
+  const listingId = params.get("listingId") || "";
+  const serviceType = params.get("serviceType") || "";
+  const tripType = params.get("tripType") || "";
+  const pickupCity = params.get("pickupCity") || "";
+  const dropCity = params.get("dropCity") || "";
+  const date = params.get("date") || "";
+  const time = params.get("time") || "";
+  const category = params.get("category") || "";
+  const packageName = params.get("packageName") || "";
+  const airport = params.get("airport") || "";
+  const airportDirection = params.get("airportDirection") || "";
+  const airportSlab = params.get("airportSlab") || "";
+  const corporateId = params.get("corporateId") || "";
+  const corporateName = params.get("corporateName") || "";
 
-  const listingId =
-    searchParams.get("listingId");
+  const [listing, setListing] = useState<Listing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const serviceType =
-    searchParams.get("serviceType") ||
-    "OUTSTATION";
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [email, setEmail] = useState("");
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [dropAddress, setDropAddress] = useState("");
+  const [specialRequest, setSpecialRequest] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [readyMessage, setReadyMessage] = useState("");
 
-  const tripType =
-    searchParams.get("tripType") ||
-    "ONEWAY";
+  const [pickupCoordinates, setPickupCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [dropCoordinates, setDropCoordinates] = useState<{ lat: number; lng: number } | null>(null);
 
-  const pickupCity =
-    searchParams.get("pickupCity") ||
-    "";
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [selectedCouponId, setSelectedCouponId] = useState("");
+  const [couponMessage, setCouponMessage] = useState("");
 
-  const dropCity =
-    searchParams.get("dropCity") ||
-    "";
-
-  const searchDate =
-    searchParams.get("date") || "";
-
-  const searchTime =
-    searchParams.get("time") || "";
-
-  const category =
-    searchParams.get("category") ||
-    "";
-
-  const [listing, setListing] =
-    useState<Listing | null>(null);
-
-  const [authUser, setAuthUser] =
-    useState<AuthUser | null>(null);
-
-  const [customer, setCustomer] =
-    useState<Customer | null>(null);
-
-  const [pickup, setPickup] =
-    useState(pickupCity);
-
-  const [drop, setDrop] =
-    useState(dropCity);
-
-  const [pickupDateTime, setPickupDateTime] =
-    useState("");
-
-  const [customerName, setCustomerName] =
-    useState("");
-
-  const [customerMobile, setCustomerMobile] =
-    useState("");
-
-  const [customerEmail, setCustomerEmail] =
-    useState("");
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [booking, setBooking] =
-    useState(false);
-
-  const [message, setMessage] =
-    useState("");
-
-  const [successMessage, setSuccessMessage] =
-    useState("");
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadBookingData() {
+    async function loadListing() {
       try {
         setLoading(true);
-        setMessage("");
+        setError("");
 
         if (!listingId) {
-          throw new Error(
-            "Vehicle listing is missing."
-          );
+          throw new Error("Selected vehicle listing is missing.");
         }
 
-        /*
-         * ========================================================
-         * 1. AUTHENTICATED USER
-         * ========================================================
-         */
+        const search = new URLSearchParams();
+        search.set("page", "1");
+        search.set("limit", "100");
+        search.set("serviceType", serviceType);
+        if (tripType) search.set("tripType", tripType);
+        if (pickupCity) search.set("pickupCity", pickupCity);
+        if (dropCity) search.set("dropCity", dropCity);
+        if (date) search.set("date", date);
+        if (time) search.set("time", time);
+        if (category) search.set("category", category);
+        if (packageName) search.set("packageName", packageName);
+        if (airport) search.set("airport", airport);
+        if (airportDirection) search.set("airportDirection", airportDirection);
+        if (airportSlab) search.set("airportSlab", airportSlab);
 
-        const authResponse =
-          await fetch(
-            "/api/auth/me",
-            {
-              cache: "no-store",
-            }
-          );
+        const response = await fetch(`/api/marketplace/search?${search.toString()}`, {
+          cache: "no-store",
+        });
 
-        const authResult =
-          await authResponse.json();
+        const result = await response.json();
 
-        if (
-          !authResponse.ok ||
-          !authResult.success
-        ) {
-          throw new Error(
-            "Please login before creating a booking."
-          );
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || "Unable to load the selected vehicle.");
         }
 
-        const user =
-          authResult.data as AuthUser;
-
-        if (!cancelled) {
-          setAuthUser(user);
-        }
-
-        /*
-         * ========================================================
-         * 2. CUSTOMER PROFILE
-         * ========================================================
-         */
-
-        if (user.email) {
-          const customerResponse =
-            await fetch(
-              `/api/customers/search?q=${encodeURIComponent(
-                user.email
-              )}`,
-              {
-                cache: "no-store",
-              }
-            );
-
-          const customerResult =
-            await customerResponse.json();
-
-          if (
-            customerResponse.ok &&
-            customerResult.success
-          ) {
-            const customers =
-              customerResult.data ?? [];
-
-            const matchedCustomer =
-              customers.find(
-                (item: Customer) =>
-                  item.user?.email?.toLowerCase() ===
-                  user.email?.toLowerCase()
-              );
-
-            if (
-              matchedCustomer &&
-              !cancelled
-            ) {
-              setCustomer(
-                matchedCustomer
-              );
-
-              setCustomerName(
-                `${matchedCustomer.firstName} ${matchedCustomer.lastName}`.trim()
-              );
-
-              setCustomerMobile(
-                matchedCustomer.user
-                  ?.mobile || ""
-              );
-
-              setCustomerEmail(
-                matchedCustomer.user
-                  ?.email ||
-                  user.email ||
-                  ""
-              );
-            }
-          }
-        }
-
-        /*
-         * ========================================================
-         * 3. SELECTED MARKETPLACE LISTING
-         * ========================================================
-         */
-
-        const params =
-          new URLSearchParams();
-
-        params.set("page", "1");
-        params.set("limit", "100");
-
-        if (serviceType) {
-          params.set(
-            "serviceType",
-            serviceType
-          );
-        }
-
-        if (tripType) {
-          params.set(
-            "tripType",
-            tripType
-          );
-        }
-
-        if (pickupCity) {
-          params.set(
-            "pickupCity",
-            pickupCity
-          );
-        }
-
-        if (dropCity) {
-          params.set(
-            "dropCity",
-            dropCity
-          );
-        }
-
-        if (searchDate) {
-          params.set(
-            "date",
-            searchDate
-          );
-        }
-
-        if (searchTime) {
-          params.set(
-            "time",
-            searchTime
-          );
-        }
-
-        if (category) {
-          params.set(
-            "category",
-            category
-          );
-        }
-
-        const listingResponse =
-          await fetch(
-            `/api/marketplace/search?${params.toString()}`,
-            {
-              cache: "no-store",
-            }
-          );
-
-        const listingResult =
-          await listingResponse.json();
-
-        if (
-          !listingResponse.ok ||
-          !listingResult.success
-        ) {
-          throw new Error(
-            listingResult.message ||
-              "Unable to load selected vehicle."
-          );
-        }
-
-        const found =
-          listingResult.data?.listings?.find(
-            (item: Listing) =>
-              item.id === listingId
-          );
+        const found = result.data?.listings?.find(
+          (item: Listing) => item.id === listingId
+        );
 
         if (!found) {
-          throw new Error(
-            "Selected vehicle is no longer available."
-          );
+          throw new Error("Selected vehicle is no longer available for this search.");
         }
 
         if (!cancelled) {
           setListing(found);
-
-          if (!pickup) {
-            setPickup(
-              found.location.city
-            );
-          }
-
-          if (
-            searchDate &&
-            searchTime
-          ) {
-            setPickupDateTime(
-              `${searchDate}T${searchTime}`
-            );
-          }
         }
-      } catch (error) {
+      } catch (err) {
         if (!cancelled) {
-          setMessage(
-            error instanceof Error
-              ? error.message
-              : "Unable to load booking information."
-          );
+          setError(err instanceof Error ? err.message : "Unable to load booking.");
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
-    loadBookingData();
+    loadListing();
 
     return () => {
       cancelled = true;
@@ -472,673 +209,630 @@ export default function MarketplaceBookingPage() {
     tripType,
     pickupCity,
     dropCity,
-    searchDate,
-    searchTime,
+    date,
+    time,
     category,
+    packageName,
+    airport,
+    airportDirection,
+    airportSlab,
   ]);
 
-  /*
-   * ============================================================
-   * CREATE BOOKING
-   * ============================================================
-   */
+  useEffect(() => {
+    let cancelled = false;
 
-  async function createBooking() {
-    if (!listing) {
-      setMessage(
-        "Selected vehicle is missing."
-      );
-      return;
-    }
+    async function loadCoupons() {
+      if (!listing?.vendor?.id) return;
 
-    if (!customer?.id) {
-      setMessage(
-        "Customer profile could not be found. Please login with a registered RideGrid customer account."
-      );
-      return;
-    }
+      try {
+        setCouponsLoading(true);
+        setCouponMessage("");
 
-    if (!pickup.trim()) {
-      setMessage(
-        "Pickup location is required."
-      );
-      return;
-    }
+        const couponParams = new URLSearchParams();
+        couponParams.set("vendorId", listing.vendor.id);
+        couponParams.set("city", pickupCity || listing.location?.city || "");
 
-    if (!drop.trim()) {
-      setMessage(
-        "Drop location is required."
-      );
-      return;
-    }
-
-    if (!pickupDateTime) {
-      setMessage(
-        "Pickup date and time are required."
-      );
-      return;
-    }
-
-    const parsedDate =
-      new Date(pickupDateTime);
-
-    if (
-      Number.isNaN(
-        parsedDate.getTime()
-      )
-    ) {
-      setMessage(
-        "Pickup date and time are invalid."
-      );
-      return;
-    }
-
-    try {
-      setBooking(true);
-      setMessage("");
-      setSuccessMessage("");
-
-      const response =
-        await fetch(
-          "/api/bookings/create",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              customerId:
-                customer.id,
-
-              vendorId:
-                listing.vendor?.id,
-
-              vehicleId:
-                listing.id,
-
-              driverId:
-                listing.driver?.id ||
-                null,
-
-              pickupLocation:
-                pickup.trim(),
-
-              dropLocation:
-                drop.trim(),
-
-              pickupDateTime:
-                parsedDate.toISOString(),
-
-              estimatedFare:
-                listing.pricing.baseFare,
-            }),
-          }
+        const response = await fetch(
+          `/api/marketplace/coupons?${couponParams.toString()}`,
+          { cache: "no-store" }
         );
+        const result = await response.json();
 
-      const result =
-        await response.json();
-
-      if (
-        !response.ok ||
-        !result.success
-      ) {
-        throw new Error(
-          result.message ||
-            "Booking creation failed."
-        );
-      }
-
-      /*
-       * ========================================================
-       * BOOKING CREATED
-       *
-       * Do not redirect to the old bookings page.
-       * Marketplace bookings have their own confirmation
-       * experience.
-       * ========================================================
-       */
-
-      const bookingId =
-        result.data?.id || "";
-
-      const bookingNumber =
-        result.data?.bookingNumber ||
-        "";
-
-      if (!bookingId) {
-        throw new Error(
-          "Booking was created but no booking ID was returned."
-        );
-      }
-
-      setSuccessMessage(
-        "Your booking has been created successfully."
-      );
-
-      /*
-       * Short success state gives the customer
-       * immediate feedback before navigation.
-       */
-
-      setTimeout(() => {
-        const confirmationParams =
-          new URLSearchParams({
-            bookingId,
-          });
-
-        if (bookingNumber) {
-          confirmationParams.set(
-            "bookingNumber",
-            bookingNumber
-          );
+        if (!cancelled && response.ok && result.success) {
+          setCoupons(result.data || []);
         }
-
-        router.push(
-          `/marketplace/booking/confirmation?${confirmationParams.toString()}`
-        );
-      }, 700);
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Booking creation failed."
-      );
-    } finally {
-      setBooking(false);
+      } catch {
+        if (!cancelled) {
+          setCouponMessage("Unable to load current offers.");
+        }
+      } finally {
+        if (!cancelled) setCouponsLoading(false);
+      }
     }
+
+    loadCoupons();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [listing?.vendor?.id, pickupCity]);
+
+  const total = useMemo(
+    () => Number(listing?.pricing.baseFare || 0),
+    [listing]
+  );
+
+  const selectedCoupon = useMemo(
+    () => coupons.find((coupon) => coupon.id === selectedCouponId) || null,
+    [coupons, selectedCouponId]
+  );
+
+  const discountAmount = useMemo(() => {
+    if (!selectedCoupon) return 0;
+
+    const fare = Number(listing?.pricing.baseFare || 0);
+    if (selectedCoupon.minimumBooking != null && fare < Number(selectedCoupon.minimumBooking)) {
+      return 0;
+    }
+
+    const raw =
+      selectedCoupon.couponType === "PERCENTAGE"
+        ? fare * (Number(selectedCoupon.discountValue) / 100)
+        : Number(selectedCoupon.discountValue);
+
+    const capped =
+      selectedCoupon.maximumDiscount != null
+        ? Math.min(raw, Number(selectedCoupon.maximumDiscount))
+        : raw;
+
+    return Math.max(0, Math.min(capped, fare));
+  }, [listing, selectedCoupon]);
+
+  const finalFare = useMemo(
+    () => Math.max(0, Number(total) - Number(discountAmount)),
+    [total, discountAmount]
+  );
+
+  function applyCoupon(id: string) {
+    setCouponMessage("");
+
+    const coupon = coupons.find((item) => item.id === id);
+    if (!coupon) {
+      setSelectedCouponId("");
+      return;
+    }
+
+    const fare = Number(listing?.pricing.baseFare || 0);
+
+    if (coupon.minimumBooking != null && fare < Number(coupon.minimumBooking)) {
+      setSelectedCouponId("");
+      setCouponMessage(
+        `This offer requires a minimum booking value of ${currency(Number(coupon.minimumBooking))}.`
+      );
+      return;
+    }
+
+    setSelectedCouponId(coupon.id);
+    setCouponCode(coupon.code);
+    setCouponMessage(`${coupon.code} applied successfully.`);
   }
 
-  /*
-   * ============================================================
-   * LOADING
-   * ============================================================
-   */
+  function applyCouponCode() {
+    const code = couponCode.trim().toUpperCase();
+
+    if (!code) {
+      setSelectedCouponId("");
+      setCouponMessage("Enter a coupon code first.");
+      return;
+    }
+
+    const coupon = coupons.find((item) => item.code.toUpperCase() === code);
+
+    if (!coupon) {
+      setSelectedCouponId("");
+      setCouponMessage("This coupon is not currently available for this booking.");
+      return;
+    }
+
+    applyCoupon(coupon.id);
+  }
+
+  function continueToPaymentPreparation() {
+    setReadyMessage("");
+
+    if (!firstName.trim()) {
+      setError("First name is required.");
+      return;
+    }
+    if (!lastName.trim()) {
+      setError("Last name is required.");
+      return;
+    }
+    if (!mobile.trim()) {
+      setError("Mobile number is required.");
+      return;
+    }
+    if (!email.trim()) {
+      setError("Email address is required.");
+      return;
+    }
+    if (!pickupAddress.trim()) {
+      setError("Pickup address is required.");
+      return;
+    }
+    if (!pickupCoordinates) {
+      setError("Please select a pickup location from the suggestions.");
+      return;
+    }
+    if (!dropAddress.trim() && serviceType !== "LOCAL") {
+      setError("Drop location is required.");
+      return;
+    }
+    if (dropAddress.trim() && !dropCoordinates) {
+      setError("Please select a drop / destination location from the suggestions.");
+      return;
+    }
+    if (!termsAccepted) {
+      setError("Please accept the booking terms to continue.");
+      return;
+    }
+
+    const bookingDraft = {
+      listingId,
+      serviceType,
+      tripType,
+      pickupCity,
+      dropCity,
+      date,
+      time,
+      category,
+      packageName,
+      airport,
+      corporateId: corporateId || null,
+      corporateName: corporateName || null,
+      airportDirection,
+      airportSlab,
+      customer: {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        mobile: mobile.trim(),
+        email: email.trim(),
+        pickupAddress: pickupAddress.trim(),
+        dropAddress: dropAddress.trim(),
+        specialRequest: specialRequest.trim(),
+        pickupCoordinates,
+        dropCoordinates,
+      },
+      vehicle: listing
+        ? {
+            make: listing.vehicle.make,
+            model: listing.vehicle.model,
+            variant: listing.vehicle.variant,
+            year: listing.vehicle.year,
+            category: listing.vehicle.category,
+            seatingCapacity: listing.vehicle.seatingCapacity,
+          }
+        : null,
+      pricing: listing?.pricing ? { ...listing.pricing, pricingPackageId: listing.pricing.pricingPackageId || null } : null,
+      coupon: selectedCoupon
+        ? {
+            id: selectedCoupon.id,
+            code: selectedCoupon.code,
+            title: selectedCoupon.title,
+            couponType: selectedCoupon.couponType,
+            discountValue: Number(selectedCoupon.discountValue),
+            discountAmount: Number(discountAmount),
+          }
+        : null,
+      totalFare: Number(finalFare),
+      originalFare: Number(total),
+      discountAmount: Number(discountAmount),
+    };
+
+    sessionStorage.setItem("ridegrid_marketplace_booking_draft", JSON.stringify(bookingDraft));
+    setReadyMessage("Booking details, exact locations and offer are ready.");
+    return true;
+  }
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 p-8">
-        <div className="mx-auto max-w-5xl rounded-2xl border bg-white p-16 text-center shadow-sm">
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="w-full max-w-xl rounded-3xl border bg-white p-12 text-center shadow-sm">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-
-          <p className="mt-5 font-semibold text-slate-700">
-            Preparing your booking...
-          </p>
-
-          <p className="mt-1 text-sm text-slate-400">
-            Loading customer and vehicle details.
-          </p>
+          <h1 className="mt-5 text-xl font-bold text-slate-900">Loading booking</h1>
+          <p className="mt-2 text-sm text-slate-500">Preparing your selected vehicle.</p>
         </div>
       </main>
     );
   }
 
-  /*
-   * ============================================================
-   * VEHICLE NOT AVAILABLE
-   * ============================================================
-   */
-
   if (!listing) {
     return (
-      <main className="min-h-screen bg-slate-50 p-8">
-        <div className="mx-auto max-w-4xl rounded-2xl border bg-white p-12 text-center shadow-sm">
-          <div className="text-4xl">
-            🚗
-          </div>
-
-          <h1 className="mt-4 text-2xl font-bold text-slate-900">
-            Vehicle unavailable
-          </h1>
-
-          <p className="mt-2 text-sm text-red-600">
-            {message ||
-              "The selected marketplace listing is no longer available."}
-          </p>
-
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="w-full max-w-xl rounded-3xl border bg-white p-12 text-center shadow-sm">
+          <div className="text-4xl">ðŸš—</div>
+          <h1 className="mt-4 text-2xl font-bold text-slate-900">Vehicle unavailable</h1>
+          <p className="mt-2 text-sm text-red-600">{error || "Selected listing is unavailable."}</p>
           <button
-            type="button"
-            onClick={() =>
-              router.push(
-                "/marketplace"
-              )
-            }
-            className="mt-6 rounded-xl bg-slate-900 px-6 py-3 font-semibold text-white hover:bg-slate-800"
+            onClick={() => router.back()}
+            className="mt-6 rounded-xl bg-slate-900 px-6 py-3 font-bold text-white"
           >
-            Back to Marketplace
+            Back to Listings
           </button>
         </div>
       </main>
     );
   }
-
-  const baseFare =
-    Number(
-      listing.pricing.baseFare
-    );
-
-  const serviceCharge = 0;
-
-  const tax = 0;
-
-  const totalFare =
-    baseFare +
-    serviceCharge +
-    tax;
 
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-5">
+        <div className="mx-auto max-w-7xl px-6 py-5">
           <button
-            type="button"
-            onClick={() =>
-              router.back()
-            }
-            className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+            onClick={() => router.back()}
+            className="text-sm font-bold text-blue-600"
           >
-            ← Back to Listings
+            â† Back to Listings
           </button>
 
-          <div className="mt-4">
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                {formatServiceType(
-                  serviceType
-                )}
-              </span>
-
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                {formatTripType(
-                  tripType
-                )}
-              </span>
+          <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-600">
+                RideGrid Booking
+              </p>
+              <h1 className="mt-1 text-3xl font-black text-slate-900">
+                Customer Details
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                Enter your details and review the selected vehicle before payment.
+              </p>
             </div>
 
-            <h1 className="mt-3 text-3xl font-bold text-slate-900">
-              Review & Confirm Booking
-            </h1>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Review your journey, customer,
-              vehicle and fare before confirming.
-            </p>
+            <div className="flex flex-wrap gap-2 text-xs font-bold">
+              <span className="rounded-full bg-blue-50 px-3 py-2 text-blue-700">
+                {serviceLabel(serviceType)}
+              </span>
+              {tripType && (
+                <span className="rounded-full bg-slate-100 px-3 py-2 text-slate-700">
+                  {tripLabel(tripType)}
+                </span>
+              )}
+              {date && (
+                <span className="rounded-full bg-slate-100 px-3 py-2 text-slate-700">
+                  {date}
+                </span>
+              )}
+              {time && (
+                <span className="rounded-full bg-slate-100 px-3 py-2 text-slate-700">
+                  {time}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 py-8">
-        <div className="grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
+      <section className="mx-auto max-w-7xl px-6 py-8">
+        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
           <div className="space-y-6">
-            {/* Journey */}
-            <section className="rounded-2xl border bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-blue-600">
-                    Step 1
-                  </p>
-
-                  <h2 className="mt-1 text-xl font-bold text-slate-900">
-                    Journey Details
-                  </h2>
-                </div>
-
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-                  {formatTripType(
-                    tripType
-                  )}
-                </span>
-              </div>
+            <section className="rounded-3xl border bg-white p-6 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-widest text-blue-600">Step 1</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-900">Customer Information</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                These details will be used for your booking and communication.
+              </p>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Pickup Location
-                  </label>
+                <Field label="First Name *" value={firstName} onChange={setFirstName} placeholder="Enter first name" />
+                <Field label="Last Name *" value={lastName} onChange={setLastName} placeholder="Enter last name" />
+                <Field label="Mobile Number *" value={mobile} onChange={setMobile} placeholder="Enter mobile number" type="tel" />
+                <Field label="Email Address *" value={email} onChange={setEmail} placeholder="Enter email address" type="email" />
+              </div>
+            </section>
 
-                  <input
-                    value={pickup}
-                    onChange={(event) =>
-                      setPickup(
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:border-blue-500"
-                    placeholder="Enter pickup location"
-                  />
-                </div>
+            <section className="rounded-3xl border bg-white p-6 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-widest text-blue-600">Step 2</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-900">Journey Details</h2>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Drop Location
-                  </label>
-
-                  <input
-                    value={drop}
-                    onChange={(event) =>
-                      setDrop(
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:border-blue-500"
-                    placeholder="Enter drop location"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Pickup Date & Time
-                  </label>
-
-                  <input
-                    type="datetime-local"
-                    value={
-                      pickupDateTime
-                    }
-                    onChange={(event) =>
-                      setPickupDateTime(
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-xl border bg-white px-4 py-3 outline-none transition focus:border-blue-500"
-                  />
-                </div>
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <LocationAutocomplete
+                  label="Pickup Address *"
+                  value={pickupAddress}
+                  coordinates={pickupCoordinates}
+                  placeholder="Search building, hotel, society or landmark"
+                  onChange={(value, coordinates) => {
+                    setPickupAddress(value);
+                    setPickupCoordinates(coordinates);
+                    setError("");
+                  }}
+                />
+                <LocationAutocomplete
+                  label={serviceType === "LOCAL" ? "Drop / Destination" : "Drop Address *"}
+                  value={dropAddress}
+                  coordinates={dropCoordinates}
+                  placeholder="Search destination, building, hotel or landmark"
+                  onChange={(value, coordinates) => {
+                    setDropAddress(value);
+                    setDropCoordinates(coordinates);
+                    setError("");
+                  }}
+                />
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                <JourneyInfo
-                  label="Pickup"
-                  value={
-                    pickup ||
-                    "Not selected"
-                  }
-                />
-
-                <JourneyInfo
-                  label="Drop"
-                  value={
-                    drop ||
-                    "Not selected"
-                  }
-                />
-
-                <JourneyInfo
-                  label="Date"
-                  value={
-                    searchDate
-                      ? formatDate(
-                          searchDate
-                        )
-                      : "Selected above"
-                  }
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-bold text-slate-700">Special Request</label>
+                <textarea
+                  value={specialRequest}
+                  onChange={(e) => setSpecialRequest(e.target.value)}
+                  rows={4}
+                  placeholder="Any special request for your journey?"
+                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
                 />
               </div>
             </section>
 
-            {/* Customer */}
-            <section className="rounded-2xl border bg-white p-6 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-widest text-blue-600">
-                Step 2
-              </p>
+            <section className="rounded-3xl border bg-white p-6 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-widest text-blue-600">Step 3</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-900">Selected Vehicle</h2>
 
-              <h2 className="mt-1 text-xl font-bold text-slate-900">
-                Customer Details
-              </h2>
-
-              {customer ? (
-                <div className="mt-5 grid gap-4 md:grid-cols-3">
-                  <CustomerInfo
-                    label="Customer"
-                    value={
-                      customerName ||
-                      `${customer.firstName} ${customer.lastName}`
-                    }
-                  />
-
-                  <CustomerInfo
-                    label="Mobile"
-                    value={
-                      customerMobile ||
-                      "Not available"
-                    }
-                  />
-
-                  <CustomerInfo
-                    label="Email"
-                    value={
-                      customerEmail ||
-                      "Not available"
-                    }
-                  />
-                </div>
-              ) : (
-                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                  <p className="font-semibold text-amber-800">
-                    Customer profile not found.
-                  </p>
-
-                  <p className="mt-1 text-sm text-amber-700">
-                    A registered RideGrid customer
-                    account is required to complete
-                    this booking.
-                  </p>
-                </div>
-              )}
-            </section>
-
-            {/* Vehicle */}
-            <section className="rounded-2xl border bg-white p-6 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-widest text-blue-600">
-                Step 3
-              </p>
-
-              <h2 className="mt-1 text-xl font-bold text-slate-900">
-                Selected Vehicle
-              </h2>
-
-              <div className="mt-5 rounded-2xl bg-slate-50 p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="mt-6 rounded-2xl border bg-slate-50 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-2xl font-bold text-slate-900">
-                        {
-                          listing.vehicle
-                            .make
-                        }{" "}
-                        {
-                          listing.vehicle
-                            .model
-                        }
+                      <h3 className="text-2xl font-black text-slate-900">
+                        {listing.vehicle.make} {listing.vehicle.model}
                       </h3>
-
-                      {listing.marketplace
-                        .verified && (
-                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                          ✓ Verified
+                      {listing.marketplace?.verified && (
+                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">
+                          âœ“ Verified
                         </span>
                       )}
                     </div>
-
                     <p className="mt-1 text-sm text-slate-500">
-                      {listing.vehicle
-                        .variant ||
-                        "Standard Variant"}
+                      {listing.vehicle.variant || "Standard Variant"} â€¢ {title(listing.vehicle.category)}
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-white px-4 py-3 text-center shadow-sm">
-                    <div className="text-xs text-slate-400">
-                      Rating
-                    </div>
-
-                    <div className="mt-1 font-bold text-slate-900">
-                      ★{" "}
-                      {Number(
-                        listing.marketplace
-                          .rating
-                      ).toFixed(1)}
-                    </div>
+                  <div className="rounded-2xl bg-white px-5 py-3 text-center shadow-sm">
+                    <p className="text-xs text-slate-400">Vehicle Rating</p>
+                    <p className="mt-1 text-lg font-black text-slate-900">
+                      â˜… {Number(listing.marketplace?.rating || 0).toFixed(1)}
+                    </p>
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-4">
-                  <VehicleInfo
-                    label="Category"
-                    value={formatCategory(
-                      listing.vehicle
-                        .category
-                    )}
-                  />
-
-                  <VehicleInfo
-                    label="Seats"
-                    value={`${listing.vehicle.seatingCapacity}`}
-                  />
-
-                  <VehicleInfo
-                    label="Fuel"
-                    value={formatCategory(
-                      listing.vehicle
-                        .fuelType
-                    )}
-                  />
-
-                  <VehicleInfo
-                    label="Transmission"
-                    value={formatCategory(
-                      listing.vehicle
-                        .transmission
-                    )}
-                  />
+                <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                  <Info label="Year" value={listing.vehicle.year ? String(listing.vehicle.year) : "â€”"} />
+                  <Info label="Seats" value={String(listing.vehicle.seatingCapacity)} />
+                  <Info label="Fuel" value={title(listing.vehicle.fuelType)} />
+                  <Info label="Transmission" value={title(listing.vehicle.transmission)} />
+                  <Info label="Luggage" value={listing.vehicle.luggageCapacity ? String(listing.vehicle.luggageCapacity) : "â€”"} />
+                  <Info label="Color" value={listing.vehicle.color || "â€”"} />
                 </div>
 
                 <div className="mt-5 grid gap-4 border-t pt-5 md:grid-cols-2">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                      Vendor
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-400">Vendor</p>
+                    <p className="mt-1 font-black text-slate-800">
+                      {listing.vendor?.companyName || "RideGrid Partner"} âœ“
                     </p>
-
-                    <p className="mt-1 font-bold text-slate-800">
-                      {listing.vendor
-                        ?.companyName ||
-                        "RideGrid Partner"}
-                    </p>
-
-                    {listing.vendor
-                      ?.name && (
-                      <p className="text-sm text-slate-500">
-                        {
-                          listing.vendor
-                            .name
-                        }
-                      </p>
+                    {listing.vendor?.name && (
+                      <p className="text-sm text-slate-500">{listing.vendor.name}</p>
                     )}
                   </div>
 
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                      Driver
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-400">Assigned Driver</p>
+                    <p className="mt-1 font-black text-slate-800">
+                      {listing.driver?.name || "Assigned Driver"} âœ“
                     </p>
-
-                    <p className="mt-1 font-bold text-slate-800">
-                      {listing.driver
-                        ?.name ||
-                        "Assigned by Vendor"}
-                    </p>
+                    <p className="text-sm text-emerald-600">Active & assigned</p>
                   </div>
                 </div>
               </div>
             </section>
-          </div>
 
-          {/* Fare */}
-          <aside>
-            <div className="sticky top-6 rounded-2xl border bg-white p-6 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-widest text-blue-600">
-                Step 4
+            <section className="rounded-3xl border bg-white p-6 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-widest text-blue-600">Step 4</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-900">Offer Coupon</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Apply an active RideGrid offer available for this booking.
               </p>
 
-              <h2 className="mt-1 text-xl font-bold text-slate-900">
-                Fare Summary
-              </h2>
-
-              <div className="mt-6 space-y-4">
-                <FareRow
-                  label="Base Fare"
-                  value={formatCurrency(
-                    baseFare
-                  )}
+              <div className="mt-5 flex flex-col gap-3 md:flex-row">
+                <input
+                  value={couponCode}
+                  onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                  placeholder="Enter coupon code"
+                  className="min-w-0 flex-1 rounded-2xl border border-slate-200 px-4 py-3.5 font-bold uppercase outline-none focus:border-blue-500"
                 />
-
-                <FareRow
-                  label="Service Charges"
-                  value={formatCurrency(
-                    serviceCharge
-                  )}
-                />
-
-                <FareRow
-                  label="Taxes"
-                  value={formatCurrency(
-                    tax
-                  )}
-                />
-
-                <div className="border-t pt-4">
-                  <div className="flex items-end justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-500">
-                        Total Estimated Fare
-                      </p>
-
-                      <p className="mt-1 text-xs text-slate-400">
-                        Final fare may include
-                        applicable journey extras.
-                      </p>
-                    </div>
-
-                    <div className="text-3xl font-black text-slate-900">
-                      {formatCurrency(
-                        totalFare
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={applyCouponCode}
+                  className="rounded-2xl bg-slate-900 px-6 py-3.5 text-sm font-black text-white hover:bg-slate-800"
+                >
+                  Apply Coupon
+                </button>
               </div>
 
-              {message && (
-                <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                  {message}
+              <div className="mt-4">
+                {couponsLoading ? (
+                  <p className="text-sm text-slate-400">Checking current offers...</p>
+                ) : coupons.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed bg-slate-50 p-4 text-sm text-slate-500">
+                    No active coupon offers are available for this booking right now.
+                  </div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {coupons.map((coupon) => (
+                      <button
+                        key={coupon.id}
+                        type="button"
+                        onClick={() => applyCoupon(coupon.id)}
+                        className={`rounded-2xl border p-4 text-left transition ${
+                          selectedCouponId === coupon.id
+                            ? "border-cyan-500 bg-cyan-50 ring-2 ring-cyan-100"
+                            : "border-slate-200 bg-white hover:border-cyan-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-blue-600">
+                              {coupon.code}
+                            </p>
+                            <p className="mt-1 font-black text-slate-900">{coupon.title}</p>
+                          </div>
+                          <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">
+                            {coupon.couponType === "PERCENTAGE"
+                              ? `${Number(coupon.discountValue)}% OFF`
+                              : `${currency(Number(coupon.discountValue))} OFF`}
+                          </span>
+                        </div>
+                        {coupon.description && (
+                          <p className="mt-2 text-xs text-slate-500">{coupon.description}</p>
+                        )}
+                        {coupon.minimumBooking != null && (
+                          <p className="mt-2 text-xs font-semibold text-slate-500">
+                            Min. booking {currency(Number(coupon.minimumBooking))}
+                          </p>
+                        )}
+                        {coupon.isFirstRideOnly && (
+                          <p className="mt-2 text-xs font-bold text-amber-600">First ride only</p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {couponMessage && (
+                <div
+                  className={`mt-4 rounded-2xl border p-4 text-sm font-semibold ${
+                    selectedCouponId
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-amber-200 bg-amber-50 text-amber-700"
+                  }`}
+                >
+                  {couponMessage}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-3xl border bg-white p-6 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-widest text-blue-600">Step 5</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-900">Booking Terms</h2>
+
+              <label className="mt-5 flex items-start gap-3 rounded-2xl border bg-slate-50 p-4">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-1 h-4 w-4"
+                />
+                <span className="text-sm leading-6 text-slate-600">
+                  I confirm that the customer, journey and vehicle details entered above are correct.
+                  I agree to RideGrid booking terms and applicable cancellation policies.
+                </span>
+              </label>
+            </section>
+          </div>
+
+          <aside>
+            <div className="sticky top-6 rounded-3xl border bg-white p-6 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-widest text-blue-600">Booking Summary</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-900">Review & Continue</h2>
+
+              <div className="mt-6 rounded-2xl bg-slate-50 p-4">
+                <p className="text-xs font-bold text-slate-400">VEHICLE</p>
+                <p className="mt-1 font-black text-slate-900">
+                  {listing.vehicle.make} {listing.vehicle.model}
+                </p>
+                <p className="text-sm text-slate-500">
+                  {listing.vehicle.year || "Year not available"} â€¢ {title(listing.vehicle.category)} â€¢ {listing.vehicle.seatingCapacity} Seats
+                </p>
+              </div>
+
+              <div className="mt-4 rounded-2xl bg-slate-50 p-4">
+                <p className="text-xs font-bold text-slate-400">SAVED PRICING</p>
+                <p className="mt-1 font-black text-slate-900">
+                  {listing.pricing.packageName || "Selected Pricing Package"}
+                </p>
+
+                {listing.pricing.includedKm != null && (
+                  <SummaryRow label="Included KM" value={`${listing.pricing.includedKm} KM`} />
+                )}
+                {listing.pricing.includedHours != null && (
+                  <SummaryRow label="Included Hours" value={`${listing.pricing.includedHours} Hrs`} />
+                )}
+                {listing.pricing.pricePerKm != null && (
+                  <SummaryRow label="Extra KM" value={`${currency(listing.pricing.pricePerKm)}/KM`} />
+                )}
+                {listing.pricing.extraHourRate != null && (
+                  <SummaryRow label="Extra Hour" value={`${currency(listing.pricing.extraHourRate)}/Hr`} />
+                )}
+                {listing.pricing.driverAllowance != null && (
+                  <SummaryRow label="Driver Allowance" value={currency(listing.pricing.driverAllowance)} />
+                )}
+                {listing.pricing.nightCharge != null && (
+                  <SummaryRow label="Night Charge" value={currency(listing.pricing.nightCharge)} />
+                )}
+              </div>
+
+              {(airport || listing.pricing.airportName || listing.pricing.transferDirection || airportSlab) && (
+                <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-wider text-blue-600">Airport Details</p>
+                  {listing.pricing.airportName && <SummaryRow label="Airport" value={listing.pricing.airportName} />}
+                  {listing.pricing.transferDirection && <SummaryRow label="Transfer" value={title(listing.pricing.transferDirection)} />}
+                  {airportSlab && <SummaryRow label="KM Slab" value={`${airportSlab} KM`} />}
                 </div>
               )}
 
-              {successMessage && (
-                <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
-                  {successMessage}
+              <div className="mt-6 border-t pt-5">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-slate-500">Saved Package Fare</p>
+                    <p className="mt-1 text-xs text-slate-400">Taken directly from the Marketplace pricing result.</p>
+                  </div>
+                  <p className="text-3xl font-black text-slate-900">{currency(finalFare)}</p>
+                </div>
+
+                {selectedCoupon && discountAmount > 0 && (
+                  <div className="mt-4 space-y-2 border-t pt-4">
+                    <SummaryRow label="Original Fare" value={currency(total)} />
+                    <SummaryRow
+                      label={`Coupon (${selectedCoupon.code})`}
+                      value={`âˆ’ ${currency(discountAmount)}`}
+                    />
+                    <div className="flex items-center justify-between gap-3 pt-2">
+                      <span className="font-black text-slate-900">Payable After Discount</span>
+                      <span className="text-xl font-black text-emerald-600">{currency(finalFare)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                  {error}
+                </div>
+              )}
+
+              {readyMessage && (
+                <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
+                  {readyMessage}
                 </div>
               )}
 
               <button
                 type="button"
-                onClick={
-                  createBooking
-                }
-                disabled={
-                  booking ||
-                  !customer?.id
-                }
-                className="mt-6 w-full rounded-xl bg-blue-600 px-5 py-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => { if (continueToPaymentPreparation()) router.push("/marketplace/payment"); }}
+                className="mt-6 w-full rounded-2xl bg-cyan-500 px-5 py-4 text-sm font-black text-slate-950 transition hover:bg-cyan-400"
               >
-                {booking
-                  ? "Creating Booking..."
-                  : "Confirm & Book Ride"}
+                Continue to Payment
               </button>
 
-              <p className="mt-4 text-center text-xs leading-5 text-slate-400">
-                By confirming, the selected
-                vehicle and journey details will
-                be submitted to RideGrid for
-                booking.
+              <p className="mt-3 text-center text-xs text-slate-400">
+                Your selected vehicle and saved pricing are retained for the next step.
               </p>
             </div>
           </aside>
@@ -1148,82 +842,182 @@ export default function MarketplaceBookingPage() {
   );
 }
 
-function JourneyInfo({
+type LocationSuggestion = {
+  placeId: string;
+  displayName: string;
+  shortName: string;
+  lat: number;
+  lng: number;
+};
+
+function LocationAutocomplete({
   label,
   value,
+  coordinates,
+  placeholder,
+  onChange,
 }: {
   label: string;
   value: string;
+  coordinates: { lat: number; lng: number } | null;
+  placeholder: string;
+  onChange: (value: string, coordinates: { lat: number; lng: number } | null) => void;
 }) {
-  return (
-    <div className="rounded-xl border bg-white p-4">
-      <p className="text-xs font-medium text-slate-400">
-        {label}
-      </p>
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [open, setOpen] = useState(false);
 
-      <p className="mt-1 truncate text-sm font-bold text-slate-700">
-        {value}
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+
+    if (coordinates || trimmed.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        setLoadingSuggestions(true);
+        const response = await fetch(
+          `/api/marketplace/location-search?q=${encodeURIComponent(trimmed)}`,
+          { cache: "no-store", signal: controller.signal }
+        );
+        const result = await response.json();
+
+        if (!controller.signal.aborted && response.ok && result.success) {
+          setSuggestions(result.data || []);
+          setOpen(true);
+        }
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          setSuggestions([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoadingSuggestions(false);
+      }
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, coordinates]);
+
+  function handleChange(nextValue: string) {
+    setQuery(nextValue);
+    setOpen(true);
+    onChange(nextValue, null);
+  }
+
+  function selectSuggestion(item: LocationSuggestion) {
+    setQuery(item.displayName);
+    setSuggestions([]);
+    setOpen(false);
+    onChange(item.displayName, { lat: item.lat, lng: item.lng });
+  }
+
+  return (
+    <div className="relative">
+      <label className="mb-2 block text-sm font-bold text-slate-700">{label}</label>
+      <div className={`flex items-center rounded-2xl border bg-white px-4 py-3.5 ${coordinates ? "border-emerald-300" : "border-slate-200 focus-within:border-blue-500"}`}>
+        <span className="mr-2 text-sm text-slate-400">âŒ•</span>
+        <input
+          type="text"
+          value={query}
+          onChange={(event) => handleChange(event.target.value)}
+          onFocus={() => {
+            if (query.trim().length >= 3 && !coordinates) setOpen(true);
+          }}
+          onBlur={() => window.setTimeout(() => setOpen(false), 180)}
+          placeholder={placeholder}
+          autoComplete="off"
+          className="min-w-0 flex-1 bg-transparent outline-none"
+        />
+      </div>
+
+      {open && query.trim().length >= 3 && !coordinates && (
+        <div className="absolute z-50 mt-2 max-h-72 w-full overflow-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
+          {loadingSuggestions ? (
+            <div className="px-3 py-4 text-sm text-slate-400">Searching locations...</div>
+          ) : suggestions.length === 0 ? (
+            <div className="px-3 py-4 text-sm text-slate-400">No matching locations found.</div>
+          ) : (
+            suggestions.map((item) => (
+              <button
+                key={item.placeId}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => selectSuggestion(item)}
+                className="w-full rounded-xl px-3 py-3 text-left hover:bg-slate-50"
+              >
+                <p className="font-bold text-slate-800">{item.shortName}</p>
+                <p className="mt-0.5 text-xs leading-5 text-slate-500">{item.displayName}</p>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
+      <p className="mt-1 text-xs text-slate-400">
+        {coordinates
+          ? "Location selected. You can edit it to search again."
+          : "Type a building, hotel, society or landmark and select the correct suggestion."}
       </p>
     </div>
   );
 }
 
-function CustomerInfo({
+function Field({
   label,
   value,
+  onChange,
+  placeholder,
+  type = "text",
 }: {
   label: string;
   value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  type?: string;
 }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-4">
-      <p className="text-xs font-medium text-slate-400">
-        {label}
-      </p>
-
-      <p className="mt-1 truncate text-sm font-bold text-slate-800">
-        {value}
-      </p>
+    <div>
+      <label className="mb-2 block text-sm font-bold text-slate-700">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-slate-200 px-4 py-3.5 outline-none focus:border-blue-500"
+      />
     </div>
   );
 }
 
-function VehicleInfo({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border bg-white p-3">
-      <p className="text-xs text-slate-400">
-        {label}
-      </p>
-
-      <p className="mt-1 text-sm font-bold text-slate-700">
-        {value}
-      </p>
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-1 text-sm font-black text-slate-800">{value}</p>
     </div>
   );
 }
 
-function FareRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-slate-500">
-        {label}
-      </span>
-
-      <span className="font-semibold text-slate-800">
-        {value}
-      </span>
+    <div className="mt-2 flex items-center justify-between gap-3 text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className="font-bold text-slate-800">{value}</span>
     </div>
   );
 }
+
+
+
+

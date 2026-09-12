@@ -261,46 +261,83 @@ export default function DriverForm() {
       return;
     }
 
-    /*
-     * Current backend is JSON-only.
-     *
-     * We deliberately stop here rather than
-     * pretending uploaded documents were saved.
-     *
-     * Backend/schema implementation will connect
-     * this exact form to persistence.
-     */
-    const payload = {
-      vendorId,
-      vehicleId,
-      ...form,
-    };
-
-    console.log(
-      "Driver registration payload:",
-      payload
-    );
-
     setSaving(true);
 
     try {
-      /*
-       * Temporary validation checkpoint.
-       * The backend implementation will replace
-       * this with the final multipart/document workflow.
-       */
-      await new Promise((resolve) =>
-        setTimeout(resolve, 400)
+      const response = await fetch(
+        "/api/drivers",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            vendorId,
+            vehicleId,
+            firstName:
+              form.firstName.trim(),
+            lastName:
+              form.lastName.trim(),
+            mobile:
+              form.mobile.trim(),
+            email:
+              form.email.trim().toLowerCase(),
+            address:
+              form.address.trim(),
+            city:
+              form.city.trim(),
+            state:
+              form.state.trim(),
+            pincode:
+              form.pincode.trim(),
+            dateOfBirth:
+              form.dateOfBirth,
+            experience:
+              form.experience.trim(),
+            aadhaarNumber:
+              form.aadhaarNumber.trim(),
+            policeVerificationNumber:
+              form.policeVerificationNumber.trim(),
+            licenseNumber:
+              form.licenseNumber.trim(),
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result.success
+      ) {
+        throw new Error(
+          result.message ||
+            "Failed to register driver."
+        );
+      }
+
+      alert(
+        "Driver registered successfully."
+      );
+
+      window.location.reload();
+    } catch (error) {
+      console.error(
+        "Driver registration failed:",
+        error
       );
 
       alert(
-        "Driver form validated successfully. Backend document persistence is the next implementation step."
+        error instanceof Error
+          ? error.message
+          : "Failed to register driver."
       );
-    } finally {
+
       setSaving(false);
     }
   }
-
   return (
     <form
       id="driverForm"
@@ -390,7 +427,7 @@ export default function DriverForm() {
                   key={vehicle.id}
                   value={vehicle.id}
                 >
-                  {vehicle.registrationNumber} —{" "}
+                  {vehicle.registrationNumber} â€”{" "}
                   {vehicle.make} {vehicle.model}
                 </option>
               ))}

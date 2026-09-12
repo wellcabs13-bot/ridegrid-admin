@@ -1,15 +1,14 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
 
-import {
-  PricingType,
-  TripType,
-} from "@prisma/client";
+import { PricingType,
+  TripType, BookingSource } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/auth/middleware";
+import { generateBookingNumber } from "@/lib/services/booking/BookingNumberService";
 import {
   pricingService,
 } from "@/lib/services/pricing/PricingService";
@@ -81,6 +80,7 @@ export async function POST(
       durationHours,
       pricingType,
       tripType,
+      pricingPackageId,
       couponId,
     } = body;
 
@@ -445,6 +445,57 @@ export async function POST(
         }
       );
 
+    let resolvedPricingPackageId =
+      typeof pricingPackageId === "string" && pricingPackageId.trim()
+        ? pricingPackageId.trim()
+        : null;
+
+    if (resolvedPricingPackageId) {
+      const selectedPackage = await prisma.pricingPackage.findFirst({
+        where: {
+          id: resolvedPricingPackageId,
+          vehicleId: vehicle.id,
+          isActive: true,
+          pricingRule: {
+            vendorId: vendor.id,
+            pricingType: validPricingType,
+            tripType: validTripType,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!selectedPackage) {
+        return NextResponse.json(
+          { success:false, message:"Selected pricing package is not compatible with the booking." },
+          {status:409}
+        );
+      }
+    } else {
+      const pickupCity = pickupLocation.split(",")[0]?.trim() || "";
+      const dropCity = dropLocation.split(",")[0]?.trim() || "";
+
+      const selectedPackage = await prisma.pricingPackage.findFirst({
+        where: {
+          vehicleId: vehicle.id,
+          isActive: true,
+          pricingRule: {
+            vendorId: vendor.id,
+            pricingType: validPricingType,
+            tripType: validTripType,
+          },
+          OR: [
+            { fromCity: { equals: pickupCity, mode: "insensitive" }, toCity: { equals: dropCity, mode: "insensitive" } },
+            { fromCity: null, toCity: null },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+
+      resolvedPricingPackageId = selectedPackage?.id ?? null;
+    }
+
     /*
      * ============================================================
      * 9. ATOMIC BOOKING CREATION
@@ -533,6 +584,12 @@ export async function POST(
             await tx.booking.create(
               {
                 data: {
+                  bookingNumber:
+                    await generateBookingNumber(tx),
+
+                  bookingSource:
+                    BookingSource.WEBSITE,
+
                   customerId:
                     customer.id,
 
@@ -545,6 +602,9 @@ export async function POST(
                   driverId:
                     currentVehicle.driverId ??
                     null,
+
+                  pricingPackageId:
+                    resolvedPricingPackageId,
 
                   pickupLocation:
                     pickupLocation.trim(),
@@ -669,4 +729,5 @@ class BookingConflictError extends Error {
       "BookingConflictError";
   }
 }
+
 

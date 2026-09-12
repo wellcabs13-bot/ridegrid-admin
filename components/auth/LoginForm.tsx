@@ -32,7 +32,7 @@ export default function LoginForm() {
 
       await login(form.email, form.password);
 
-      router.push('/');
+      router.push('/admin');
     } finally {
       setLoading(false);
     }

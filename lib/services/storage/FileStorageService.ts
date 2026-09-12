@@ -1,4 +1,6 @@
-import crypto from "crypto";
+﻿import crypto from "crypto";
+import fs from "fs/promises";
+import path from "path";
 
 export type StoredFile = {
   id: string;
@@ -7,17 +9,27 @@ export type StoredFile = {
   size: number;
   checksum: string;
   storageKey: string;
+  fileUrl: string;
   createdAt: Date;
 };
 
-export function createStorageRecord(input: {
+export async function storeFile(input: {
   name: string;
   mimeType: string;
-  size: number;
-  content: string;
-}): StoredFile {
+  content: Buffer;
+}): Promise<StoredFile> {
   if (!input.name.trim()) throw new Error("File name is required.");
-  if (input.size < 0) throw new Error("File size cannot be negative.");
+
+  const id = crypto.randomUUID();
+  const safeName = path.basename(input.name).replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storageKey = `media/${id}/${safeName}`;
+
+  const storageRoot = path.join(process.cwd(), "storage");
+  const absoluteDir = path.join(storageRoot, "media", id);
+  const absolutePath = path.join(absoluteDir, safeName);
+
+  await fs.mkdir(absoluteDir, { recursive: true });
+  await fs.writeFile(absolutePath, input.content);
 
   const checksum = crypto
     .createHash("sha256")
@@ -25,12 +37,13 @@ export function createStorageRecord(input: {
     .digest("hex");
 
   return {
-    id: crypto.randomUUID(),
+    id,
     name: input.name,
     mimeType: input.mimeType,
-    size: input.size,
+    size: input.content.length,
     checksum,
-    storageKey: `media/${crypto.randomUUID()}/${input.name}`,
+    storageKey,
+    fileUrl: `/api/files/${id}`,
     createdAt: new Date(),
   };
 }

@@ -4,7 +4,16 @@ export interface Vendor {
   ownerName: string;
   mobile: string;
   email: string;
+  homeCity?: string;
+  fleetSize?: number | null;
+  address?: string;
   city: string;
+  state?: string;
+  pinCode?: string;
+  bankName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  branchName?: string;
   totalVehicles: number;
   activeVehicles: number;
   completedTrips: number;

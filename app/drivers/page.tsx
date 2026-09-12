@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useCallback,
@@ -21,6 +21,7 @@ import DriverForm from "../../components/drivers/DriverForm";
 
 import DriverDetailsDrawer from "../../components/drivers/DriverDetailsDrawer";
 import EditDriverModal from "../../components/drivers/EditDriverModal";
+import DriverRealDetails from "../../components/drivers/DriverRealDetails";
 
 import DriverInfoCard from "../../components/drivers/DriverInfoCard";
 import DriverLicenseCard from "../../components/drivers/DriverLicenseCard";
@@ -293,57 +294,10 @@ export default function DriversPage() {
         onClose={closeDrawer}
       >
         {selectedDriver && (
-          <>
-            <DriverInfoCard
-              driver={
-                selectedDriver
-              }
-            />
-
-            <DriverLicenseCard
-              driver={
-                selectedDriver
-              }
-            />
-
-            <DriverVehicleCard
-              driver={
-                selectedDriver
-              }
-            />
-
-            <DriverTripHistoryCard
-              driver={
-                selectedDriver
-              }
-            />
-
-            <DriverAttendanceCard
-              driver={
-                selectedDriver
-              }
-            />
-
-            <DriverPaymentCard
-              driver={
-                selectedDriver
-              }
-            />
-
-            <DriverDocumentCard
-              driver={
-                selectedDriver
-              }
-            />
-
-            <DriverPerformanceCard
-              driver={
-                selectedDriver
-              }
-            />
-          </>
-        )}
-      </DriverDetailsDrawer>
+          <DriverRealDetails
+            driverId={selectedDriver.id}
+          />
+        )}      </DriverDetailsDrawer>
     </DashboardLayout>
   );
 }
