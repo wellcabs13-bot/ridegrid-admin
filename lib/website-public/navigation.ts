@@ -22,77 +22,33 @@ export function publicNavigation(
         location: "HEADER",
       },
       {
-        label: "Outstation",
-        href: "/#outstation",
-        location: "HEADER",
-      },
-      {
-        label: "Local Cabs",
-        href: "/#local-cabs",
-        location: "HEADER",
-      },
-      {
-        label: "Airport Transfers",
-        href: "/#airport-transfers",
-        location: "HEADER",
-      },
-      {
-        label: "Corporate",
-        href: "/#corporate",
-        location: "HEADER",
-      },
-      {
-        label: "Travel Guides",
-        href: "/#travel-guides",
-        location: "HEADER",
-      },
-      {
-        label: "About",
-        href: "/#about",
-        location: "HEADER",
-      },
-
-      {
-        label: "Outstation Cabs",
-        href: "/#outstation",
-        location: "FOOTER_PRIMARY",
-      },
-      {
-        label: "Local Cabs",
-        href: "/#local-cabs",
-        location: "FOOTER_PRIMARY",
-      },
-      {
-        label: "Airport Transfers",
-        href: "/#airport-transfers",
-        location: "FOOTER_PRIMARY",
-      },
-      {
-        label: "Corporate Mobility",
-        href: "/#corporate",
-        location: "FOOTER_PRIMARY",
-      },
-
-      {
-        label: "Travel Guides",
-        href: "/#travel-guides",
-        location: "FOOTER_SECONDARY",
-      },
-      {
-        label: "About RideGrid",
-        href: "/#about",
-        location: "FOOTER_SECONDARY",
-      },
-      {
-        label: "Book a Cab",
+        label: "Find a ride",
         href: "/#ride-search",
-        location: "FOOTER_SECONDARY",
+        location: "HEADER",
+      },
+      {
+        label: "Marketplace",
+        href: "/marketplace",
+        location: "HEADER",
+      },
+      {
+        label: "Find a ride",
+        href: "/#ride-search",
+        location: "FOOTER_PRIMARY",
+      },
+      {
+        label: "Marketplace",
+        href: "/marketplace",
+        location: "FOOTER_PRIMARY",
       },
     ];
   }
 
   return [...items]
-    .filter((item) => item.enabled)
+    .filter(
+      (item) =>
+        item.enabled,
+    )
     .sort(
       (a, b) =>
         a.order - b.order ||

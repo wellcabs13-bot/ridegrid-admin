@@ -2,7 +2,6 @@ import { websiteHomepageRepository } from "../website-seo/homepage/repository";
 import type { WebsiteHomepageConfig } from "../website-seo/homepage/types";
 
 import { publicHref } from "./safety";
-
 import {
   resolveDiscovery,
   resolvePublicChrome,
@@ -14,26 +13,23 @@ const fallback: WebsiteHomepageConfig = {
   version: 1,
 
   hero: {
-    eyebrow:
-      "OUTSTATION / LOCAL / AIRPORT / CORPORATE",
-
+    eyebrow: "RIDEGRID · WELLCABS",
     title:
-      "Travel Further With Confidence",
-
+      "YOUR CAR. YOUR PRICE. YOUR CHOICE.",
     subtitle:
-      "Search current RideGrid options for outstation, local, airport and business travel with Wellcabs.",
+      "Search current ride options for everyday journeys, airport transfers, local travel and outstation trips.",
 
     primaryCtaLabel:
-      "Book a Cab",
+      "Find your ride",
 
     primaryCtaHref:
       "/#ride-search",
 
     secondaryCtaLabel:
-      "Explore services",
+      "Explore vehicles",
 
     secondaryCtaHref:
-      "/#services",
+      "/marketplace",
   },
 
   sections: [
@@ -54,7 +50,7 @@ const fallback: WebsiteHomepageConfig = {
       heading:
         "Where are we taking you?",
       description:
-        "Choose your journey and search current RideGrid vehicle options.",
+        "Choose your journey and search current vehicle options.",
     },
 
     {
@@ -63,9 +59,9 @@ const fallback: WebsiteHomepageConfig = {
       enabled: true,
       order: 2,
       heading:
-        "Popular routes available on RideGrid",
+        "Fresh journeys from RideGrid.",
       description:
-        "Explore current journeys available through the RideGrid marketplace.",
+        "Explore published routes, cities and services.",
     },
 
     {
@@ -76,7 +72,7 @@ const fallback: WebsiteHomepageConfig = {
       heading:
         "Find the right ride for your plans.",
       description:
-        "Search your journey details to see current RideGrid vehicle options.",
+        "Search your route and travel details to see current marketplace options and fares.",
     },
 
     {
@@ -85,9 +81,9 @@ const fallback: WebsiteHomepageConfig = {
       enabled: true,
       order: 4,
       heading:
-        "Book with RideGrid.",
+        "Ready when you are.",
       description:
-        "Search current RideGrid options and continue through the connected booking flow.",
+        "Search RideGrid for your next journey.",
     },
   ],
 };
@@ -143,11 +139,9 @@ export async function resolveHomepage() {
     discovery,
   ] = await Promise.all([
     websiteHomepageRepository.get(),
-
     resolvePublicChrome(
       "HOMEPAGE",
     ),
-
     resolveDiscovery(),
   ]);
 
@@ -155,7 +149,6 @@ export async function resolveHomepage() {
     ...homepagePresentation(
       setting.config,
     ),
-
     chrome,
     discovery,
   };
