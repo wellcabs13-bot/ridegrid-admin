@@ -5,12 +5,11 @@ export function publicHref(value: unknown): string | null {
       const url = new URL(value, "https://public.invalid");
       const decoded = decodeURIComponent(url.pathname);
       if (/[\\\u0000-\u0020]/.test(decoded) || decoded.startsWith("//")) return null;
-      // Admin root remains reserved until W16. No public admin/API navigation.
-      if (url.pathname === "/") return `/website-preview${url.search}${url.hash}`;
-      if (/^\/(api|website-seo|dashboard)(\/|$)/.test(decoded)) return null;
+      // Public destinations only; dashboard and API paths are never menu targets.
+      if (decoded !== "/" && !/^\/(marketplace(?:\/(?:results|booking|payment))?|(?:routes|cities|services|airports|areas|vehicles)\/[^/]+)\/?$/.test(decoded)) return null;
       return `${url.pathname}${url.search}${url.hash}`;
     } catch { return null; }
   }
-  try { const url = new URL(value); return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password ? url.href : null; } catch { return null; }
+  try { const url = new URL(value); if (["wellcabs.com", "www.wellcabs.com"].includes(url.hostname) && !publicHref(`${url.pathname}${url.search}${url.hash}`)) return null; return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password ? url.href : null; } catch { return null; }
 }
 export function jsonLd(value: unknown): string { return JSON.stringify(value).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029"); }

@@ -698,3 +698,5 @@
       );
   }
 }
+.heroCopy, .serviceCard, .discoveryCard { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 380px) { .hero h1 { font-size: 42px; } }

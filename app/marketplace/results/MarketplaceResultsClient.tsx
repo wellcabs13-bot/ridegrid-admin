@@ -121,12 +121,12 @@ function tripLabel(value?: string | null) {
 }
 
 function currency(value?: number | null) {
-  if (value == null || Number.isNaN(Number(value))) return "â€”";
-  return `â‚¹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  return `₹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
 function stars(value?: number | null) {
-  if (value == null || Number.isNaN(Number(value))) return "â€”";
+  if (value == null || Number.isNaN(Number(value))) return "—";
   return Number(value).toFixed(1);
 }
 
@@ -154,11 +154,11 @@ function packageHeadline(listing: Listing) {
 function locationLine(listing: Listing) {
   const p = listing.pricing;
   if (p.pricingType === "OUTSTATION" && p.fromCity && p.toCity) {
-    return `${p.fromCity} â†’ ${p.toCity}`;
+    return `${p.fromCity} → ${p.toCity}`;
   }
   if (p.pricingType === "AIRPORT") {
     return [p.airportName, p.transferDirection === "PICKUP" ? "Pickup" : p.transferDirection === "DROP" ? "Drop" : ""]
-      .filter(Boolean).join(" â€¢ ");
+      .filter(Boolean).join(" • ");
   }
   return listing.location.city || p.city || "";
 }
@@ -294,13 +294,13 @@ export default function MarketplaceResultsClient() {
   }
 
   const heading = serviceType === "OUTSTATION" && pickupCity && dropCity
-    ? `${serviceLabel(serviceType)} Â· ${tripLabel(tripType)}`
-    : `${serviceLabel(serviceType)}${city ? ` Â· ${city}` : ""}`;
+    ? `${serviceLabel(serviceType)} · ${tripLabel(tripType)}`
+    : `${serviceLabel(serviceType)}${city ? ` · ${city}` : ""}`;
 
   const subtitle = serviceType === "OUTSTATION"
-    ? `${pickupCity}${dropCity ? ` â†’ ${dropCity}` : ""}`
+    ? `${pickupCity}${dropCity ? ` → ${dropCity}` : ""}`
     : serviceType === "AIRPORT"
-      ? `${airport || "Airport"}${airportDirection ? ` Â· ${title(airportDirection)}` : ""}`
+      ? `${airport || "Airport"}${airportDirection ? ` · ${title(airportDirection)}` : ""}`
       : `Pickup${city ? ` anywhere in ${city}` : ""}`;
 
   return (
@@ -489,8 +489,8 @@ function MarketplaceListingCard({
 
             {photos.length > 1 && (
               <>
-                <button type="button" onClick={previousPhoto} className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white">â€¹</button>
-                <button type="button" onClick={nextPhoto} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white">â€º</button>
+                <button type="button" onClick={previousPhoto} aria-label="Previous vehicle photo" className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white">‹</button>
+                <button type="button" onClick={nextPhoto} aria-label="Next vehicle photo" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/60 px-3 py-2 text-white">›</button>
               </>
             )}
           </div>
@@ -533,14 +533,14 @@ function MarketplaceListingCard({
                 )}
               </div>
               <p className="mt-1 text-sm text-slate-400">
-                {listing.vehicle.registrationNumber || "Registration unavailable"} â€¢ {title(listing.vehicle.category)} â€¢ {listing.vehicle.seatingCapacity} Seater
+                {listing.vehicle.registrationNumber || "Registration unavailable"} • {title(listing.vehicle.category)} • {listing.vehicle.seatingCapacity} Seater
               </p>
             </div>
 
             <div className="rounded-xl border border-amber-300/15 bg-amber-300/10 px-4 py-2 text-right">
               <div className="text-[10px] font-black uppercase tracking-wider text-amber-200">Vehicle Rating</div>
               <div className="mt-1 text-lg font-black text-white">
-                â˜… {stars(vehicleRating)}
+                ★ {stars(vehicleRating)}
               </div>
               <div className="text-[11px] text-slate-400">
                 {listing.ratings?.vehicle?.count ?? listing.marketplace.totalTrips} reviews
@@ -566,10 +566,10 @@ function MarketplaceListingCard({
                 <div>
                   <div className="font-black">
                     {listing.vendor?.companyName || "Verified Vendor"}
-                    <span className="ml-1 text-cyan-300">âœ“</span>
+                    <span className="ml-1 text-cyan-300">✓</span>
                   </div>
                   <div className="mt-0.5 text-xs text-slate-400">
-                    â˜… {ratingBlock(vendorRating)}
+                    ★ {ratingBlock(vendorRating)}
                   </div>
                   <div className="mt-0.5 text-xs text-slate-500">
                     {listing.location.city || "India"}
@@ -591,10 +591,10 @@ function MarketplaceListingCard({
                 <div>
                   <div className="font-black">
                     {listing.driver?.name || "Assigned Driver"}
-                    <span className="ml-1 text-cyan-300">âœ“</span>
+                    <span className="ml-1 text-cyan-300">✓</span>
                   </div>
                   <div className="mt-0.5 text-xs text-slate-400">
-                    â˜… {ratingBlock(driverRating)}
+                    ★ {ratingBlock(driverRating)}
                   </div>
                   <div className="mt-0.5 text-xs text-emerald-300">Active & assigned</div>
                 </div>
@@ -609,12 +609,12 @@ function MarketplaceListingCard({
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-            <Stat label="Year" value={listing.vehicle.year != null ? String(listing.vehicle.year) : "â€”"} />
+            <Stat label="Year" value={listing.vehicle.year != null ? String(listing.vehicle.year) : "—"} />
             <Stat label="Seats" value={`${listing.vehicle.seatingCapacity}`} />
-            <Stat label="Luggage" value={listing.vehicle.luggageCapacity != null ? `${listing.vehicle.luggageCapacity} Bags` : "â€”"} />
+            <Stat label="Luggage" value={listing.vehicle.luggageCapacity != null ? `${listing.vehicle.luggageCapacity} Bags` : "—"} />
             <Stat label="Fuel" value={title(listing.vehicle.fuelType)} />
             <Stat label="Gearbox" value={title(listing.vehicle.transmission)} />
-            <Stat label="Color" value={listing.vehicle.color || "â€”"} />
+            <Stat label="Color" value={listing.vehicle.color || "—"} />
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -654,7 +654,7 @@ function MarketplaceListingCard({
 
           {pkg.pricingType === "AIRPORT" && (
             <div className="mt-3 rounded-xl border border-cyan-300/15 bg-cyan-300/5 px-3 py-2 text-xs text-cyan-100">
-              {pkg.airportName || "Airport"}{pkg.transferDirection ? ` â€¢ ${title(pkg.transferDirection)}` : ""}{pkg.includedKm != null ? ` â€¢ ${pkg.includedKm} KM slab` : ""}
+              {pkg.airportName || "Airport"}{pkg.transferDirection ? ` • ${title(pkg.transferDirection)}` : ""}{pkg.includedKm != null ? ` • ${pkg.includedKm} KM slab` : ""}
             </div>
           )}
 
@@ -668,7 +668,7 @@ function MarketplaceListingCard({
           </button>
 
           <div className="mt-3 text-center text-xs font-bold text-emerald-300">
-            âš¡ Instant Confirmation
+            ⚡ Instant Confirmation
           </div>
           <div className="mt-2 text-center text-[11px] text-slate-500">
             100% Secure Booking
@@ -696,12 +696,12 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RatingStat({ label, value, suffix = "â˜…" }: { label: string; value?: number | null; suffix?: string }) {
+function RatingStat({ label, value, suffix = "★" }: { label: string; value?: number | null; suffix?: string }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
       <div className="mt-1 text-sm font-black text-white">
-        {typeof value === "number" ? `${Number(value).toFixed(1)} ${suffix}` : "â€”"}
+        {typeof value === "number" ? `${Number(value).toFixed(1)} ${suffix}` : "—"}
       </div>
     </div>
   );

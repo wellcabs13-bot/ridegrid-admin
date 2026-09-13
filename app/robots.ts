@@ -1,11 +1,7 @@
 import type { MetadataRoute } from "next";
 
 function siteUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.SITE_URL ||
-    "https://wellcabs.com"
-  ).replace(/\/+$/, "");
+  return "https://www.wellcabs.com";
 }
 
 export default function robots(): MetadataRoute.Robots {

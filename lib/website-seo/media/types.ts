@@ -1,4 +1,4 @@
-export const WEBSITE_MEDIA_CATEGORIES = ["HERO", "ROUTE", "CITY", "SERVICE", "AIRPORT", "CONTENT", "GENERAL"] as const;
+export const WEBSITE_MEDIA_CATEGORIES = ["HERO", "ROUTE", "CITY", "SERVICE", "AIRPORT", "AREA", "VEHICLE", "CONTENT", "GENERAL"] as const;
 export const WEBSITE_MEDIA_STATUSES = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
 // Matches the existing image upload and file-serving contract.
 export const WEBSITE_MEDIA_IMAGE_TYPES = ["image/jpeg", "image/png"] as const;

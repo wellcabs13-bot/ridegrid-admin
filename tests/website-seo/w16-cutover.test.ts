@@ -146,7 +146,7 @@ describe("W16 public root cutover", () => {
     );
 
     expect(sitemap).toContain(
-      "@/app/api/website-seo/sitemap/route"
+      "publishingIndexingEngine.sitemapEntries()"
     );
   });
 });

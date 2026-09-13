@@ -54,13 +54,13 @@ type BookingDraft = {
 };
 
 function currency(value: number) {
-  return `â‚¹${Number(value || 0).toLocaleString("en-IN", {
+  return `₹${Number(value || 0).toLocaleString("en-IN", {
     maximumFractionDigits: 0,
   })}`;
 }
 
 function title(value?: string) {
-  if (!value) return "â€”";
+  if (!value) return "—";
   return value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -323,7 +323,7 @@ export default function MarketplacePaymentClient() {
       <header className="border-b bg-white">
         <div className="mx-auto max-w-5xl px-6 py-6">
           <button onClick={() => router.back()} className="text-sm font-bold text-blue-600">
-            â† Back to Booking
+            ← Back to Booking
           </button>
           <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-cyan-600">RideGrid Payment</p>
           <h1 className="mt-1 text-3xl font-black text-slate-900">Choose Payment Method</h1>
@@ -349,7 +349,7 @@ export default function MarketplacePaymentClient() {
                   <div className="text-3xl">ðŸ’µ</div>
                   <h3 className="mt-3 text-xl font-black text-slate-900">Cash on Pickup</h3>
                   <p className="mt-1 text-sm text-slate-500">Pay the applicable booking amount directly as per RideGrid&apos;s cash-payment policy.</p>
-                  {method === "CASH" && <p className="mt-4 text-xs font-black text-cyan-700">âœ“ SELECTED</p>}
+                  {method === "CASH" && <p className="mt-4 text-xs font-black text-cyan-700">✓ SELECTED</p>}
                 </button>
 
                 {isCorporate && <button type="button" onClick={() => {setMethod("CORPORATE_CREDIT");setMessage("");}} className={`rounded-3xl border-2 p-6 text-left ${method==="CORPORATE_CREDIT"?"border-cyan-500 bg-cyan-50":"border-slate-200 bg-white"}`}><div className="text-3xl">💳</div><h3 className="mt-3 text-xl font-black">Corporate Credit Account</h3><p className="mt-1 text-sm text-slate-500">Charge this booking to {draft?.corporateName || "the corporate account"}.</p></button>}
@@ -364,7 +364,7 @@ export default function MarketplacePaymentClient() {
                   <div className="text-3xl">ðŸ’³</div>
                   <h3 className="mt-3 text-xl font-black text-slate-900">Online Payment</h3>
                   <p className="mt-1 text-sm text-slate-500">Razorpay checkout will be used for secure online payment.</p>
-                  {method === "ONLINE" && <p className="mt-4 text-xs font-black text-cyan-700">âœ“ SELECTED</p>}
+                  {method === "ONLINE" && <p className="mt-4 text-xs font-black text-cyan-700">✓ SELECTED</p>}
                 </button>
               </div>
             </section>
@@ -382,7 +382,7 @@ export default function MarketplacePaymentClient() {
                   onClick={confirmCashBooking}
                   className="mt-6 w-full rounded-2xl bg-cyan-500 px-5 py-4 font-black text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {booking ? "Confirming Booking..." : `Confirm Cash Booking â€¢ ${currency(payable)}`}
+                  {booking ? "Confirming Booking..." : `Confirm Cash Booking • ${currency(payable)}`}
                 </button>
               </section>
             ) : method === "CORPORATE_CREDIT" ? (
@@ -403,7 +403,7 @@ export default function MarketplacePaymentClient() {
                   disabled
                   className="mt-6 w-full rounded-2xl bg-slate-300 px-5 py-4 font-black text-slate-600"
                 >
-                  Razorpay Payment â€” Coming Next
+                  Razorpay Payment — Coming Next
                 </button>
               </section>
             )}
@@ -423,7 +423,7 @@ export default function MarketplacePaymentClient() {
                   {draft.vehicle?.make} {draft.vehicle?.model}
                 </p>
                 <p className="text-sm text-slate-500">
-                  {draft.vehicle?.year || "â€”"} â€¢ {title(draft.vehicle?.category)} â€¢ {draft.vehicle?.seatingCapacity || "â€”"} Seats
+                  {draft.vehicle?.year || "—"} • {title(draft.vehicle?.category)} • {draft.vehicle?.seatingCapacity || "—"} Seats
                 </p>
               </div>
 
@@ -437,12 +437,12 @@ export default function MarketplacePaymentClient() {
 
               <div className="mt-4 rounded-2xl bg-slate-50 p-4">
                 <p className="text-xs font-bold text-slate-400">DATE & TIME</p>
-                <p className="mt-1 font-black text-slate-900">{draft.date || "â€”"} {draft.time || ""}</p>
+                <p className="mt-1 font-black text-slate-900">{draft.date || "—"} {draft.time || ""}</p>
               </div>
 
               <div className="mt-5 border-t pt-5 space-y-2">
                 <SummaryRow label="Original Fare" value={currency(originalFare)} />
-                {discount > 0 && <SummaryRow label={`Coupon ${draft.couponCode ? `(${draft.couponCode})` : ""}`} value={`âˆ’ ${currency(discount)}`} />}
+                {discount > 0 && <SummaryRow label={`Coupon ${draft.couponCode ? `(${draft.couponCode})` : ""}`} value={`− ${currency(discount)}`} />}
                 <div className="flex items-end justify-between gap-3 border-t pt-4">
                   <span className="font-black text-slate-900">Payable</span>
                   <span className="text-3xl font-black text-slate-900">{currency(payable)}</span>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.wellcabs.com"),
+  robots: { index: true, follow: true },
   title: {
     default:
       "RideGrid by Wellcabs | Cab & Ground Transportation Marketplace",

@@ -81,7 +81,7 @@ describe("W14 public website", () => {
     expect(publicMedia({ ...media, fileUrl: "javascript:alert(1)" })).toBeNull();
   });
   it.each(Object.entries(ENTITY_ROUTES))("maps the %s entity route", (type, prefix) => expect(entityPath(type, "saved-slug")).toBe(`/${prefix}/saved-slug`));
-  it("rejects unsafe links and keeps the admin root out of public home navigation", () => { expect(publicHref("javascript:alert(1)")).toBeNull(); expect(publicHref("/\\evil.test")).toBeNull(); expect(publicHref("/api/vendors")).toBeNull(); expect(publicHref("/")).toBe("/website-preview"); });
+  it("rejects unsafe links and keeps home navigation on the live root", () => { expect(publicHref("javascript:alert(1)")).toBeNull(); expect(publicHref("/\\evil.test")).toBeNull(); expect(publicHref("/api/vendors")).toBeNull(); expect(publicHref("/")).toBe("/"); });
   it("escapes script-breaking structured data", () => expect(jsonLd({ name: "</script><script>alert(1)</script>" })).not.toContain("<"));
   it("uses the existing results contract with real journey options", () => {
     const o: PricingOption = { id: "real-package", pricingType: "OUTSTATION", tripType: "ROUNDTRIP", vehicleCategory: "SEDAN", packageName: "Saved route", city: null, fromCity: "Pune", toCity: "Nashik", airportName: null, transferDirection: null, includedKm: null };

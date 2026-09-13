@@ -76,11 +76,11 @@ type Coupon = {
 function title(value: string) {
   return value
     ? value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
-    : "â€”";
+    : "—";
 }
 
 function currency(value: number | null | undefined) {
-  return `â‚¹${Number(value || 0).toLocaleString("en-IN", {
+  return `₹${Number(value || 0).toLocaleString("en-IN", {
     maximumFractionDigits: 0,
   })}`;
 }
@@ -472,7 +472,7 @@ export default function MarketplaceBookingClient() {
             onClick={() => router.back()}
             className="text-sm font-bold text-blue-600"
           >
-            â† Back to Listings
+            ← Back to Listings
           </button>
 
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
@@ -584,37 +584,37 @@ export default function MarketplaceBookingClient() {
                       </h3>
                       {listing.marketplace?.verified && (
                         <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">
-                          âœ“ Verified
+                          ✓ Verified
                         </span>
                       )}
                     </div>
                     <p className="mt-1 text-sm text-slate-500">
-                      {listing.vehicle.variant || "Standard Variant"} â€¢ {title(listing.vehicle.category)}
+                      {listing.vehicle.variant || "Standard Variant"} • {title(listing.vehicle.category)}
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-white px-5 py-3 text-center shadow-sm">
                     <p className="text-xs text-slate-400">Vehicle Rating</p>
                     <p className="mt-1 text-lg font-black text-slate-900">
-                      â˜… {Number(listing.marketplace?.rating || 0).toFixed(1)}
+                      ★ {Number(listing.marketplace?.rating || 0).toFixed(1)}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                  <Info label="Year" value={listing.vehicle.year ? String(listing.vehicle.year) : "â€”"} />
+                  <Info label="Year" value={listing.vehicle.year ? String(listing.vehicle.year) : "—"} />
                   <Info label="Seats" value={String(listing.vehicle.seatingCapacity)} />
                   <Info label="Fuel" value={title(listing.vehicle.fuelType)} />
                   <Info label="Transmission" value={title(listing.vehicle.transmission)} />
-                  <Info label="Luggage" value={listing.vehicle.luggageCapacity ? String(listing.vehicle.luggageCapacity) : "â€”"} />
-                  <Info label="Color" value={listing.vehicle.color || "â€”"} />
+                  <Info label="Luggage" value={listing.vehicle.luggageCapacity ? String(listing.vehicle.luggageCapacity) : "—"} />
+                  <Info label="Color" value={listing.vehicle.color || "—"} />
                 </div>
 
                 <div className="mt-5 grid gap-4 border-t pt-5 md:grid-cols-2">
                   <div>
                     <p className="text-xs font-black uppercase tracking-wider text-slate-400">Vendor</p>
                     <p className="mt-1 font-black text-slate-800">
-                      {listing.vendor?.companyName || "RideGrid Partner"} âœ“
+                      {listing.vendor?.companyName || "RideGrid Partner"} ✓
                     </p>
                     {listing.vendor?.name && (
                       <p className="text-sm text-slate-500">{listing.vendor.name}</p>
@@ -624,7 +624,7 @@ export default function MarketplaceBookingClient() {
                   <div>
                     <p className="text-xs font-black uppercase tracking-wider text-slate-400">Assigned Driver</p>
                     <p className="mt-1 font-black text-slate-800">
-                      {listing.driver?.name || "Assigned Driver"} âœ“
+                      {listing.driver?.name || "Assigned Driver"} ✓
                     </p>
                     <p className="text-sm text-emerald-600">Active & assigned</p>
                   </div>
@@ -748,7 +748,7 @@ export default function MarketplaceBookingClient() {
                   {listing.vehicle.make} {listing.vehicle.model}
                 </p>
                 <p className="text-sm text-slate-500">
-                  {listing.vehicle.year || "Year not available"} â€¢ {title(listing.vehicle.category)} â€¢ {listing.vehicle.seatingCapacity} Seats
+                  {listing.vehicle.year || "Year not available"} • {title(listing.vehicle.category)} • {listing.vehicle.seatingCapacity} Seats
                 </p>
               </div>
 
@@ -801,7 +801,7 @@ export default function MarketplaceBookingClient() {
                     <SummaryRow label="Original Fare" value={currency(total)} />
                     <SummaryRow
                       label={`Coupon (${selectedCoupon.code})`}
-                      value={`âˆ’ ${currency(discountAmount)}`}
+                      value={`− ${currency(discountAmount)}`}
                     />
                     <div className="flex items-center justify-between gap-3 pt-2">
                       <span className="font-black text-slate-900">Payable After Discount</span>
@@ -926,7 +926,7 @@ function LocationAutocomplete({
     <div className="relative">
       <label className="mb-2 block text-sm font-bold text-slate-700">{label}</label>
       <div className={`flex items-center rounded-2xl border bg-white px-4 py-3.5 ${coordinates ? "border-emerald-300" : "border-slate-200 focus-within:border-blue-500"}`}>
-        <span className="mr-2 text-sm text-slate-400">âŒ•</span>
+        <span className="mr-2 text-sm text-slate-400">⌕</span>
         <input
           type="text"
           value={query}

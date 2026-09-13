@@ -115,10 +115,6 @@ export function PublicHeader({
 
             <div className={s.mobilePanel}>
               <nav aria-label="Mobile navigation">
-                <Link href="/">
-                  Home
-                </Link>
-
                 {links.map((link) => (
                   <PublicAnchor
                     key={`mobile-${link.location}-${link.href}-${link.label}`}
@@ -148,6 +144,8 @@ export function PublicFooter({
 }) {
   const groups = [
     ["FOOTER_PRIMARY", "Explore"],
+    ["SERVICES", "Services"],
+    ["PLACES", "Cities / Routes"],
     ["FOOTER_SECONDARY", "Information"],
     ["FOOTER_LEGAL", "Legal"],
   ] as const;
@@ -171,14 +169,16 @@ export function PublicFooter({
               href="/#ride-search"
               className={s.footerCta}
             >
-              Start a journey →
+              Find your ride →
             </Link>
           </div>
 
           {groups.map(([location, title]) => {
             const links = navigation.filter(
               (item) =>
-                item.location === location,
+                location === "SERVICES" ? item.location === "FOOTER_PRIMARY" && item.href.startsWith("/services/") :
+                location === "PLACES" ? item.location === "FOOTER_PRIMARY" && /^\/(cities|routes)\//.test(item.href) :
+                item.location === location && (location !== "FOOTER_PRIMARY" || !/^\/(services|cities|routes)\//.test(item.href)),
             );
 
             if (!links.length) {

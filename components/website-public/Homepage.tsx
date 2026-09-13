@@ -94,7 +94,8 @@ export default function Homepage({
         placement="BEFORE_PRIMARY_CONTENT"
       />
 
-      <section className={h.hero}>
+      {!sections.some(section => section.type === "HERO") && <h1 className="sr-only">{hero.title || "RideGrid by Wellcabs"}</h1>}
+      {sections.some(section => section.type === "HERO") && <section className={h.hero}>
         <div className={h.heroGlow} />
 
         <div className={h.container}>
@@ -195,7 +196,7 @@ export default function Homepage({
             </div>
           </div>
         </div>
-      </section>
+      </section>}
 
       <section
         className={h.searchStage}
@@ -337,7 +338,7 @@ export default function Homepage({
 
               <div>
                 <p>LOCAL</p>
-                <h3>City & Local Rides</h3>
+                <h3>Local Rides & Rentals</h3>
                 <span>
                   Search local journey options
                   using the connected booking
@@ -377,7 +378,7 @@ export default function Homepage({
         </div>
       </section>
 
-      {discovery.length > 0 && (
+      {routesSection && discovery.length > 0 && (
         <section
           id="discover"
           className={`${h.section} ${h.softSection}`}
@@ -405,7 +406,7 @@ export default function Homepage({
               className={h.discoveryGrid}
             >
               {discovery
-                .slice(0, 6)
+                .slice(0, 12)
                 .map((item) => (
                   <Link
                     key={item.href}
@@ -441,7 +442,7 @@ export default function Homepage({
         placement="BEFORE_CTA"
       />
 
-      <section className={h.marketplace}>
+      {marketplaceSection && <section className={h.marketplace}>
         <div
           className={`${h.container} ${h.marketplaceGrid}`}
         >
@@ -503,7 +504,7 @@ export default function Homepage({
             </div>
           </div>
         </div>
-      </section>
+      </section>}
 
       {contentSections.map(
         (section) => (
@@ -530,7 +531,7 @@ export default function Homepage({
         ),
       )}
 
-      <section className={h.finalCta}>
+      {ctaSection && <section className={h.finalCta}>
         <div
           className={`${h.container} ${h.finalCtaInner}`}
         >
@@ -558,7 +559,7 @@ export default function Homepage({
             <ArrowRight size={17} />
           </Link>
         </div>
-      </section>
+      </section>}
 
       <ContentBlocks
         blocks={chrome.blocks}

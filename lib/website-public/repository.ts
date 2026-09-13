@@ -20,7 +20,13 @@ export const resolvePublicPage = cache(async (pathname: string) => {
 });
 export const resolvePublicChrome = cache(async (scope: "HOMEPAGE" | "GENERATED_PAGES"): Promise<PublicChrome> => {
   const [nav, blocks, media] = await Promise.all([websitePublicNavigationRepository.list(), websiteContentBlocksRepository.list(), websiteMediaRepository.list({ status: "ACTIVE", mimeType: "image" })]);
-  return { navigation: publicNavigation(nav.items, nav.configured), blocks: publicBlocks(blocks.blocks, scope),
+  const navigation = await Promise.all(publicNavigation(nav.items, nav.configured).map(async link => {
+    const url = new URL(link.href, "https://www.wellcabs.com");
+    if (!["www.wellcabs.com", "wellcabs.com"].includes(url.hostname)) return link;
+    if (/^\/(routes|cities|services|airports|areas|vehicles)\//.test(url.pathname) && !await resolvePublicPage(url.pathname)) return null;
+    return link;
+  }));
+  return { navigation: navigation.filter((link): link is NonNullable<typeof link> => link !== null), blocks: publicBlocks(blocks.blocks, scope),
     media: media.items.flatMap(m => { const asset = publicMedia(m); return asset ? [{ category: m.category, asset }] : []; }) };
 });
 export const resolveDiscovery = cache(async () => {
