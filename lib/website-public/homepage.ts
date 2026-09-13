@@ -14,11 +14,11 @@ const fallback: WebsiteHomepageConfig = {
   version: 1,
 
   hero: {
-    eyebrow: "RIDEGRID Ã‚ /  WELLCABS",
+    eyebrow: "RIDEGRID Ãƒâ€š /  WELLCABS",
     title:
-      "YOUR CAR. YOUR PRICE. YOUR CHOICE.",
+      "Travel Further With Confidence",
     subtitle:
-      "Search current ride options for everyday journeys, airport transfers, local travel and outstation trips.",
+      "Search current RideGrid options for outstation, local, airport and business travel with Wellcabs.",
 
     primaryCtaLabel:
       "Find your ride",
