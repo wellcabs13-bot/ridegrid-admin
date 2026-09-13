@@ -2,15 +2,25 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: {
-    default: "RideGrid by Wellcabs",
-    template: "%s | RideGrid",
+    default:
+      "RideGrid by Wellcabs | Cab & Ground Transportation Marketplace",
+    template:
+      "%s | RideGrid by Wellcabs",
   },
+
   description:
-    "Search and book cabs, taxis and ground transportation with RideGrid by Wellcabs.",
+    "Search and book cab, taxi, airport, local and outstation ground transportation with RideGrid by Wellcabs.",
+
   openGraph: {
+    type: "website",
+    siteName:
+      "RideGrid by Wellcabs",
     images: [],
   },
+
   twitter: {
+    card:
+      "summary_large_image",
     images: [],
   },
 };
@@ -18,7 +28,8 @@ export const metadata: Metadata = {
 export default function PublicLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children:
+    React.ReactNode;
 }) {
   return children;
 }
