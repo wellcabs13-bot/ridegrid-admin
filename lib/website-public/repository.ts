@@ -19,7 +19,17 @@ export const resolvePublicPage = cache(async (pathname: string) => {
     sections: templateSectionsFromJson(stored.snapshot.template.sections) });
 });
 export const resolvePublicChrome = cache(async (scope: "HOMEPAGE" | "GENERATED_PAGES"): Promise<PublicChrome> => {
-  const [nav, blocks, media] = await Promise.all([websitePublicNavigationRepository.list(), websiteContentBlocksRepository.list(), websiteMediaRepository.list({ status: "ACTIVE", mimeType: "image" })]);
+  const nav =
+    await websitePublicNavigationRepository.list();
+
+  const blocks =
+    await websiteContentBlocksRepository.list();
+
+  const media =
+    await websiteMediaRepository.list({
+      status: "ACTIVE",
+      mimeType: "image",
+    });
   const navigation = await Promise.all(publicNavigation(nav.items, nav.configured).map(async link => {
     const url = new URL(link.href, "https://www.wellcabs.com");
     if (!["www.wellcabs.com", "wellcabs.com"].includes(url.hostname)) return link;

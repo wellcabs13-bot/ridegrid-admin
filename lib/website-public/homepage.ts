@@ -2,6 +2,7 @@ import { websiteHomepageRepository } from "../website-seo/homepage/repository";
 import type { WebsiteHomepageConfig } from "../website-seo/homepage/types";
 
 import { publicHref } from "./safety";
+import { publicNavigation } from "./navigation";
 import {
   resolveDiscovery,
   resolvePublicChrome,
@@ -13,7 +14,7 @@ const fallback: WebsiteHomepageConfig = {
   version: 1,
 
   hero: {
-    eyebrow: "RIDEGRID · WELLCABS",
+    eyebrow: "RIDEGRID Ã‚ /  WELLCABS",
     title:
       "YOUR CAR. YOUR PRICE. YOUR CHOICE.",
     subtitle:
@@ -133,23 +134,42 @@ export function homepagePresentation(
 }
 
 export async function resolveHomepage() {
-  const [
-    setting,
-    chrome,
-    discovery,
-  ] = await Promise.all([
-    websiteHomepageRepository.get(),
-    resolvePublicChrome(
-      "HOMEPAGE",
-    ),
-    resolveDiscovery(),
-  ]);
+  try {
+    const setting =
+      await websiteHomepageRepository.get();
 
-  return {
-    ...homepagePresentation(
-      setting.config,
-    ),
-    chrome,
-    discovery,
-  };
+    const chrome =
+      await resolvePublicChrome(
+        "HOMEPAGE",
+      );
+
+    const discovery =
+      await resolveDiscovery();
+
+    return {
+      ...homepagePresentation(
+        setting.config,
+      ),
+      chrome,
+      discovery,
+    };
+  } catch (error) {
+    console.error(
+      "[website-public] Homepage data unavailable; using safe fallback.",
+      error,
+    );
+
+    return {
+      ...homepagePresentation(null),
+
+      chrome: {
+        navigation:
+          publicNavigation([], false),
+        blocks: [],
+        media: [],
+      },
+
+      discovery: [],
+    };
+  }
 }
