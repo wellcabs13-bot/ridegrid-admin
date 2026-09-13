@@ -23,7 +23,11 @@ export function PublicAnchor({
       prefetch={false}
       className={className}
       target={link.newTab ? "_blank" : undefined}
-      rel={link.newTab ? "noopener noreferrer" : undefined}
+      rel={
+        link.newTab
+          ? "noopener noreferrer"
+          : undefined
+      }
     >
       {children || link.label}
 
@@ -53,7 +57,7 @@ function Brand() {
 
       <span className={s.brandCopy}>
         <strong>RideGrid</strong>
-        <small>BY WELLCABS</small>
+        <small>by Wellcabs</small>
       </span>
     </Link>
   );
@@ -64,21 +68,24 @@ export function PublicHeader({
 }: {
   navigation: PublicNavLink[];
 }) {
-  const links = navigation.filter(
-    (item) => item.location === "HEADER",
-  );
+  const links =
+    navigation.filter(
+      (item) =>
+        item.location === "HEADER",
+    );
 
   return (
     <>
       <div className={s.utilityBar}>
         <div className={s.container}>
           <div className={s.utilityInner}>
-            <span>
-              RIDEGRID · WELLCABS
-            </span>
+            <strong>
+              Reliable rides. A smarter
+              tomorrow.
+            </strong>
 
             <span>
-              Ground mobility. One connected marketplace.
+              RideGrid Ã‚ /  Wellcabs
             </span>
           </div>
         </div>
@@ -104,14 +111,18 @@ export function PublicHeader({
 
           <Link
             href="/#ride-search"
-            className={s.headerCta}
+            className={s.headerCta} aria-label="Find your ride - Book a Cab"
           >
-            Find your ride
-            <span aria-hidden="true">→</span>
+            Book a Cab
+            <span aria-hidden="true">
+              Ã¢â€ â€™
+            </span>
           </Link>
 
           <details className={s.mobileNav}>
-            <summary>Menu</summary>
+            <summary>
+              Menu
+            </summary>
 
             <div className={s.mobilePanel}>
               <nav aria-label="Mobile navigation">
@@ -124,9 +135,9 @@ export function PublicHeader({
 
                 <Link
                   href="/#ride-search"
-                  className={s.mobileCta}
+                  className={s.mobileCta} aria-label="Find your ride - Book a Cab"
                 >
-                  Find your ride →
+                  Book a Cab Ã¢â€ â€™
                 </Link>
               </nav>
             </div>
@@ -142,13 +153,26 @@ export function PublicFooter({
 }: {
   navigation: PublicNavLink[];
 }) {
-  const groups = [
-    ["FOOTER_PRIMARY", "Explore"],
-    ["SERVICES", "Services"],
-    ["PLACES", "Cities / Routes"],
-    ["FOOTER_SECONDARY", "Information"],
-    ["FOOTER_LEGAL", "Legal"],
-  ] as const;
+  const primary =
+    navigation.filter(
+      (item) =>
+        item.location ===
+        "FOOTER_PRIMARY",
+    );
+
+  const secondary =
+    navigation.filter(
+      (item) =>
+        item.location ===
+        "FOOTER_SECONDARY",
+    );
+
+  const legal =
+    navigation.filter(
+      (item) =>
+        item.location ===
+        "FOOTER_LEGAL",
+    );
 
   return (
     <footer className={s.footer}>
@@ -156,62 +180,87 @@ export function PublicFooter({
 
       <div className={s.container}>
         <div className={s.footerGrid}>
-          <div>
+          <div className={s.footerBrand}>
             <Brand />
 
             <p className={s.footerLead}>
-              Search, compare and book ground
-              transportation through RideGrid by
-              Wellcabs.
+              One connected marketplace for
+              outstation, local, airport and
+              business ground transportation.
             </p>
 
             <Link
               href="/#ride-search"
-              className={s.footerCta}
+              className={s.footerCta} aria-label="Find your ride - Book a Cab"
             >
-              Find your ride →
+              Book a Cab Ã¢â€ â€™
             </Link>
           </div>
 
-          {groups.map(([location, title]) => {
-            const links = navigation.filter(
-              (item) =>
-                location === "SERVICES" ? item.location === "FOOTER_PRIMARY" && item.href.startsWith("/services/") :
-                location === "PLACES" ? item.location === "FOOTER_PRIMARY" && /^\/(cities|routes)\//.test(item.href) :
-                item.location === location && (location !== "FOOTER_PRIMARY" || !/^\/(services|cities|routes)\//.test(item.href)),
-            );
+          {primary.length > 0 && (
+            <nav
+              aria-label="Ride services"
+              className={s.footerNav}
+            >
+              <h2>
+                Cab Services
+              </h2>
 
-            if (!links.length) {
-              return null;
-            }
+              {primary.map((link) => (
+                <PublicAnchor
+                  key={link.href}
+                  link={link}
+                />
+              ))}
+            </nav>
+          )}
 
-            return (
-              <nav
-                key={location}
-                aria-label={title}
-                className={s.footerNav}
-              >
-                <h2>{title}</h2>
+          {secondary.length > 0 && (
+            <nav
+              aria-label="Information"
+              className={s.footerNav}
+            >
+              <h2>
+                Explore
+              </h2>
 
-                {links.map((link) => (
-                  <PublicAnchor
-                    key={`${location}-${link.href}-${link.label}`}
-                    link={link}
-                  />
-                ))}
-              </nav>
-            );
-          })}
+              {secondary.map((link) => (
+                <PublicAnchor
+                  key={link.href}
+                  link={link}
+                />
+              ))}
+            </nav>
+          )}
+
+          {legal.length > 0 && (
+            <nav
+              aria-label="Legal"
+              className={s.footerNav}
+            >
+              <h2>
+                Legal
+              </h2>
+
+              {legal.map((link) => (
+                <PublicAnchor
+                  key={link.href}
+                  link={link}
+                />
+              ))}
+            </nav>
+          )}
         </div>
 
         <div className={s.footerBottom}>
           <span>
-            © {new Date().getFullYear()} RideGrid
-            by Wellcabs.
+            Ã‚(c) {new Date().getFullYear()}{" "}
+            RideGrid by Wellcabs.
           </span>
 
           <span>
-            Your journey. Your choice.
+            Reliable rides. A smarter
+            tomorrow.
           </span>
         </div>
       </div>
@@ -237,7 +286,9 @@ export default function PublicShell({
         Skip to content
       </a>
 
-      <PublicHeader navigation={navigation} />
+      <PublicHeader
+        navigation={navigation}
+      />
 
       {contentIsMain ? (
         <div id="public-main">
@@ -249,7 +300,9 @@ export default function PublicShell({
         </main>
       )}
 
-      <PublicFooter navigation={navigation} />
+      <PublicFooter
+        navigation={navigation}
+      />
     </div>
   );
 }
