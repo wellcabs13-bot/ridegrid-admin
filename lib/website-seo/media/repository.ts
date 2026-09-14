@@ -67,8 +67,9 @@ export class WebsiteMediaRepository {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
 
-  async create(stored: StoredFile, input: WebsiteMediaUpdate): Promise<WebsiteMedia> {
+  async create(stored: StoredFile, input: WebsiteMediaUpdate, aiJobId?: string): Promise<WebsiteMedia> {
     const validated = validateMediaUpdate(input);
+    if (aiJobId !== undefined && !/^[a-zA-Z0-9-]{1,100}$/.test(aiJobId)) throw new WebsiteMediaValidationError("Invalid AI image job id.");
     return mutate(async (tx) => {
       const items = await read(tx);
       const file = await tx.fileAsset.create({ data: {
@@ -76,7 +77,7 @@ export class WebsiteMediaRepository {
         originalName: stored.name, mimeType: stored.mimeType, fileSize: stored.size,
         fileUrl: stored.fileUrl, storageKey: stored.storageKey, entityType: ENTITY_TYPE,
       } });
-      const item: WebsiteMediaMetadata = { ...defaultMetadata(file), ...validated, status: "DRAFT" };
+      const item: WebsiteMediaMetadata = { ...defaultMetadata(file), ...validated, status: "DRAFT", ...(aiJobId ? { aiGenerated: true, aiJobId } : {}) };
       await write(tx, [...items, item]);
       return join(item, file);
     });

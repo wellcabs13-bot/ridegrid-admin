@@ -167,6 +167,7 @@ export async function resolveHomepage() {
           publicNavigation([], false),
         blocks: [],
         media: [],
+        images: {},
       },
 
       discovery: [],

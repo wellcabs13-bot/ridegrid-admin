@@ -1,4 +1,5 @@
 import Image from "next/image";
+import ManagedImage from "./ManagedImage";
 import Link from "next/link";
 
 import {
@@ -52,6 +53,7 @@ export default function Homepage({
   } = page;
 
   const heroMedia =
+    chrome.images?.heroImage ??
     chrome.media.find(
       (item) =>
         item.category ===
@@ -359,7 +361,7 @@ export default function Homepage({
       </section>
 
       {routesSection && (
-        <HomepageMarketplaceRoutes />
+        <HomepageMarketplaceRoutes media={chrome.images?.cardImage} />
       )}
 
       <section
@@ -371,6 +373,7 @@ export default function Homepage({
             h.container
           }
         >
+          <ManagedImage media={chrome.images?.sectionImage1} />
           <div
             className={
               h.sectionHeading
@@ -701,9 +704,7 @@ export default function Homepage({
             }
             aria-hidden="true"
           >
-            <Users size={72} />
-            <CarFront size={110} />
-            <Building2 size={82} />
+            {chrome.images?.sectionImage2 ? <ManagedImage media={chrome.images.sectionImage2} /> : <><Users size={72} /><CarFront size={110} /><Building2 size={82} /></>}
           </div>
         </div>
       </section>
@@ -854,6 +855,7 @@ export default function Homepage({
                     }
                   >
                     <div>
+                      <ManagedImage media={item.image} />
                       <span>
                         {item.type}
                       </span>
@@ -1021,6 +1023,7 @@ export default function Homepage({
           <div
             className={`${h.container} ${h.finalCtaInner}`}
           >
+            {chrome.images?.featuredImage && <Image src={chrome.images.featuredImage.src} alt="" fill unoptimized sizes="100vw" style={{ objectFit: "cover", opacity: 0.18, pointerEvents: "none" }} />}
             <div>
               <p
                 className={

@@ -5,6 +5,8 @@ export const WEBSITE_MEDIA_IMAGE_TYPES = ["image/jpeg", "image/png"] as const;
 export type WebsiteMediaCategory = typeof WEBSITE_MEDIA_CATEGORIES[number];
 export type WebsiteMediaStatus = typeof WEBSITE_MEDIA_STATUSES[number];
 export interface WebsiteMediaMetadata {
+  aiGenerated?: boolean;
+  aiJobId?: string;
   fileAssetId: string;
   title: string;
   altText: string;

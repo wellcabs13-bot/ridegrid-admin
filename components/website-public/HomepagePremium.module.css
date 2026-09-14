@@ -663,6 +663,7 @@ span:not(.iconBox) {
 }
 
 .finalCtaInner {
+  position: relative;
   min-height: 210px;
   display: flex;
   align-items: center;
@@ -799,4 +800,10 @@ p:not(.sectionEyebrow) {
   .hero h1 {
     font-size: 42px;
   }
+}
+
+.finalCtaInner > div,
+.finalCtaInner > a {
+  position: relative;
+  z-index: 1;
 }

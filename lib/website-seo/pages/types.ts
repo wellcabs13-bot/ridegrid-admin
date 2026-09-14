@@ -57,4 +57,5 @@ export interface WebsiteGeneratedPageDefinition {
 export interface GenerateWebsitePageInput {
   entityId: string;
   templateId?: string;
+  generateImages?: boolean;
 }

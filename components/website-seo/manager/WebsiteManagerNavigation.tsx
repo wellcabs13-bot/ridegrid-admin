@@ -63,6 +63,7 @@ const items = [
     icon: Radio,
     enabled: true,
   },
+  { title: "AI Images", href: "/website-seo/website/media/ai-images", icon: Image, enabled: true },
 ] as const;
 
 export default function WebsiteManagerNavigation() {

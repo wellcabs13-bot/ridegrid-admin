@@ -18,6 +18,8 @@ import type {
 } from "@/lib/website-public/marketplace";
 
 import h from "./HomepagePremium.module.css";
+import ManagedImage from "./ManagedImage";
+import type { PublicMedia } from "@/lib/website-public/types";
 
 interface RouteCard {
   fromCity: string;
@@ -25,7 +27,7 @@ interface RouteCard {
   categories: Set<string>;
 }
 
-export default function HomepageMarketplaceRoutes() {
+export default function HomepageMarketplaceRoutes({ media }: { media?: PublicMedia }) {
   const [
     options,
     setOptions,
@@ -181,9 +183,7 @@ export default function HomepageMarketplaceRoutes() {
                     h.routeVisual
                   }
                 >
-                  <MapPin
-                    size={28}
-                  />
+                  {media ? <ManagedImage media={media} cover /> : <MapPin size={28} />}
                 </div>
 
                 <div

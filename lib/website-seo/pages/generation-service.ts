@@ -9,6 +9,7 @@ import {
 import type {
   GenerateWebsitePageInput,
 } from "./types";
+import { autoQueuePageImages } from "../media/ai-image/service";
 
 export class WebsitePageGenerationService {
   async generateAndPersist(
@@ -25,6 +26,7 @@ export class WebsitePageGenerationService {
     return {
       definition,
       page,
+      images: await autoQueuePageImages(page.id, input.generateImages),
     };
   }
 }

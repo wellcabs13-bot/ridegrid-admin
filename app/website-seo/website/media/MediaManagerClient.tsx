@@ -142,6 +142,7 @@ export default function MediaManagerClient() {
               <MediaPreview item={item} />
               <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black uppercase"><span className={`rounded-full px-2 py-1 ${item.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : item.status === "ARCHIVED" ? "bg-zinc-100 text-zinc-500" : "bg-amber-50 text-amber-700"}`}>{item.status}</span><span className="py-1 text-zinc-500">{item.category}</span></div>
               <h3 className="mt-2 truncate font-bold">{item.title || item.originalName || item.fileName}</h3>
+              {item.aiGenerated && <span className="text-xs font-bold text-red-600">AI-generated · review in AI Image Engine</span>}
               <p className="mt-1 truncate text-xs text-zinc-500" title={item.originalName || item.fileName}>{item.originalName || item.fileName}</p>
               <p className="mt-2 text-xs text-zinc-500">{item.mimeType || "Unknown type"} · {sizeLabel(item.fileSize)}</p>
               <p className="mt-1 text-xs text-zinc-500">Uploaded {new Date(item.uploadedAt).toLocaleDateString()}</p>

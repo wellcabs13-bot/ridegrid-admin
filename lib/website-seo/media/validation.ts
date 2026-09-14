@@ -57,6 +57,8 @@ export function validateMediaStore(value: unknown): WebsiteMediaMetadata[] {
     if (fields.title === undefined || fields.altText === undefined || fields.caption === undefined || !fields.category || !fields.status) {
       throw new Error("Stored media metadata is incomplete.");
     }
-    return { fileAssetId, createdAt, updatedAt, title: fields.title, altText: fields.altText, caption: fields.caption, category: fields.category, status: fields.status };
+    if (row.aiGenerated !== undefined && (row.aiGenerated !== true || typeof row.aiJobId !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(row.aiJobId))) throw new Error("Stored AI media provenance is invalid.");
+    return { fileAssetId, createdAt, updatedAt, title: fields.title, altText: fields.altText, caption: fields.caption, category: fields.category, status: fields.status,
+      ...(row.aiGenerated === true ? { aiGenerated: true, aiJobId: row.aiJobId as string } : {}) };
   });
 }

@@ -3,6 +3,7 @@ import PublicShell from "./PublicShell";
 import HeroSearch from "./HeroSearch";
 import { ContentBlocks, CTA, FAQ, Hero, MarketplaceSection, RelatedPages, Schema } from "./Content";
 import s from "./public.module.css";
+import ManagedImage from "./ManagedImage";
 function Section({ section, searchHref }: { section: PublicSection; searchHref: string }) {
   switch (section.type) {
     case "HERO": return null;
@@ -18,7 +19,22 @@ function Section({ section, searchHref }: { section: PublicSection; searchHref: 
 export default function EntityPage({ page, chrome }: { page: PublicPage; chrome: PublicChrome }) {
   const hero = page.sections.find(s => s.type === "HERO");
   const hasSearch = page.sections.some(s => s.type === "SEARCH"), searchHref = hasSearch ? "#ride-search" : "/marketplace";
-  const media = chrome.media.find(m => m.category === page.entityType)?.asset || chrome.media.find(m => m.category === "GENERAL")?.asset || chrome.media.find(m => m.category === "HERO")?.asset;
+  const media = page.images?.heroImage || chrome.media.find(m => m.category === page.entityType)?.asset || chrome.media.find(m => m.category === "GENERAL")?.asset || chrome.media.find(m => m.category === "HERO")?.asset;
   const firstCta = page.sections.findIndex(s => s.type === "CTA"), lastCta = page.sections.findLastIndex(s => s.type === "CTA");
-  return <PublicShell navigation={chrome.navigation}><Schema schema={page.seo.schema} /><Hero title={page.title} eyebrow={`${page.entityType.toLowerCase()} journeys`} description={hero?.paragraphs.join(" ") || page.seo.description} media={media} breadcrumbs={page.breadcrumbs} links={[{ label: "Find your ride", href: searchHref }]} /><ContentBlocks blocks={chrome.blocks} placement="BEFORE_PRIMARY_CONTENT" />{page.sections.map((section, i) => <div key={section.id} className="contents">{i === firstCta && <ContentBlocks blocks={chrome.blocks} placement="BEFORE_CTA" />}<Section section={section} searchHref={searchHref} />{i === lastCta && <ContentBlocks blocks={chrome.blocks} placement="AFTER_CTA" />}</div>)}<ContentBlocks blocks={chrome.blocks} placement="AFTER_PRIMARY_CONTENT" />{firstCta < 0 && <><ContentBlocks blocks={chrome.blocks} placement="BEFORE_CTA" /><ContentBlocks blocks={chrome.blocks} placement="AFTER_CTA" /></>}{!page.sections.some(s => s.type === "RELATED") && <RelatedPages links={page.links} />}</PublicShell>;
+  const supporting = [page.images?.sectionImage1, page.images?.sectionImage2, page.images?.featuredImage, page.images?.galleryImage1, page.images?.galleryImage2].filter(Boolean);
+  return <PublicShell navigation={chrome.navigation}>
+    <Schema schema={page.seo.schema} />
+    <Hero title={page.title} eyebrow={`${page.entityType.toLowerCase()} journeys`} description={hero?.paragraphs.join(" ") || page.seo.description} media={media} breadcrumbs={page.breadcrumbs} links={[{ label: "Find your ride", href: searchHref }]} />
+    <ContentBlocks blocks={chrome.blocks} placement="BEFORE_PRIMARY_CONTENT" />
+    {page.sections.map((section, i) => <div key={section.id} className="contents">
+      {i === firstCta && <ContentBlocks blocks={chrome.blocks} placement="BEFORE_CTA" />}
+      <Section section={section} searchHref={searchHref} />
+      {supporting[i] && <div className={s.container}><ManagedImage media={supporting[i]} /></div>}
+      {i === lastCta && <ContentBlocks blocks={chrome.blocks} placement="AFTER_CTA" />}
+    </div>)}
+    {supporting.slice(page.sections.length).map((image, i) => <div key={i} className={s.container}><ManagedImage media={image} /></div>)}
+    <ContentBlocks blocks={chrome.blocks} placement="AFTER_PRIMARY_CONTENT" />
+    {firstCta < 0 && <><ContentBlocks blocks={chrome.blocks} placement="BEFORE_CTA" /><ContentBlocks blocks={chrome.blocks} placement="AFTER_CTA" /></>}
+    {!page.sections.some(s => s.type === "RELATED") && <RelatedPages links={page.links} />}
+  </PublicShell>;
 }

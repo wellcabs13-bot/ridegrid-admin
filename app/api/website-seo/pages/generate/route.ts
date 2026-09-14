@@ -22,6 +22,7 @@ export async function POST(request: Request) {
         400
       );
     }
+    if (body.generateImages !== undefined && typeof body.generateImages !== "boolean") return websiteSeoApiError("generateImages must be true or false.", 400);
 
     const result =
       await websitePageGenerationService.generateAndPersist(

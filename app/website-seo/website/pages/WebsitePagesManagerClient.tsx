@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import {
   BrainCircuit,
@@ -1134,6 +1135,7 @@ export default function WebsitePagesManagerClient() {
                       </div>
 
                       <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Link className="rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700" href={`/website-seo/website/media/ai-images?pageId=${encodeURIComponent(readString(selectedPage, "id") || "")}`}>Generate Images</Link>
                         <ActionButton
                           label="Regenerate Page"
                           icon={
