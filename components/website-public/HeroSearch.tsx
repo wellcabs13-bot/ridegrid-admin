@@ -10,6 +10,7 @@ export default function HeroSearch({ heading = "Where are we taking you?", descr
   const [options, setOptions] = useState<PricingOption[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState("");
   const [journey, setJourney] = useState(0), [city, setCity] = useState(""), [destination, setDestination] = useState(""), [packageId, setPackageId] = useState(""), [category, setCategory] = useState("");
   const [date, setDate] = useState(""), [time, setTime] = useState(""), [retry, setRetry] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError("");
     fetch("/api/marketplace/options", { cache: "no-store", signal: controller.signal }).then(async r => {
@@ -36,6 +37,7 @@ export default function HeroSearch({ heading = "Where are we taking you?", descr
     if (airport && (!option.airportName || !option.transferDirection || option.includedKm === null)) { setError("This airport option is incomplete. Please select another journey."); return; }
     const pickup = new Date(`${date}T${time}:00`);
     if (!date || !time || !Number.isFinite(pickup.getTime()) || pickup <= new Date()) { setError("Choose a future pickup date and time."); return; }
+    setSubmitting(true);
     router.push(marketplaceResultsHref(option, date, time, category));
   }
   return <div id="ride-search" className={s.searchWrap}><div className={s.container}><section className={s.search} aria-label="Find a ride"><h2 className={s.searchTitle}>{heading}</h2>{description && <p className={s.muted}>{description}</p>}
@@ -47,7 +49,7 @@ export default function HeroSearch({ heading = "Where are we taking you?", descr
           {outstation ? <label className={s.field}>Destination<select required disabled={!city} value={destination} onChange={e => { setDestination(e.target.value); setCategory(""); }}><option value="">Where to?</option>{destinations.map(v => <option key={v}>{v}</option>)}</select></label> : <label className={s.field}>{airport ? "Airport / transfer / distance" : "Journey package"}<select required disabled={!city} value={packageId} onChange={e => { setPackageId(e.target.value); setCategory(""); }}><option value="">Choose an option</option>{packages.map(o => <option key={o.id} value={o.id}>{airport ? `${o.airportName} / ${o.transferDirection?.replaceAll("_", " ")} / ${o.includedKm ?? "Unavailable"} km` : o.packageName}</option>)}</select></label>}
           <label className={s.field}><span><CalendarDays size={12} className="inline" /> Pickup date</span><input type="date" required min={minDate} value={date} onChange={e => setDate(e.target.value)} /></label>
           <label className={s.field}>Pickup time<input type="time" required value={time} onChange={e => setTime(e.target.value)} /></label>
-        </div><div className={s.searchBottom}><label className={s.field}>Vehicle preference<select disabled={!categories.length} aria-label="Vehicle preference" value={category} onChange={e => setCategory(e.target.value)}><option value="">All available categories</option>{categories.map(v => <option key={v}>{v}</option>)}</select></label><p className={s.muted}>See current options for your trip.<br />Choose your vehicle before you book.</p><button type="submit" className={`${s.button} ${s.searchSubmit}`}>Search rides <ArrowUpRight size={17} /></button></div>
+        </div><div className={s.searchBottom}><label className={s.field}>Vehicle preference<select disabled={!categories.length} aria-label="Vehicle preference" value={category} onChange={e => setCategory(e.target.value)}><option value="">All available categories</option>{categories.map(v => <option key={v}>{v}</option>)}</select></label><p className={s.muted}>See current options for your trip.<br />Choose your vehicle before you book.</p><button type="submit" disabled={submitting} aria-busy={submitting} className={`${s.button} ${s.searchSubmit}`}>{submitting ? "Finding your ride..." : "Search rides"} <ArrowUpRight size={17} /></button></div>
         {error && <p role="alert" className={s.notice}>{error}</p>}
       </form>}
     </>}

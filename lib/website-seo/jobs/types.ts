@@ -1,4 +1,4 @@
-﻿export type WebsiteSeoJobType =
+export type WebsiteSeoJobType =
   | "KEYWORD_RESEARCH"
   | "PAGE_GENERATION"
   | "CONTENT_GENERATION"

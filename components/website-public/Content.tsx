@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "./ResilientImage";
 import Link from "next/link";
 import { ArrowUpRight, Search, CarFront, CalendarCheck2 } from "lucide-react";
 import type { PublicBlock, PublicLink, PublicMedia, PublicPage } from "@/lib/website-public/types";

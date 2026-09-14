@@ -1,4 +1,4 @@
-﻿export const WEBSITE_ENTITY_TYPES = [
+export const WEBSITE_ENTITY_TYPES = [
   "ROUTE",
   "CITY",
   "SERVICE",

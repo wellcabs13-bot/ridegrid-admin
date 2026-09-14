@@ -12,6 +12,7 @@ import { IMAGE_SLOTS, PAGE_FAMILIES, type ImageEngineState } from "../../lib/web
 import { validateMediaStore, validateMediaUpdate } from "../../lib/website-seo/media/validation";
 import { storeFile } from "../../lib/services/storage/FileStorageService";
 import { websiteMediaRepository } from "../../lib/website-seo/media/repository";
+import { imageCostQuality, ImageRateLimitError, retryDelay } from "../../lib/website-seo/media/ai-image/policy";
 
 vi.mock("../../lib/prisma", () => ({ prisma: { $transaction: vi.fn(), systemSetting: { findUnique: vi.fn(), upsert: vi.fn(), create: vi.fn(), delete: vi.fn() }, websiteSeoPage: { findUnique: vi.fn() }, fileAsset: { findFirst: vi.fn(), findMany: vi.fn() } } }));
 vi.mock("../../lib/services/storage/FileStorageService", () => ({ storeFile: vi.fn() }));
@@ -125,7 +126,32 @@ describe("W19 durable generation and assignments", () => {
     vi.mocked(prisma.fileAsset.findFirst).mockResolvedValue(null); await expect(assignImage("homepage", "heroImage", "missing", "admin")).rejects.toThrow();
   });
   it("returns empty public slots on DB failures and corrupt records", async () => {
-    vi.mocked(prisma.$transaction).mockRejectedValue(new Error("DB unavailable")); expect(await publicImageSlots("homepage")).toEqual({});
+    vi.mocked(prisma.systemSetting.findUnique).mockRejectedValue(new Error("DB unavailable")); expect(await publicImageSlots("homepage")).toEqual({});
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+  it("applies slot and landing-page cost tiers", () => {
+    expect(imageCostQuality(homepage,"heroImage")).toBe("high");
+    expect(imageCostQuality({...homepage,family:"ROUTE"},"heroImage")).toBe("medium");
+    expect(imageCostQuality({...homepage,family:"SERVICE",majorCommercial:true},"heroImage")).toBe("high");
+    expect(imageCostQuality(homepage,"ogImage")).toBe("low");
+    expect(imageCostQuality(homepage,"cardImage")).toBe("low");
+    expect(retryDelay(1,60_000)).toBe(60_000);
+    expect(retryDelay(100,9_000_000)).toBe(300_000);
+  });
+  it("persists rate-limit backoff, skips premature retries and stops after three attempts", async () => {
+    await queueImages(["homepage"],["heroImage"],"admin");
+    const provider = { generate: vi.fn().mockRejectedValue(new ImageRateLimitError(30_000)) };
+    expect((await processNextImage(provider))?.status).toBe("QUEUED");
+    expect(Date.parse(state.jobs[0].notBefore!)).toBeGreaterThan(Date.now());
+    expect(await processNextImage(provider)).toBeNull();
+    expect(provider.generate).toHaveBeenCalledTimes(1);
+    state.jobs[0].notBefore = "2000-01-01T00:00:00Z";
+    expect((await processNextImage(provider))?.status).toBe("QUEUED");
+    state.jobs[0].notBefore = "2000-01-01T00:00:00Z";
+    expect((await processNextImage(provider))?.status).toBe("FAILED");
+    expect(state.jobs[0].error).toContain("retry limit");
+    expect(provider.generate).toHaveBeenCalledTimes(3);
+    expect(storeFile).not.toHaveBeenCalled();
   });
   it("keeps page creation independent of unavailable generation", async () => {
     state.autoGenerate = true; vi.stubEnv("OPENAI_API_KEY", ""); const result = await autoQueuePageImages("page-1"); expect(result.queued).toBe(0); expect(result.error).toContain("OPENAI_API_KEY");

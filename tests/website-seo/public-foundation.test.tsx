@@ -6,12 +6,32 @@ import { PublicHeader, PublicFooter } from "../../components/website-public/Publ
 import { publicHref } from "../../lib/website-public/safety";
 import { publicNavigation } from "../../lib/website-public/navigation";
 import { validateMediaUpdate } from "../../lib/website-seo/media/validation";
+import { INFO_PAGES } from "../../lib/website-public/info";
+import ResilientImage from "../../components/website-public/ResilientImage";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: () => "/" }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe("public foundation", () => {
+  it("renders every legal and company destination even without configured footer links", () => {
+    render(<PublicFooter navigation={[]} />);
+    for (const page of INFO_PAGES) expect(document.querySelector(`a[href="/${page.slug}"]`)).not.toBeNull();
+  });
+  it("marks the current navigation item and closes the mobile menu on selection", () => {
+    const { container } = render(<PublicHeader navigation={publicNavigation([],false)} />);
+    expect(screen.getAllByRole("link",{name:"Home"})[0]).toHaveAttribute("aria-current","page");
+    const details = container.querySelector("details")!;
+    details.setAttribute("open","");
+    fireEvent.click(details.querySelector('a[href="/#outstation"]')!);
+    expect(details).not.toHaveAttribute("open");
+  });
+  it("replaces a missing managed image with the supplied safe fallback", () => {
+    render(<ResilientImage src="/missing.png" alt="Journey" width={300} height={200} fallback={<span>Journey overview</span>} />);
+    fireEvent.error(screen.getByAltText("Journey"));
+    expect(screen.queryByAltText("Journey")).toBeNull();
+    expect(screen.getByText("Journey overview")).toBeInTheDocument();
+  });
   it.each(["HERO", "ROUTE", "CITY", "SERVICE", "AIRPORT", "AREA", "VEHICLE", "GENERAL"])("accepts the existing Media Manager category %s", category => {
     expect(validateMediaUpdate({ category })).toEqual({ category });
   });

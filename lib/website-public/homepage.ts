@@ -14,7 +14,7 @@ const fallback: WebsiteHomepageConfig = {
   version: 1,
 
   hero: {
-    eyebrow: "RIDEGRID Ãƒâ€š /  WELLCABS",
+    eyebrow: "RIDEGRID  /  WELLCABS",
     title:
       "Travel Further With Confidence",
     subtitle:

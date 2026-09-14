@@ -1,4 +1,4 @@
-﻿export const WEBSITE_SEO_PERMISSIONS = {
+export const WEBSITE_SEO_PERMISSIONS = {
   VIEW: "website-seo:view",
   MANAGE: "website-seo:manage",
   GENERATE: "website-seo:generate",

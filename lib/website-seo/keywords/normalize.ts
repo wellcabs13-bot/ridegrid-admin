@@ -1,4 +1,4 @@
-﻿export function normalizeWebsiteKeyword(
+export function normalizeWebsiteKeyword(
   value: string
 ): string {
   return value

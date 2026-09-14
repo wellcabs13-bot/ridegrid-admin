@@ -1,4 +1,4 @@
-﻿import type { WebsiteEntityType } from "@/lib/website-seo/entities";
+import type { WebsiteEntityType } from "@/lib/website-seo/entities";
 
 export const WEBSITE_ENTITY_PATH_PATTERNS: Record<
   WebsiteEntityType,

@@ -1,4 +1,4 @@
-﻿import {
+import {
   normalizeWebsiteKeyword,
 } from "./normalize";
 

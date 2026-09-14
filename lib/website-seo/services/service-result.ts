@@ -1,4 +1,4 @@
-﻿export interface ServiceSuccess<T> {
+export interface ServiceSuccess<T> {
   success: true;
   data: T;
 }

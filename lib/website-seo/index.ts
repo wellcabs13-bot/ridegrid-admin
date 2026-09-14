@@ -1,4 +1,4 @@
-﻿export * from "./config";
+export * from "./config";
 export * from "./theme";
 export * from "./ai";
 export * from "./services/service-result";

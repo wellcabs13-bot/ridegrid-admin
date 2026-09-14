@@ -1,4 +1,4 @@
-﻿import type { WebsiteEntityType } from "@/lib/website-seo/entities";
+import type { WebsiteEntityType } from "@/lib/website-seo/entities";
 
 import { createWebsiteTemplateKey } from "./key";
 import { getDefaultWebsiteEntityPathPattern } from "./patterns";

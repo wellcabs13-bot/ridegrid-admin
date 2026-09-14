@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   WebsiteEntityStatus,
   WebsiteEntityType,
 } from "@/lib/website-seo/entities";

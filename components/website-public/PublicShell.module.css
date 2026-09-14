@@ -1,4 +1,7 @@
 .site {
+  font-family: inherit;
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: break-word;
   --red: #e71932;
   min-height: 100vh;
   background: #ffffff;
@@ -387,3 +390,14 @@
     scroll-behavior: auto !important;
   }
 }
+.desktopNav a[aria-current="page"] { color: #bf1630; box-shadow: inset 0 -2px #bf1630; }
+.site :global(section[id]) { scroll-margin-top: 110px; }
+.header { box-shadow: 0 5px 30px #10111308; }
+.utilityInner { font-size: 11px; min-height: 36px; }
+.footerLead { font-size: 15px; color: #babac0; }
+.footerNav a { font-size: 13px; color: #bebec4; line-height: 1.45; padding-block: 5px; }
+.footerBottom { color: #a6a6af; font-size: 12px; }
+.footerNav h2 { font-size: 12px; }
+.mobilePanel a[aria-current="page"] { background: #fff0f2; color: #ad142a; }
+.mobileNav[open] .mobilePanel { animation: menuIn .18s ease-out; }
+@keyframes menuIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }

@@ -7,6 +7,9 @@ import type {
 } from "@/lib/website-public/types";
 
 import s from "./PublicShell.module.css";
+import { ArrowRight } from "lucide-react";
+import { LEGAL_LINKS } from "@/lib/website-public/info";
+import PublicNavLinks from "./PublicNavLinks";
 
 export function PublicAnchor({
   link,
@@ -85,7 +88,7 @@ export function PublicHeader({
             </strong>
 
             <span>
-              RideGrid Ã‚ /  Wellcabs
+              RideGrid by Wellcabs
             </span>
           </div>
         </div>
@@ -101,12 +104,7 @@ export function PublicHeader({
             aria-label="Main navigation"
             className={s.desktopNav}
           >
-            {links.map((link) => (
-              <PublicAnchor
-                key={`${link.location}-${link.href}-${link.label}`}
-                link={link}
-              />
-            ))}
+            <PublicNavLinks links={links} />
           </nav>
 
           <Link
@@ -114,9 +112,7 @@ export function PublicHeader({
             className={s.headerCta} aria-label="Find your ride - Book a Cab"
           >
             Book a Cab
-            <span aria-hidden="true">
-              Ã¢â€ â€™
-            </span>
+            <ArrowRight size={16} aria-hidden="true" />
           </Link>
 
           <details className={s.mobileNav}>
@@ -126,18 +122,13 @@ export function PublicHeader({
 
             <div className={s.mobilePanel}>
               <nav aria-label="Mobile navigation">
-                {links.map((link) => (
-                  <PublicAnchor
-                    key={`mobile-${link.location}-${link.href}-${link.label}`}
-                    link={link}
-                  />
-                ))}
+                <PublicNavLinks links={links} />
 
                 <Link
                   href="/#ride-search"
                   className={s.mobileCta} aria-label="Find your ride - Book a Cab"
                 >
-                  Book a Cab Ã¢â€ â€™
+                  Book a Cab <ArrowRight size={16} aria-hidden="true" />
                 </Link>
               </nav>
             </div>
@@ -167,12 +158,13 @@ export function PublicFooter({
         "FOOTER_SECONDARY",
     );
 
-  const legal =
+  const customLegal =
     navigation.filter(
       (item) =>
         item.location ===
         "FOOTER_LEGAL",
     );
+  const legal = [...LEGAL_LINKS, ...customLegal.filter(link => !LEGAL_LINKS.some(l => l.href === link.href))];
 
   return (
     <footer className={s.footer}>
@@ -193,7 +185,7 @@ export function PublicFooter({
               href="/#ride-search"
               className={s.footerCta} aria-label="Find your ride - Book a Cab"
             >
-              Book a Cab Ã¢â€ â€™
+              Book a Cab <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
 
@@ -215,7 +207,7 @@ export function PublicFooter({
             </nav>
           )}
 
-          {secondary.length > 0 && (
+          {(
             <nav
               aria-label="Information"
               className={s.footerNav}
@@ -223,6 +215,8 @@ export function PublicFooter({
               <h2>
                 Explore
               </h2>
+              <Link href="/about">About us</Link>
+              <Link href="/contact">Contact us</Link>
 
               {secondary.map((link) => (
                 <PublicAnchor
@@ -254,7 +248,7 @@ export function PublicFooter({
 
         <div className={s.footerBottom}>
           <span>
-            Ã‚(c) {new Date().getFullYear()}{" "}
+            (c) {new Date().getFullYear()}{" "}
             RideGrid by Wellcabs.
           </span>
 

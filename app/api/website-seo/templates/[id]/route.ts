@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   UpdateWebsitePageTemplateInput,
 } from "@/lib/website-seo/templates";
 

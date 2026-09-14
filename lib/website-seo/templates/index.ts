@@ -1,4 +1,4 @@
-﻿export * from "./types";
+export * from "./types";
 export * from "./patterns";
 export * from "./key";
 export * from "./validation";

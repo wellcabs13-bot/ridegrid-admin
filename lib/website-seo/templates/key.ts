@@ -1,4 +1,4 @@
-﻿import { createWebsiteEntitySlug } from "@/lib/website-seo/entities";
+import { createWebsiteEntitySlug } from "@/lib/website-seo/entities";
 
 export function createWebsiteTemplateKey(
   value: string

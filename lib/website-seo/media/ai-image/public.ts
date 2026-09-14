@@ -10,7 +10,7 @@ export type PublicImageSlots = Partial<Record<ImageSlot, PublicMedia>>;
 // participates in public requests. Approval never bypasses W7 page publication.
 export async function publicImageSlots(pageId: string): Promise<PublicImageSlots> {
   try {
-    return await prisma.$transaction(async tx => {
+      const tx = prisma;
       const state = await readImageState(tx);
       const assigned = state.assignments.filter(a => a.pageId === pageId && IMAGE_SLOTS.includes(a.slot));
       if (!assigned.length) return {};
@@ -28,7 +28,9 @@ export async function publicImageSlots(pageId: string): Promise<PublicImageSlots
         const asset = publicMedia({ ...meta, status: "ACTIVE", fileUrl: file.fileUrl, mimeType: file.mimeType, altText: assignment.altText });
         if (asset) result[assignment.slot] = { ...asset, caption: "" };
       }
+      // Do not hold an interactive connection while reading public media.
+      // A concurrent editorial mutation makes this projection fail closed.
+      if ((await readImageState(tx)).updatedAt !== state.updatedAt) return {};
       return result;
-    }, { isolationLevel: "RepeatableRead" });
   } catch { return {}; }
 }

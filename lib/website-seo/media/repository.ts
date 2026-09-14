@@ -46,6 +46,13 @@ function defaultMetadata(file: FileAsset): WebsiteMediaMetadata {
 }
 
 export class WebsiteMediaRepository {
+  async listPublic(): Promise<WebsiteMedia[]> {
+    const metadata = (await read(prisma)).filter(m => m.status === "ACTIVE" && !m.aiGenerated && !m.caption.startsWith("[AI-generated]"));
+    if (!metadata.length) return [];
+    const files = await prisma.fileAsset.findMany({ where: { id: { in: metadata.map(m => m.fileAssetId) }, entityType: ENTITY_TYPE, mimeType: { in: ["image/png", "image/jpeg"] } }, orderBy: { createdAt: "desc" }, take: 100 });
+    const byId = new Map(metadata.map(m => [m.fileAssetId,m]));
+    return files.flatMap(file => { const m = byId.get(file.id); return m ? [join(m,file)] : []; });
+  }
   async list(filters: WebsiteMediaFilters = {}): Promise<WebsiteMediaLibrary> {
     return prisma.$transaction(async (tx) => {
       const metadata = await read(tx);

@@ -1,4 +1,4 @@
-﻿export const websiteSeoConfig = {
+export const websiteSeoConfig = {
   module: "website-seo",
   name: "Website & SEO",
   defaultApprovalMode: "ASSISTED",

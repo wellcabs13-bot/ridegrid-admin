@@ -1,4 +1,4 @@
-﻿export function createWebsiteEntitySlug(value: string): string {
+export function createWebsiteEntitySlug(value: string): string {
   return value
     .normalize("NFKD")
     .toLowerCase()

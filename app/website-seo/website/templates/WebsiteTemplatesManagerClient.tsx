@@ -948,7 +948,7 @@ export default function WebsiteTemplatesManagerClient() {
 
         <div className="relative mx-auto max-w-7xl">
           <WebsiteSeoSectionHeader
-            eyebrow="Website Manager Ã‚Â· Templates"
+            eyebrow="Website Manager · Templates"
             title="Page Template Manager"
             description="Manage the real W3 template system used by routes, cities, services, airports, areas and vehicles."
             action={
@@ -1020,7 +1020,7 @@ export default function WebsiteTemplatesManagerClient() {
 
                 <div className="mt-1 text-2xl font-black text-white">
                   {loading
-                    ? "Ã¢â‚¬â€"
+                    ? "—"
                     : value}
                 </div>
               </div>
@@ -1349,7 +1349,7 @@ export default function WebsiteTemplatesManagerClient() {
                                     template,
                                     "entityType"
                                   )}
-                                  {" Ã‚Â· "}
+                                  {" · "}
                                   {
                                     sections.filter(
                                       (

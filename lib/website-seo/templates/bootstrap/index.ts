@@ -1,1 +1,1 @@
-﻿export * from "./bootstrapDefaultWebsiteTemplates";
+export * from "./bootstrapDefaultWebsiteTemplates";

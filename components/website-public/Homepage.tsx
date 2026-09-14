@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "./ResilientImage";
 import ManagedImage from "./ManagedImage";
 import Link from "next/link";
 
@@ -135,6 +135,7 @@ export default function Homepage({
           >
             {heroMedia ? (
               <Image
+                fallback={<div className={h.roadVisual} aria-hidden="true" />}
                 src={
                   heroMedia.src
                 }
@@ -352,8 +353,8 @@ export default function Homepage({
               </strong>
 
               <small>
-                Corporate workflows
-                integrated
+                Travel for teams
+                and business
               </small>
             </span>
           </div>
@@ -513,7 +514,7 @@ export default function Homepage({
                 </h3>
 
                 <span>
-                  Search configured
+                  Explore available
                   airport pickup and drop
                   journey options.
                 </span>
@@ -594,9 +595,9 @@ export default function Homepage({
               </p>
 
               <h2>
-                Built around choice,
-                visibility and connected
-                operations.
+                Your journey.
+                Your choice.
+                One connected experience.
               </h2>
             </div>
           </div>
@@ -623,9 +624,9 @@ export default function Homepage({
                 Real marketplace
               </strong>
               <span>
-                Vehicle choices come
-                from RideGrid
-                configuration.
+                Compare available
+                vehicle categories
+                for your journey.
               </span>
             </div>
 
@@ -635,8 +636,9 @@ export default function Homepage({
                 Journey coverage
               </strong>
               <span>
-                Outstation, airport,
-                local and rental flows.
+                Choose from current
+                outstation, airport
+                and local options.
               </span>
             </div>
 
@@ -646,8 +648,9 @@ export default function Homepage({
                 Smarter platform
               </strong>
               <span>
-                Website and operations
-                share one RideGrid core.
+                Keep your journey details
+                together as you move
+                from search to booking.
               </span>
             </div>
           </div>
@@ -678,20 +681,19 @@ export default function Homepage({
             </h2>
 
             <p>
-              RideGrid brings business
-              travel, approvals,
-              mobility operations and
-              booking workflows into
-              one connected platform.
+              Bring business journeys,
+              employee travel and approvals
+              together. Keep your team moving
+              with a clear view of each booking.
             </p>
 
             <Link
-              href="/#ride-search"
+              href="/business-travel-terms"
               className={
                 h.primaryButton
               }
             >
-              Explore RideGrid
+              Explore business travel
               <ArrowRight
                 size={17}
               />
@@ -912,12 +914,10 @@ export default function Homepage({
               </h2>
 
               <p>
-                Route, city and travel
-                content published from
-                Website & SEO will
-                automatically become
-                discoverable across the
-                public site.
+                Start with your pickup and destination.
+                Allow time for stops and airport check-in,
+                then review vehicle capacity, luggage space
+                and fare inclusions before you book.
               </p>
             </div>
 

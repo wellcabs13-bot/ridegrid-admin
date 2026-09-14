@@ -1,4 +1,4 @@
-﻿import {
+import {
   WEBSITE_TEMPLATE_SECTION_TYPES,
   WEBSITE_TEMPLATE_STATUSES,
   type CreateWebsitePageTemplateInput,

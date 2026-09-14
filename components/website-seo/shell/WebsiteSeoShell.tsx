@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import Sidebar from "@/components/navigation/Sidebar";
 import WebsiteSeoNavigation from "./WebsiteSeoNavigation";

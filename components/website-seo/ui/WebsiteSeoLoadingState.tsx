@@ -1,4 +1,4 @@
-﻿export default function WebsiteSeoLoadingState() {
+export default function WebsiteSeoLoadingState() {
   return (
     <div className="space-y-4">
       <div className="h-9 w-64 animate-pulse rounded-lg bg-zinc-200" />

@@ -1,1 +1,1 @@
-﻿export * from "./WebsiteTemplateRepository";
+export * from "./WebsiteTemplateRepository";

@@ -1,4 +1,4 @@
-﻿import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 interface WebsiteSeoButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement> {

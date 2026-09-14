@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import RealEntitySync from "./RealEntitySync";
 import Link from "next/link";
 import { factoryApi } from "@/lib/website-seo/page-factory/client";
 import { FACTORY_TYPES } from "@/lib/website-seo/page-factory/config";
@@ -44,6 +45,7 @@ export default function ScaleControlClient() {
       <Feedback error={error} notice={busy ? "Working on the requested operation…" : notice} />
       <nav aria-label="Scale sections" className="flex gap-2 overflow-x-auto">{tabs.map(t => <button key={t} aria-current={tab === t ? "page" : undefined} className={tab === t ? primaryClass : buttonClass} onClick={() => setTab(t)}>{t}</button>)}</nav>
       {tab === "Overview" && <>
+        <RealEntitySync onSync={() => { void refresh(); }} />
         <div className={card}><h2 className="text-lg font-black">Scale readiness</h2><p className="mt-2">Generation stops at W7 readiness. Publication requires a separate governed action.</p>{summary && <div className="mt-3 space-y-2 text-sm"><p>{summary.governance.publicationLabel}</p><p>W12 approval: {summary.governance.automationMode} · W13 approval: {summary.governance.aiMode} · Effective batch cap: {summary.governance.batchLimit}</p><p>W13 generation: {summary.governance.generationAllowed ? "Allowed for manually requested batches" : "Blocked by generation rules"}</p><p>Search-volume and opportunity metrics: unavailable.</p></div>}<div className="mt-4 flex flex-wrap gap-3"><button className={primaryClass} onClick={() => setTab("Plan")}>Create a pilot plan</button><Link className={buttonClass} href="/website-seo/automation">Automation governance</Link><Link className={buttonClass} href="/website-seo/ai-control">AI governance</Link></div></div>{coverage}
       </>}
       {tab === "Plan" && <div className={card}><h2 className="text-lg font-black">New scale plan</h2><p className="mt-2 text-sm text-zinc-600">Start with 10 and review blocked pages before increasing scope. Maximum 5,000 candidates per plan; import up to 100 at a time.</p><div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

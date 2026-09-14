@@ -1,4 +1,4 @@
-﻿import {
+import {
   Activity,
   Bot,
   BrainCircuit,
@@ -13,6 +13,9 @@ import WebsiteSeoCard from "@/components/website-seo/ui/WebsiteSeoCard";
 import WebsiteSeoBadge from "@/components/website-seo/ui/WebsiteSeoBadge";
 import WebsiteSeoButton from "@/components/website-seo/ui/WebsiteSeoButton";
 import WebsiteSeoSectionHeader from "@/components/website-seo/WebsiteSeoSectionHeader";
+import Link from "next/link";
+
+const systemPaths: Record<string,string> = { Website: "website", "Page Factory": "page-factory", "Search Intelligence": "search-intelligence", Content: "website/pages", "SEO & Indexing": "website/publishing", Automation: "automation", Performance: "performance", "AI Control": "ai-control" };
 
 const systems = [
   {
@@ -69,10 +72,10 @@ export default function WebsiteSeoPage() {
             title="Website & SEO Growth OS"
             description="Central control for RideGrid website management, programmatic SEO, search intelligence, AI content, publishing, indexing and performance."
             action={
-              <WebsiteSeoButton>
+              <Link href="/website-seo/page-factory" className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-3 font-bold text-white">
                 <Sparkles size={17} />
                 Create / Generate
-              </WebsiteSeoButton>
+              </Link>
             }
           />
 
@@ -81,7 +84,7 @@ export default function WebsiteSeoPage() {
               const Icon = system.icon;
 
               return (
-                <div
+                <Link href={`/website-seo/${systemPaths[system.title]}`}
                   key={system.title}
                   className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 transition hover:border-red-500/50"
                 >
@@ -96,7 +99,7 @@ export default function WebsiteSeoPage() {
                   <p className="mt-2 text-sm leading-6 text-zinc-400">
                     {system.description}
                   </p>
-                </div>
+                </Link>
               );
             })}
           </div>

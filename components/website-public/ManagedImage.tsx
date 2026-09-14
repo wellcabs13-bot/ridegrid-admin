@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "./ResilientImage";
 import type { PublicMedia } from "@/lib/website-public/types";
 export default function ManagedImage({ media, className, cover = false }: { media?: PublicMedia; className?: string; cover?: boolean }) {
   if (!media) return null;

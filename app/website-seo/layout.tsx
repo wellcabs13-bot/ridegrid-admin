@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import WebsiteSeoShell from "@/components/website-seo/shell/WebsiteSeoShell";
 

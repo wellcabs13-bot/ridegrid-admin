@@ -1,4 +1,4 @@
-﻿import {
+import {
   websitePageGenerator,
 } from "./generator";
 

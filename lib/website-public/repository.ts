@@ -31,25 +31,22 @@ export const resolvePublicChrome = cache(async (scope: "HOMEPAGE" | "GENERATED_P
   const blocks =
     await websiteContentBlocksRepository.list();
 
-  const media =
-    await websiteMediaRepository.list({
-      status: "ACTIVE",
-      mimeType: "image",
-    });
-  const navigation = await Promise.all(publicNavigation(nav.items, nav.configured).map(async link => {
+  const media = await websiteMediaRepository.listPublic();
+  const navigation = [];
+  for (const link of publicNavigation(nav.items, nav.configured)) {
     const url = new URL(link.href, "https://www.wellcabs.com");
-    if (!["www.wellcabs.com", "wellcabs.com"].includes(url.hostname)) return link;
-    if (/^\/(routes|cities|services|airports|areas|vehicles)\//.test(url.pathname) && !await resolvePublicPage(url.pathname)) return null;
-    return link;
-  }));
+    if (["www.wellcabs.com", "wellcabs.com"].includes(url.hostname) && /^\/(routes|cities|services|airports|areas|vehicles)\//.test(url.pathname) && !await resolvePublicPage(url.pathname)) continue;
+    navigation.push(link);
+  }
   return { navigation: navigation.filter((link): link is NonNullable<typeof link> => link !== null), blocks: publicBlocks(blocks.blocks, scope),
     images: scope === "HOMEPAGE" ? await publicImageSlots("homepage") : {},
-    media: media.items.filter(m => !m.aiGenerated && !m.caption.startsWith("[AI-generated]")).flatMap(m => { const asset = publicMedia(m); return asset ? [{ category: m.category, asset }] : []; }) };
+    media: media.flatMap(m => { const asset = publicMedia(m); return asset ? [{ category: m.category, asset }] : []; }) };
   } catch { return { navigation: publicNavigation([], false), blocks: [], media: [], images: {} }; }
 });
 export const resolveDiscovery = cache(async () => {
   const candidates = await prisma.websiteSeoPage.findMany({ where: { status: "PUBLISHED", entity: { status: "ACTIVE" } }, select: { pathname: true }, orderBy: { updatedAt: "desc" }, take: 12 });
   // Small current inventory, checked through the same guard as detail routes.
-  const checked = await Promise.all(candidates.map(p => resolvePublicPage(p.pathname)));
+  const checked = [];
+  for (const candidate of candidates) checked.push(await resolvePublicPage(candidate.pathname));
   return checked.flatMap(p => p ? [{ label: p.entityName, href: p.pathname, type: p.entityType, description: p.seo.description, image: p.images?.cardImage }] : []);
 });

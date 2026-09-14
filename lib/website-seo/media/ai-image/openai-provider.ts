@@ -1,4 +1,5 @@
 import { ImageEngineError } from "./types";
+import { ImageRateLimitError } from "./policy";
 import type { ImageProvider, ImageProviderInput, ImageProviderOutput } from "./provider";
 
 export class OpenAIImageProvider implements ImageProvider {
@@ -13,6 +14,11 @@ export class OpenAIImageProvider implements ImageProvider {
       });
     } catch { throw new ImageEngineError("Image request timed out or could not connect. Check provider usage before manually retrying; it may have been billed."); }
     if (!response.ok) {
+      if (response.status === 429) {
+        const header = response.headers.get("retry-after") || "";
+        const delay = /^\d+$/.test(header) ? Number(header) * 1000 : Date.parse(header) - Date.now();
+        throw new ImageRateLimitError(Number.isFinite(delay) ? Math.max(0, Math.min(delay, 300_000)) : 0);
+      }
       // Never persist raw provider responses (which may include request data).
       const message = response.status === 401 || response.status === 403 ? "Check OPENAI_API_KEY and image-model access."
         : response.status === 429 ? "OpenAI quota or rate limit reached. Check billing and retry later."

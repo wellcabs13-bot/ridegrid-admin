@@ -6,8 +6,9 @@ export type ImageSize = "1536x1024" | "1024x1024" | "1024x1536";
 export type ImageQuality = "low" | "medium" | "high" | "auto";
 export type JobStatus = "DRAFT" | "QUEUED" | "PROCESSING" | "GENERATED" | "APPROVED" | "REJECTED" | "FAILED";
 export interface ImagePreset { id: string; name: string; tone: string; hints: string; useCase: string; size: ImageSize; negativePrompt: string }
-export interface ImageTarget { pageId: string; family: PageFamily; title: string; pathname: string; context: string; keywords: string[] }
+export interface ImageTarget { pageId: string; family: PageFamily; title: string; pathname: string; context: string; keywords: string[]; majorCommercial?: boolean }
 export interface ImageJob {
+  attempts?: number; notBefore?: string | null;
   id: string; target: ImageTarget; slot: ImageSlot; prompt: string; negativePrompt: string; preset: ImagePreset;
   status: JobStatus; provider: string; model: string; size: ImageSize; quality: ImageQuality;
   altText: string; filename: string; autoAssign: boolean; assetId: string | null; error: string | null;

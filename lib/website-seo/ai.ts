@@ -1,4 +1,4 @@
-﻿export interface WebsiteSeoAIRequest {
+export interface WebsiteSeoAIRequest {
   task: string;
   context?: Record<string, unknown>;
 }

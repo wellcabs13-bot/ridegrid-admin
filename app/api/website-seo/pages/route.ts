@@ -1,4 +1,4 @@
-﻿import {
+import {
   isWebsiteEntityType,
 } from "@/lib/website-seo/entities";
 

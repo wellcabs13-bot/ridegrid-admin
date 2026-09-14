@@ -60,12 +60,25 @@ restores the prior category fallback or layout-safe placeholder. Regeneration
 retains an existing approved assignment until the replacement is approved.
 Archived media is never rendered.
 
-No automatic paid retries occur. A worker interrupted for ten minutes marks the
+Only a definite HTTP 429 response is retried automatically: the persisted queue
+honors Retry-After with bounded exponential backoff and stops after three attempts.
+Network, timeout, storage and ambiguous provider failures require manual review.
+A worker interrupted for ten minutes marks the
 job FAILED; check provider usage and Media Library before manually regenerating.
 Provider calls and storage writes never run inside transaction retries. If a DB
 write fails after storage, files are retained for inspection rather than deleted.
 One PROCESSING job is allowed across workers. Configuration errors are actionable
 dashboard errors and never affect the public website.
+
+The worker survives temporary configuration/database failures with bounded polling
+backoff. Public image reads avoid interactive transactions and fail closed if the
+assignment version changes while reading. Missing image responses render a safe
+visual fallback. The web process never calls a provider during public rendering.
+
+New-job cost policy: homepage and explicitly marked `majorCommercial: true` hero
+images use high quality; other page heroes use medium; card, OG and supporting
+slots use low. `AI_IMAGE_DEFAULT_QUALITY` remains validated configuration; the
+slot policy determines each new job's quality. Existing jobs retain their snapshot.
 
 ## Persistence and limits
 

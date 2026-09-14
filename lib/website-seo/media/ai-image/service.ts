@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { imageCostQuality, ImageRateLimitError, retryDelay } from "./policy";
 import { prisma } from "@/lib/prisma";
 import { storeFile } from "@/lib/services/storage/FileStorageService";
 import { websiteMediaRepository } from "../repository";
@@ -13,8 +14,8 @@ export async function imageTarget(pageId: string): Promise<ImageTarget> {
   if (!page || page.status === "ARCHIVED" || !PAGE_FAMILIES.some(f => f === page.entity.type)) throw new ImageEngineError("Choose an existing, non-archived website page.");
   const metadata = page.entity.metadata as Record<string, unknown> | null;
   // Only editorial location/service fields are sent to the external provider.
-  const context = ["fromCity", "toCity", "city", "airport", "service", "vehicle", "area"].flatMap(key => typeof metadata?.[key] === "string" ? [`${key}: ${String(metadata[key]).slice(0, 200)}`] : []).join("; ");
-  return { pageId, family: page.entity.type, title: page.entity.name.slice(0, 300), pathname: page.pathname, context, keywords: page.entity.keywords.map(k => k.keyword.slice(0, 100)) };
+  const context = ["intent", "fromCity", "toCity", "city", "airport", "service", "vehicle", "area"].flatMap(key => typeof metadata?.[key] === "string" ? [`${key}: ${String(metadata[key]).slice(0, 200)}`] : []).join("; ");
+  return { pageId, family: page.entity.type, title: page.entity.name.slice(0, 300), pathname: page.pathname, context, keywords: page.entity.keywords.map(k => k.keyword.slice(0, 100)), majorCommercial: metadata?.majorCommercial === true };
 }
 export function newImageJob(target: ImageTarget, slot: ImageSlot, state: ImageEngineState, actor: string, options: { presetId?: string; prompt?: string; altText?: string; autoAssign?: boolean } = {}): ImageJob {
   const config = imageEnvironment();
@@ -24,7 +25,7 @@ export function newImageJob(target: ImageTarget, slot: ImageSlot, state: ImageEn
   if (prompt.length > 8000 || altText.length > 500 || !altText) throw new ImageEngineError("Prompt must be at most 8000 characters and alt text 1–500 characters.");
   const now = new Date().toISOString();
   return { id: randomUUID(), target, slot, prompt, negativePrompt: preset.negativePrompt, preset, status: "QUEUED", provider: config.provider, model: config.model,
-    size: process.env.AI_IMAGE_DEFAULT_SIZE ? config.size : preset.size, quality: config.quality, altText,
+    size: process.env.AI_IMAGE_DEFAULT_SIZE ? config.size : preset.size, quality: imageCostQuality(target, slot), altText,
     filename: `${target.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 90) || "ridegrid"}-${slot}.png`,
     autoAssign: options.autoAssign ?? true, assetId: null, width: null, height: null, mimeType: null, error: null, claim: null,
     createdAt: now, updatedAt: now, createdBy: actor, updatedBy: actor };
@@ -33,7 +34,8 @@ export async function queueImages(pageIds: string[], slots: ImageSlot[], actor: 
   if (!pageIds.length || pageIds.length > 25 || !slots.length || slots.length > 8 || pageIds.length * slots.length > 100) throw new ImageEngineError("Choose up to 25 pages and 100 images per batch.");
   slots.forEach(imageSlot);
   const config = imageEnvironment(); if (config.error) throw new ImageEngineError(config.error);
-  const targets = await Promise.all([...new Set(pageIds)].map(imageTarget));
+  const targets: ImageTarget[] = [];
+  for (const pageId of new Set(pageIds)) targets.push(await imageTarget(pageId));
   return mutateImageState(actor, state => {
     if (state.jobs.length + targets.length * slots.length > 2000) throw new ImageEngineError("Image job capacity reached. Archive reviewed, unassigned jobs before queueing more.");
     const jobs: ImageJob[] = [];
@@ -146,14 +148,15 @@ export async function autoQueuePageImages(pageId: string, enabled?: boolean) {
 export async function processNextImage(provider?: ImageProvider): Promise<ImageJob | null> {
   const implementation = provider ?? imageProvider();
   const pending = await readImageState();
-  if (!pending.jobs.some(j => j.status === "QUEUED" || (j.status === "PROCESSING" && Date.now() - Date.parse(j.updatedAt) > 10 * 60_000))) return null;
+  if (!pending.jobs.some(j => (j.status === "QUEUED" && (!j.notBefore || Date.parse(j.notBefore) <= Date.now())) || (j.status === "PROCESSING" && Date.now() - Date.parse(j.updatedAt) > 10 * 60_000))) return null;
   const claim = randomUUID();
   const job = await mutateImageState("image-worker", state => {
     for (const j of state.jobs) if (j.status === "PROCESSING" && Date.now() - Date.parse(j.updatedAt) > 10 * 60_000) {
       j.status = "FAILED"; j.claim = null; j.error = "Worker interrupted. Check provider usage before regenerating; the request may have been billed."; j.updatedAt = new Date().toISOString();
     }
     if (state.jobs.some(j => j.status === "PROCESSING")) return null; // Global spend/concurrency bound.
-    const next = state.jobs.find(j => j.status === "QUEUED"); if (!next) return null;
+    const next = state.jobs.find(j => j.status === "QUEUED" && (!j.notBefore || Date.parse(j.notBefore) <= Date.now())); if (!next) return null;
+    next.attempts = (next.attempts || 0) + 1; next.notBefore = null;
     next.status = "PROCESSING"; next.claim = claim; next.updatedAt = new Date().toISOString(); next.updatedBy = "image-worker";
     return { ...next };
   });
@@ -174,7 +177,11 @@ export async function processNextImage(provider?: ImageProvider): Promise<ImageJ
     return mutateImageState("image-worker", state => {
       const current = state.jobs.find(j => j.id === job.id);
       if (!current) throw error;
-      if (current.claim === claim) Object.assign(current, { status: "FAILED", claim: null, error: error instanceof ImageEngineError ? error.message : "Generation or storage failed. Inspect Media Library and provider usage before retrying.", updatedAt: new Date().toISOString() });
+      if (current.claim === claim && error instanceof ImageRateLimitError && (current.attempts || 0) < 3) {
+        Object.assign(current, { status: "QUEUED", claim: null, error: error.message, notBefore: new Date(Date.now() + retryDelay(current.attempts || 1, error.retryAfterMs)).toISOString(), updatedAt: new Date().toISOString() });
+        return current;
+      }
+      if (current.claim === claim) Object.assign(current, { status: "FAILED", claim: null, error: error instanceof ImageRateLimitError ? "Rate limit retry limit reached. Retry later from AI Images." : error instanceof ImageEngineError ? error.message : "Generation or storage failed. Inspect Media Library and provider usage before retrying.", updatedAt: new Date().toISOString() });
       return current;
     });
   }

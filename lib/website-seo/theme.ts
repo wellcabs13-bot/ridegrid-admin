@@ -1,4 +1,4 @@
-﻿export const websiteSeoTheme = {
+export const websiteSeoTheme = {
   colors: {
     black: "#09090B",
     blackSoft: "#111114",

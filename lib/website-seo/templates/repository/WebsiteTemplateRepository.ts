@@ -1,4 +1,4 @@
-﻿import {
+import {
   Prisma,
   type WebsiteSeoEntityType,
   type WebsiteSeoTemplateStatus,

@@ -43,7 +43,7 @@ export default function ImageEngineClient() {
     {notice && <p role="status" className="rounded-lg bg-green-50 p-4 text-green-800">{notice}</p>}
     {!data ? <p>Loading image engine…</p> : <>
       {data.environment.error && <p role="alert" className="rounded-lg border border-red-200 p-4 text-red-700">{data.environment.error}</p>}
-      <p className="text-sm text-zinc-500">{data.environment.model} · {data.environment.size} · {data.environment.quality} quality · {data.jobs.filter(j => j.status === "QUEUED").length} queued · {data.jobs.filter(j => j.status === "GENERATED").length} awaiting review</p>
+      <p className="text-sm text-zinc-500">{data.environment.model} · {data.environment.size} · Quality: high for homepage/major heroes, medium for page heroes, low for supporting images · {data.jobs.filter(j => j.status === "QUEUED").length} queued · {data.jobs.filter(j => j.status === "GENERATED").length} awaiting review</p>
       <nav aria-label="Image engine sections" className="flex flex-wrap gap-2">{["Generate", "Jobs", "Assignments", "Presets"].map(t => <button key={t} className={`${button} ${tab === t ? "!bg-red-600" : ""}`} onClick={() => setTab(t)}>{t}</button>)}</nav>
       {tab === "Generate" && <WebsiteSeoCard><div className="space-y-4">
         <h2 className="text-lg font-bold">Generate images for selected pages</h2>

@@ -1,4 +1,4 @@
-﻿import { Inbox } from "lucide-react";
+import { Inbox } from "lucide-react";
 
 interface WebsiteSeoEmptyStateProps {
   title: string;
