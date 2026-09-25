@@ -1,6 +1,7 @@
 ﻿  import { NextRequest, NextResponse } from "next/server";
 
 import { authenticate } from "@/lib/auth/middleware";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,10 +33,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const profile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { id: true, name: true, email: true, mobile: true, role: true, isActive: true, deletedAt: true },
+    });
+    if (!profile || !profile.isActive || profile.deletedAt) {
+      return NextResponse.json({ success: false, message: "Session is no longer valid." }, { status: 401 });
+    }
+    const { isActive, deletedAt, ...safeUser } = profile;
     return NextResponse.json({
       success: true,
-      data: user,
-    });
+      data: safeUser,
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error(
       "GET /api/auth/me",

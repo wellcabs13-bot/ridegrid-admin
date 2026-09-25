@@ -1,8 +1,10 @@
+import { centralDocumentAccess } from "@/lib/vendor-mobile/central-documents";
 import { NextRequest, NextResponse } from "next/server";
 import { storeFile, validateFileType } from "@/lib/services/storage/FileStorageService";
 
 export async function POST(request: NextRequest) {
   try {
+    const denied = await centralDocumentAccess(request); if (denied) return denied;
     const formData = await request.formData();
     const file = formData.get("file");
 

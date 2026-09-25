@@ -1,25 +1,21 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { authenticate } from "@/lib/auth/middleware";
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { requestUser } from "@/lib/request-access";
 import { generateInvoicePdf } from "@/lib/services/invoice/InvoicePdfService";
 
-async function auth(request: NextRequest) {
-  const authorization = request.headers.get("authorization");
-
-  const headerToken =
-    authorization?.startsWith("Bearer ")
-      ? authorization.slice(7)
-      : undefined;
-
-  const cookieToken =
-    request.cookies.get("ridegrid_access_token")?.value ??
-    request.cookies.get("ridegrid-token")?.value;
-
-  return authenticate(headerToken ?? cookieToken);
+// Invoices are released only to RideGrid finance/operations staff and the booking's own parties.
+function invoiceScope(user: { id: string; role: string }): Prisma.BookingWhereInput | null {
+  if (["SUPER_ADMIN", "OPERATIONS", "FINANCE"].includes(user.role)) return {};
+  if (user.role === "CUSTOMER" || user.role === "CORPORATE_EMPLOYEE") return { customer: { userId: user.id } };
+  if (user.role === "VENDOR") return { vendor: { userId: user.id } };
+  if (user.role === "CORPORATE_ADMIN") return { corporateId: { not: null }, corporate: { employees: { some: { userId: user.id, isActive: true } } } };
+  return null;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await auth(request);
+    const user = await requestUser(request);
 
     if (!user) {
       return NextResponse.json(
@@ -44,8 +40,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const scope = invoiceScope(user);
+    const invoice = scope && /^[A-Za-z0-9_-]{1,64}$/.test(invoiceId)
+      ? await prisma.invoice.findFirst({ where: { id: invoiceId, booking: scope }, select: { id: true } })
+      : null;
+
+    if (!invoice) {
+      return NextResponse.json(
+        { success: false, message: "Invoice not found." },
+        { status: 404 }
+      );
+    }
+
     const result =
-      await generateInvoicePdf(invoiceId);
+      await generateInvoicePdf(invoice.id);
 
     return new NextResponse(result.buffer, {
       status: 200,

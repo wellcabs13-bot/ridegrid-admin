@@ -7,7 +7,9 @@ import type {
 } from "@/lib/website-public/types";
 
 import s from "./PublicShell.module.css";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Mail, MessageCircle, Phone } from "lucide-react";
+import { WELLCABS } from "@/lib/website-public/brand";
+import PublicExperience from "./PublicExperience";
 import { LEGAL_LINKS } from "@/lib/website-public/info";
 import PublicNavLinks from "./PublicNavLinks";
 
@@ -49,18 +51,18 @@ function Brand() {
     <Link
       href="/"
       className={s.brand}
-      aria-label="RideGrid by Wellcabs home"
+      aria-label="Wellcabs home"
     >
       <span
         className={s.brandMark}
         aria-hidden="true"
       >
-        R
+        W
       </span>
 
       <span className={s.brandCopy}>
-        <strong>RideGrid</strong>
-        <small>by Wellcabs</small>
+        <strong>Wellcabs<span className={s.brandDot}>.</span></strong>
+        <small>GO PLACES. YOUR WAY.</small>
       </span>
     </Link>
   );
@@ -83,13 +85,10 @@ export function PublicHeader({
         <div className={s.container}>
           <div className={s.utilityInner}>
             <strong>
-              Reliable rides. A smarter
-              tomorrow.
+              Your next journey starts here.
             </strong>
 
-            <span>
-              RideGrid by Wellcabs
-            </span>
+            <a href={WELLCABS.phoneHref}><Phone size={12} aria-hidden="true"/> {WELLCABS.phone}</a>
           </div>
         </div>
       </div>
@@ -105,6 +104,7 @@ export function PublicHeader({
             className={s.desktopNav}
           >
             <PublicNavLinks links={links} />
+            {!links.some(link=>link.href==="/contact") && <Link href="/contact">Contact</Link>}
           </nav>
 
           <Link
@@ -115,6 +115,8 @@ export function PublicHeader({
             <ArrowRight size={16} aria-hidden="true" />
           </Link>
 
+          <a href={WELLCABS.whatsapp} className={s.mobileWhatsApp} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Wellcabs (opens in a new tab)"><MessageCircle size={21} aria-hidden="true"/></a>
+
           <details className={s.mobileNav}>
             <summary>
               Menu
@@ -123,6 +125,7 @@ export function PublicHeader({
             <div className={s.mobilePanel}>
               <nav aria-label="Mobile navigation">
                 <PublicNavLinks links={links} />
+                {!links.some(link=>link.href==="/contact") && <Link href="/contact">Contact & support</Link>}
 
                 <Link
                   href="/#ride-search"
@@ -189,6 +192,14 @@ export function PublicFooter({
             </Link>
           </div>
 
+          <div className={s.footerContact}>
+            <p>LET’S GET YOU THERE.</p>
+            <a href={WELLCABS.phoneHref}><Phone size={18} aria-hidden="true"/>{WELLCABS.phone}</a>
+            <a href={WELLCABS.emailHref}><Mail size={18} aria-hidden="true"/>{WELLCABS.email}</a>
+            <a href={WELLCABS.whatsapp} target="_blank" rel="noopener noreferrer"><MessageCircle size={18} aria-hidden="true"/>WhatsApp Wellcabs <span className="sr-only">(opens in a new tab)</span></a>
+            <address>{WELLCABS.address}</address>
+          </div>
+
           {primary.length > 0 && (
             <nav
               aria-label="Ride services"
@@ -201,7 +212,7 @@ export function PublicFooter({
               {primary.map((link) => (
                 <PublicAnchor
                   key={link.href}
-                  link={link}
+                  link={link.label === "About RideGrid" ? { ...link, label: "About Wellcabs" } : link}
                 />
               ))}
             </nav>
@@ -221,7 +232,7 @@ export function PublicFooter({
               {secondary.map((link) => (
                 <PublicAnchor
                   key={link.href}
-                  link={link}
+                  link={link.label === "About RideGrid" ? { ...link, label: "About Wellcabs" } : link}
                 />
               ))}
             </nav>
@@ -249,7 +260,7 @@ export function PublicFooter({
         <div className={s.footerBottom}>
           <span>
             (c) {new Date().getFullYear()}{" "}
-            RideGrid by Wellcabs.
+            Wellcabs. All rights reserved.
           </span>
 
           <span>
@@ -285,7 +296,7 @@ export default function PublicShell({
       />
 
       {contentIsMain ? (
-        <div id="public-main">
+        <div id="public-main" className={s.marketplaceContent}>
           {children}
         </div>
       ) : (
@@ -297,6 +308,7 @@ export default function PublicShell({
       <PublicFooter
         navigation={navigation}
       />
+      <PublicExperience/>
     </div>
   );
 }

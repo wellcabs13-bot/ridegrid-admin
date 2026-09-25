@@ -1,110 +1,118 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-function clean(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
+const clean = (value: unknown) =>
+  typeof value === "string" ? value.trim() : "";
 
-function key(...values: unknown[]) {
-  return values.map((value) => clean(value).toLowerCase()).join("|");
-}
-
-/*
- * Current Pricing data stores Outstation route in packageName
- * (example: "Pune to Nashik") while fromCity/toCity may be null.
- *
- * Marketplace therefore reads the saved PricingPackage and derives
- * the route from that saved package name. Nothing is hardcoded.
- */
-function deriveRoute(packageName: string, fromCity: string | null, toCity: string | null) {
-  if (clean(fromCity) && clean(toCity)) {
-    return {
-      fromCity: clean(fromCity),
-      toCity: clean(toCity),
-    };
-  }
-
-  const match = clean(packageName).match(/^(.+?)\s+to\s+(.+)$/i);
-
-  return {
-    fromCity: match?.[1]?.trim() || null,
-    toCity: match?.[2]?.trim() || null,
-  };
+function logicalService(service: string) {
+  if (service === "OUTSTATION_ONE_WAY") return "ONE_WAY";
+  if (service === "OUTSTATION_ROUND_TRIP") return "ROUNDTRIP";
+  if (service === "LOCAL_HOURLY") return "LOCAL";
+  return null;
 }
 
 export async function GET() {
   try {
-    const packages = await prisma.pricingPackage.findMany({
+    const now = new Date();
+
+    const rates = await prisma.pricingRateVersion.findMany({
       where: {
-        isActive: true,
-        pricingRule: {
+        status: "APPROVED",
+        effectiveFrom: { lte: now },
+        OR: [
+          { effectiveTo: null },
+          { effectiveTo: { gt: now } },
+        ],
+        pricingPackageId: { not: null },
+        pricingPackage: {
           isActive: true,
+          pricingRule: {
+            isActive: true,
+          },
+          vehicle: {
+            deletedAt: null,
+            status: "AVAILABLE",
+            isVerified: true,
+            vendor: {
+              deletedAt: null,
+              isApproved: true,
+              user: {
+                deletedAt: null,
+                isActive: true,
+              },
+            },
+            driver: {
+              is: {
+                deletedAt: null,
+                status: "ACTIVE",
+                user: {
+                  deletedAt: null,
+                  isActive: true,
+                },
+              },
+            },
+          },
         },
       },
-      select: {
-        id: true,
-        packageType: true,
-        packageName: true,
-        city: true,
-        fromCity: true,
-        toCity: true,
-        includedHours: true,
-        includedKm: true,
-        airportName: true,
-        transferDirection: true,
-        pricingRule: {
-          select: {
-            pricingType: true,
-            tripType: true,
-            vehicleCategory: true,
+      include: {
+        pricingPackage: {
+          include: {
+            pricingRule: true,
+            vehicle: {
+              select: {
+                id: true,
+                category: true,
+              },
+            },
           },
         },
       },
       orderBy: [
-        { packageType: "asc" },
-        { packageName: "asc" },
+        { service: "asc" },
+        { createdAt: "desc" },
       ],
     });
 
     const unique = new Map<string, any>();
 
-    for (const item of packages) {
-      const route =
-        item.pricingRule.pricingType === "OUTSTATION"
-          ? deriveRoute(item.packageName, item.fromCity, item.toCity)
-          : { fromCity: item.fromCity, toCity: item.toCity };
+    for (const rate of rates) {
+      const pkg = rate.pricingPackage;
+      if (!pkg) continue;
+
+      const service = logicalService(rate.service);
+      if (!service) continue;
 
       const row = {
-        id: item.id,
-        pricingType: item.pricingRule.pricingType,
-        tripType: item.pricingRule.tripType,
-        vehicleCategory: item.pricingRule.vehicleCategory,
-        packageType: item.packageType,
-        packageName: item.packageName,
-        city: item.city,
-        fromCity: route.fromCity,
-        toCity: route.toCity,
-        includedHours: item.includedHours,
-        includedKm: item.includedKm,
-        airportName: item.airportName,
-        transferDirection: item.transferDirection,
+        rateId: rate.id,
+        pricingPackageId: pkg.id,
+        service,
+        canonicalService: rate.service,
+        vehicleCategory: rate.vehicleCategory,
+
+        city: clean(pkg.city || rate.city),
+        fromCity: clean(pkg.fromCity || rate.origin),
+        toCity: clean(pkg.toCity || rate.destination),
+
+        packageName: clean(pkg.packageName),
+        includedHours: pkg.includedHours,
+        includedKm: pkg.includedKm,
+
+        version: rate.version,
+        effectiveFrom: rate.effectiveFrom,
       };
 
-      const k = key(
-        row.pricingType,
-        row.tripType,
+      const key = [
+        row.service,
         row.vehicleCategory,
-        row.packageType,
-        row.packageName,
-        row.city,
-        row.fromCity,
-        row.toCity,
-        row.airportName,
-        row.transferDirection,
-        row.includedKm
-      );
+        row.city.toLowerCase(),
+        row.fromCity.toLowerCase(),
+        row.toCity.toLowerCase(),
+        row.packageName.toLowerCase(),
+      ].join("|");
 
-      if (!unique.has(k)) unique.set(k, row);
+      // Rates are ordered newest first.
+      // Only expose one current option for the same searchable combination.
+      if (!unique.has(key)) unique.set(key, row);
     }
 
     const data = Array.from(unique.values());
@@ -112,19 +120,8 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data,
-      serviceTypes: Array.from(
-        new Set(data.map((item) => item.pricingType))
-      ),
-      tripTypes: Array.from(
-        new Set(
-          data
-            .filter((item) => item.pricingType === "OUTSTATION")
-            .map((item) => item.tripType)
-        )
-      ).map((tripType) => ({
-        pricingType: "OUTSTATION",
-        tripType,
-      })),
+      tours: [],
+      toursConfigured: false,
       count: data.length,
     });
   } catch (error) {
@@ -133,7 +130,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        message: "Unable to load live pricing options.",
+        message: "Unable to load current marketplace pricing.",
       },
       { status: 500 }
     );

@@ -1,9 +1,12 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-access";
+import { NextRequest, NextResponse } from "next/server";
 
 import { sessionManager } from "@/lib/security/session";
 
 export async function GET(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const { searchParams } = new URL(request.url);
 
     const sessionId = searchParams.get("sessionId");
@@ -54,6 +57,8 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const { searchParams } = new URL(request.url);
 
     const sessionId = searchParams.get("sessionId");

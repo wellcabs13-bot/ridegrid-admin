@@ -1,19 +1,32 @@
+import { assertQuoteUsable, Snapshot } from "@/lib/services/pricing/QuoteService";
+import { PricingError, decimal } from "@/lib/services/pricing/engine";
+import { pricingResponse } from "@/lib/services/pricing/access";
 import { NextRequest, NextResponse } from "next/server";
-import { BookingStatus,
-  BookingStatusAction,
+import {
   CouponScope,
   CouponStatus,
   PaymentMethod,
   PaymentStatus,
-  TransactionType,
   UserRole,
-  VehicleStatus,
-  DriverStatus, BookingSource } from "@prisma/client";
+  BookingSource } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { passwordService } from "@/lib/auth/password";
-import { chargeCorporateCredit } from "@/lib/services/corporate/CorporateCreditService";
-import { generateBookingNumber } from "@/lib/services/booking/BookingNumberService";
+import {
+  BookingConflictError,
+  MarketplaceBookingError,
+  commitMarketplaceBooking,
+  loadBookableListing,
+} from "@/lib/services/booking/MarketplaceBookingService";
+import { TripType } from "@prisma/client";
+import { requestUser } from "@/lib/request-access";
+import { createRideGridEvent } from "@/lib/events/event-bus";
+import { dispatchRideGridEvent } from "@/lib/events/event-dispatcher";
+import { AutomationTrigger } from "@/types/automation";
+import {
+  reservationWindowFromPickup,
+  tripDaysFromSnapshot,
+} from "@/lib/services/marketplace/BookingAvailabilityService";
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -45,6 +58,16 @@ function calculateDiscount(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const actor = await requestUser(request);
+    const ownerId = actor?.id || `guest:${request.cookies.get("ridegrid_quote_session")?.value || "missing"}`;
+    const quoteId = text(body.quoteId);
+    const quoteRecord = quoteId ? await prisma.pricingQuote.findUnique({where:{id:quoteId},include:{booking:{select:{id:true,bookingNumber:true,status:true,finalFare:true}}}}) : null;
+    if (!quoteRecord) throw new PricingError("QUOTE_REQUIRED", "Refresh the listing to obtain a booking quote.");
+    assertQuoteUsable(quoteRecord, ownerId, text(body.listingId));
+    if (quoteRecord.booking) return NextResponse.json({success:true,data:quoteRecord.booking});
+    const snapshot = quoteRecord.snapshot as unknown as Snapshot;
+    if (snapshot.pricingPackageId !== text(body.pricingPackageId) || snapshot.tripDateTime !== new Date(text(body.pickupDateTime)).toISOString()) throw new PricingError("QUOTE_MISMATCH", "Trip details changed. Request a new quote.");
+    if (body.couponId) throw new PricingError("COUPON_FUNDING_REQUIRED", "Only quoted funding-aware discounts are supported.");
 
     const listingId = text(body?.listingId);
     const pricingPackageId = text(body?.pricingPackageId);
@@ -66,6 +89,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (corporateId) {
+      const actor = await requestUser(request);
+      if (!actor) return NextResponse.json({ success: false, message: "Sign in to use a corporate account." }, { status: 401 });
+      if (!["SUPER_ADMIN", "OPERATIONS"].includes(actor.role)) {
+        const membership = await prisma.corporateEmployee.findFirst({ where: { userId: actor.id, corporateId, isActive: true }, select: { id: true } });
+        if (!membership || !["CORPORATE_ADMIN", "CORPORATE_EMPLOYEE"].includes(actor.role)) return NextResponse.json({ success: false, message: "This corporate account is not available to you." }, { status: 403 });
+      }
       const corporate = await prisma.corporate.findFirst({
         where: { id: corporateId, deletedAt: null, status: "ACTIVE" },
         select: { id: true },
@@ -118,98 +147,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const packageData = await prisma.pricingPackage.findFirst({
-      where: {
-        id: pricingPackageId,
-        vehicleId: listingId,
-        isActive: true,
-      },
-    });
+    const bookingDays =
+      tripType === TripType.ROUNDTRIP
+        ? tripDaysFromSnapshot(snapshot, 1)
+        : 1;
 
-    if (!packageData) {
-      return NextResponse.json(
-        { success: false, message: "Selected pricing is no longer active." },
-        { status: 409 }
-      );
-    }
-
-    const vehicle = await prisma.vehicle.findFirst({
-      where: {
-        id: listingId,
-        deletedAt: null,
-        status: VehicleStatus.AVAILABLE,
-        isVerified: true,
-      },
-      include: {
-        vendor: {
-          include: {
-            user: true,
-          },
-        },
-        driver: {
-          include: {
-            user: true,
-          },
-        },
-      },
-    });
-
-    if (!vehicle) {
-      return NextResponse.json(
-        { success: false, message: "Selected vehicle is no longer available." },
-        { status: 409 }
-      );
-    }
-
-    if (
-      !vehicle.vendor ||
-      vehicle.vendor.deletedAt !== null ||
-      !vehicle.vendor.isApproved ||
-      !vehicle.vendor.user.isActive ||
-      vehicle.vendor.user.deletedAt !== null
-    ) {
-      return NextResponse.json(
-        { success: false, message: "Selected vendor is not currently available." },
-        { status: 409 }
-      );
-    }
-
-    if (
-      vehicle.driver &&
-      (
-        vehicle.driver.deletedAt !== null ||
-        vehicle.driver.status !== DriverStatus.ACTIVE ||
-        !vehicle.driver.user.isActive ||
-        vehicle.driver.user.deletedAt !== null
-      )
-    ) {
-      return NextResponse.json(
-        { success: false, message: "Assigned driver is not currently available." },
-        { status: 409 }
-      );
-    }
-
-    const conflictingBooking = await prisma.booking.findFirst({
-      where: {
-        vehicleId: vehicle.id,
+    const reservationWindow =
+      reservationWindowFromPickup(
         pickupDateTime,
-        deletedAt: null,
-        status: {
-          notIn: [
-            BookingStatus.CANCELLED,
-            BookingStatus.TRIP_COMPLETED,
-          ],
-        },
-      },
-      select: { id: true },
-    });
-
-    if (conflictingBooking) {
-      return NextResponse.json(
-        { success: false, message: "This vehicle has already been booked for the selected time." },
-        { status: 409 }
+        bookingDays
       );
-    }
+
+    const { packageData, vehicle } = await loadBookableListing(listingId, pricingPackageId, reservationWindow);
 
     const subtotal = Number(packageData.baseFare);
     let discountAmount = 0;
@@ -269,7 +218,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            message: `Minimum booking amount for ${coupon.code} is ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹${Number(coupon.minimumBooking).toLocaleString("en-IN")}.`,
+            message: `Minimum booking amount for ${coupon.code} is ₹${Number(coupon.minimumBooking).toLocaleString("en-IN")}.`,
           },
           { status: 409 }
         );
@@ -319,18 +268,23 @@ export async function POST(request: NextRequest) {
 
     let customer = await prisma.customer.findFirst({
       where: {
+        ...(actor?.role === "CUSTOMER" ? { userId: actor.id } : {}),
         deletedAt: null,
         user: {
-          OR: [
+          ...(actor?.role === "CUSTOMER" ? {} : { OR: [
             { email },
             { mobile },
-          ],
+          ] }),
           deletedAt: null,
           isActive: true,
         },
       },
       include: { user: true },
     });
+
+    if (actor?.role === "CUSTOMER" && !customer) {
+      return NextResponse.json({ success: false, message: "Your customer profile is unavailable. Please contact support." }, { status: 409 });
+    }
 
     if (!customer) {
       const existingUser = await prisma.user.findUnique({
@@ -474,122 +428,59 @@ export async function POST(request: NextRequest) {
       discountAmount = calculateDiscount(coupon, subtotal);
     }
 
-    const finalFare = Math.max(0, subtotal - discountAmount);
+    discountAmount = decimal(snapshot.vendorFundedDiscount).plus(snapshot.rideGridFundedDiscount).toNumber();
+    const finalFare = Number(snapshot.finalPayable);
+    if (!Object.values(TripType).includes(tripType as TripType)) return NextResponse.json({ success: false, message: "Invalid trip type." }, { status: 400 });
     if (!Object.values(PaymentMethod).includes(paymentMethod as PaymentMethod)) return NextResponse.json({success:false,message:"Invalid payment method."},{status:400});
     if (paymentMethod !== PaymentMethod.CASH && paymentMethod !== PaymentMethod.CORPORATE_CREDIT) return NextResponse.json({success:false,message:"Selected payment method is not currently available."},{status:400});
 
-    const booking = await prisma.$transaction(async (tx) => {
-      const currentVehicle = await tx.vehicle.findFirst({
-        where: {
-          id: vehicle.id,
-          deletedAt: null,
-          status: VehicleStatus.AVAILABLE,
-          isVerified: true,
-        },
-      });
+    const usedCoupon = coupon;
+    const booking = await commitMarketplaceBooking({
+      quoteId,
+      ownerId,
+      snapshot,
+      vehicle,
+      pricingPackageId: packageData.id,
+      customerId: customer.id,
+      corporateId: corporateId || null,
+      bookingSource: corporateId ? BookingSource.CORPORATE : BookingSource.WEBSITE,
+      tripType: tripType as TripType,
+      pickupAddress,
+      dropAddress,
+      pickupDateTime,
+      window: reservationWindow,
+      discountAmount,
+      finalFare,
+      paymentMethod: paymentMethod as PaymentMethod,
+      afterCreate: usedCoupon
+        ? async (tx, created) => {
+            await tx.couponUsage.create({
+              data: {
+                couponId: usedCoupon.id,
+                bookingId: created.id,
+                customerId: customer.id,
+                discountAmount,
+              },
+            });
 
-      if (!currentVehicle) {
-        throw new Error("Vehicle became unavailable. Please search again.");
-      }
-
-      const existingBooking = await tx.booking.findFirst({
-        where: {
-          vehicleId: vehicle.id,
-          pickupDateTime,
-          deletedAt: null,
-          status: {
-            notIn: [
-              BookingStatus.CANCELLED,
-              BookingStatus.TRIP_COMPLETED,
-            ],
-          },
-        },
-        select: { id: true },
-      });
-
-      if (existingBooking) {
-        throw new Error("This vehicle was just booked for the selected time.");
-      }
-
-      const created = await tx.booking.create({
-        data: {
-          bookingNumber: await generateBookingNumber(tx),
-          bookingSource: corporateId
-            ? BookingSource.CORPORATE
-            : BookingSource.WEBSITE,
-          customerId: customer.id,
-          vendorId: vehicle.vendorId,
-          vehicleId: vehicle.id,
-          driverId: vehicle.driverId,
-          pricingPackageId: packageData.id,
-          corporateId: corporateId || null,
-          pickupLocation: pickupAddress,
-          dropLocation: dropAddress,
-          pickupDateTime,
-          status: BookingStatus.CONFIRMED,
-          estimatedFare: subtotal,
-          baseFare: subtotal,
-          taxAmount: 0,
-          discountAmount,
-          couponAmount: discountAmount,
-          extraCharges: 0,
-          finalFare,
-          vendorEarning: finalFare,
-          platformCommission: 0,
-          driverPayout: 0,
-        },
-      });
-
-      if (paymentMethod === PaymentMethod.CORPORATE_CREDIT) {
-        await chargeCorporateCredit(tx, corporateId, finalFare, created.id);
-      }
-
-      await tx.bookingStatusHistory.create({
-        data: {
-          bookingId: created.id,
-          previousStatus: null,
-          currentStatus: BookingStatus.CONFIRMED,
-          action: BookingStatusAction.CREATED,
-          changedBy: null,
-          remarks: paymentMethod === PaymentMethod.CORPORATE_CREDIT ? "Marketplace booking confirmed with Corporate Credit Account." : "Marketplace booking confirmed with Cash on Pickup.",
-        },
-      });
-
-      await tx.transaction.create({
-        data: {
-          bookingId: created.id,
-          vendorId: vehicle.vendorId,
-          transactionType: TransactionType.BOOKING_PAYMENT,
-          paymentMethod: paymentMethod as PaymentMethod,
-          paymentStatus: paymentMethod === PaymentMethod.CORPORATE_CREDIT ? PaymentStatus.PAID : PaymentStatus.PENDING,
-          amount: finalFare,
-          currency: "INR",
-          referenceNumber: paymentMethod === PaymentMethod.CORPORATE_CREDIT ? `CORP-${created.bookingNumber}` : `CASH-${created.bookingNumber}`,
-          gatewayName: paymentMethod === PaymentMethod.CORPORATE_CREDIT ? "CORPORATE_CREDIT" : "CASH",
-          processedAt: paymentMethod === PaymentMethod.CORPORATE_CREDIT ? new Date() : null,
-          remarks: paymentMethod === PaymentMethod.CORPORATE_CREDIT ? "Corporate Credit Account" : "Cash on Pickup",
-        },
-      });
-
-      if (coupon) {
-        await tx.couponUsage.create({
-          data: {
-            couponId: coupon.id,
-            bookingId: created.id,
-            customerId: customer.id,
-            discountAmount,
-          },
-        });
-
-        await tx.coupon.update({
-          where: { id: coupon.id },
-          data: { usedCount: { increment: 1 } },
-        });
-      }
-
-      return created;
+            await tx.coupon.update({
+              where: { id: usedCoupon.id },
+              data: { usedCount: { increment: 1 } },
+            });
+          }
+        : undefined,
     });
-
+    // Booking is already committed. A delivery failure must not invite duplicate booking retries.
+    try {
+      await dispatchRideGridEvent(createRideGridEvent({
+        type: AutomationTrigger.BOOKING_CREATED, module: "BOOKING",
+        bookingId: booking.id, userId: customer.userId, customerId: customer.id,
+        vendorId: vehicle.vendorId, driverId: vehicle.driverId ?? undefined,
+        metadata: { bookingNumber: booking.bookingNumber, source: booking.bookingSource, paymentMethod },
+      }));
+    } catch {
+      console.error("Marketplace booking saved; booking notification dispatch requires retry.");
+    }
     return NextResponse.json({
       success: true,
       data: {
@@ -603,6 +494,19 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof PricingError) return pricingResponse(error);
+    if (error instanceof MarketplaceBookingError) {
+      return NextResponse.json(
+        { success: false, message: error.message },
+        { status: error.status }
+      );
+    }
+    if (error instanceof BookingConflictError) {
+      return NextResponse.json(
+        { success: false, message: error.message },
+        { status: 409 }
+      );
+    }
     console.error("MARKETPLACE CASH BOOKING ERROR:", error);
 
     return NextResponse.json(
@@ -617,6 +521,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-
-

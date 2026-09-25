@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
+import { protectDocumentFile } from "@/lib/vendor-mobile/file-access";
+import { vendorFailure } from "@/lib/vendor-mobile/access";
 
 export async function GET(
   _request: NextRequest,
@@ -8,8 +10,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    if (!/^[a-zA-Z0-9-]{1,100}$/.test(id)) return NextResponse.json({ success: false }, { status: 404 });
+    const authorizedDocument = await protectDocumentFile(_request, id);
     const root = path.join(process.cwd(), "storage", "media", id);
     const files = await fs.readdir(root);
+    // An upload whose database transaction failed is not public media.
+    if (!authorizedDocument && files.some(name => /^document\.(pdf|png|jpg)$/i.test(name))) return NextResponse.json({ success: false }, { status: 404 });
 
     if (!files.length) {
       return NextResponse.json(
@@ -33,10 +39,12 @@ export async function GET(
       headers: {
         "Content-Type": mimeTypes[ext] || "application/octet-stream",
         "Content-Disposition": `inline; filename="${files[0]}"`,
-        "Cache-Control": "private, max-age=3600",
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && "status" in error) return vendorFailure(error);
     return NextResponse.json(
       { success: false, message: "File not found." },
       { status: 404 }

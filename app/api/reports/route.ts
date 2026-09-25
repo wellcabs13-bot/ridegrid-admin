@@ -4,6 +4,10 @@ import {
   reportsService,
 } from "@/lib/services/reports/ReportsService";
 
+import { authenticate } from "@/lib/auth/middleware";
+import { hasPermission, Permission } from "@/lib/permissions";
+import { UserRole } from "@prisma/client";
+
 function parseDate(value: string | null) {
   if (!value) {
     return undefined;
@@ -20,6 +24,12 @@ function parseDate(value: string | null) {
 
 export async function GET(request: NextRequest) {
   try {
+    const header = request.headers.get("authorization");
+    const user = await authenticate(header?.startsWith("Bearer ") ? header.slice(7) : request.cookies.get("ridegrid_access_token")?.value);
+    if (!user) return NextResponse.json({ success: false, message: "Please sign in." }, { status: 401 });
+    if (!hasPermission(user.role as UserRole, Permission.REPORT_VIEW) || user.role === "CORPORATE_ADMIN") {
+      return NextResponse.json({ success: false, message: "This report requires global report access. Corporate reports must be scoped to your company." }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
 
     const report = searchParams.get("report") || "dashboard";

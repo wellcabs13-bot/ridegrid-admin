@@ -1,3 +1,4 @@
+import { centralFleetAccess } from "@/lib/vendor-mobile/legacy";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -6,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await params; const denied = await centralFleetAccess(_request, "fleet", id); if (denied) return denied;
 
     if (!id) {
       return NextResponse.json(

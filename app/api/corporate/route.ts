@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-access";
 import {
   NextRequest,
   NextResponse,
@@ -11,6 +12,8 @@ export async function GET(
   request: NextRequest
 ) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const { searchParams } =
       new URL(request.url);
 
@@ -180,6 +183,8 @@ export async function POST(
   request: NextRequest
 ) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const body = await request.json();
 
     const {
@@ -272,6 +277,8 @@ export async function PATCH(
   request: NextRequest
 ) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const body = await request.json();
 
     if (!body.id) {
@@ -334,6 +341,8 @@ export async function DELETE(
   request: NextRequest
 ) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const { searchParams } =
       new URL(request.url);
 

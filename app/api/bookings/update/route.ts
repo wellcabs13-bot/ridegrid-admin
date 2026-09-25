@@ -1,5 +1,9 @@
+import { notifyAssignedDriver } from "@/lib/services/booking/DriverNotification";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+
+import { requestPermission } from "@/lib/request-access";
+import { Permission } from "@/lib/permissions";
 
 function hasOwn(body: Record<string, unknown>, key: string) {
   return Object.prototype.hasOwnProperty.call(body, key);
@@ -14,6 +18,8 @@ function optionalString(value: unknown) {
 
 export async function PUT(req: NextRequest) {
   try {
+    const access = await requestPermission(req, Permission.BOOKING_UPDATE);
+    if (access.denied) return access.denied;
     const body = (await req.json()) as Record<string, unknown>;
     const bookingId =
       typeof body.bookingId === "string" ? body.bookingId.trim() : "";
@@ -28,10 +34,10 @@ export async function PUT(req: NextRequest) {
     const existing = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        customer: { include: { user: true } },
-        vendor: { include: { user: true } },
+        customer: { include: { user: { select: { id: true, name: true, email: true, mobile: true } } } },
+        vendor: { include: { user: { select: { id: true, name: true, email: true, mobile: true } } } },
         vehicle: true,
-        driver: { include: { user: true } },
+        driver: { include: { user: { select: { id: true, name: true, email: true, mobile: true } } } },
       },
     });
 
@@ -168,6 +174,12 @@ export async function PUT(req: NextRequest) {
       data.estimatedFare = fare;
     }
 
+    if (existing.priceSnapshot) {
+      const fields = ["vendorId","vehicleId","pricingPackageId","tripType","pickupLocation","dropLocation"] as const;
+      if (fields.some(key => hasOwn(body,key) && body[key] !== existing[key]) || (data.pickupDateTime && data.pickupDateTime.getTime() !== existing.pickupDateTime.getTime())) {
+        return NextResponse.json({success:false,message:"This booking has an immutable price quote. A different trip requires a new quote and booking."},{status:409});
+      }
+    }
     const customerId = data.customerId ?? existing.customerId;
     const vendorId = data.vendorId ?? existing.vendorId;
     const vehicleId = data.vehicleId ?? existing.vehicleId;
@@ -401,6 +413,13 @@ export async function PUT(req: NextRequest) {
     data.baseFare = packageBaseFare;
     data.finalFare = recalculatedFinalFare;
 
+    if (existing.priceSnapshot) {
+      // Pricing integration contract: never recalculate accepted quotes from mutable packages.
+      data.estimatedFare = Number(existing.estimatedFare);
+      data.baseFare = Number(existing.baseFare);
+      data.finalFare = Number(existing.finalFare);
+      packagePricing = undefined;
+    }
     const updated = await prisma.$transaction(async (tx) => {
       const booking = await tx.booking.update({
         where: { id: bookingId },
@@ -408,10 +427,10 @@ export async function PUT(req: NextRequest) {
           ? { ...data, baseFare: packagePricing.baseFare, finalFare: data.estimatedFare }
           : data,
         include: {
-          customer: { include: { user: true } },
-          vendor: { include: { user: true } },
+          customer: { include: { user: { select: { id: true, name: true, email: true, mobile: true } } } },
+          vendor: { include: { user: { select: { id: true, name: true, email: true, mobile: true } } } },
           vehicle: true,
-          driver: { include: { user: true } },
+          driver: { include: { user: { select: { id: true, name: true, email: true, mobile: true } } } },
           pricingPackage: { include: { pricingRule: true, vehicle: true } },
           transactions: { orderBy: { createdAt: "desc" } },
           couponUsages: { include: { coupon: true } },
@@ -439,12 +458,13 @@ export async function PUT(req: NextRequest) {
             previousStatus:existing.status,
             currentStatus:booking.status,
             action,
-            changedBy:null,
+            changedBy:access.user!.id,
             remarks:"Booking updated from Super Admin Booking Management.",
           }
         });
       }
 
+      await notifyAssignedDriver(tx, booking.id, "Booking updated");
       return booking;
     });
 

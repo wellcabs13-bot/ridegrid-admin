@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/admin-access";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
@@ -37,6 +38,8 @@ function tierFor(expected: number | null) {
 
 export async function GET(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const corporateId =
       request.nextUrl.searchParams.get("corporateId")?.trim();
 
@@ -93,6 +96,8 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const body = await request.json();
     const corporateId = String(body?.corporateId ?? "").trim();
 

@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+import { requestPermission } from "@/lib/request-access";
+import { Permission } from "@/lib/permissions";
+
 export async function GET(request: NextRequest) {
   try {
+    const access = await requestPermission(request, Permission.BOOKING_UPDATE);
+    if (access.denied) return access.denied;
     const bookingId = new URL(request.url).searchParams.get("bookingId");
     if (!bookingId) return NextResponse.json({ success:false, message:"bookingId is required." }, { status:400 });
 

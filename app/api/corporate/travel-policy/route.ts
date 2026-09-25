@@ -1,8 +1,11 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-access";
+import { NextRequest, NextResponse } from "next/server";
 import { corporateTravelPolicyService } from "@/lib/services/corporate/CorporateTravelPolicyService";
 
 export async function GET(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const corporateId =
       request.nextUrl.searchParams.get("corporateId");
 
@@ -39,6 +42,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const body = await request.json();
 
     if (

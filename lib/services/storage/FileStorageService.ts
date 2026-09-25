@@ -48,6 +48,21 @@ export async function storeFile(input: {
   };
 }
 
+// Metadata-only companion for callers that already own persistence.
+export function createStorageRecord(input: {
+  name: string; mimeType: string; size: number; content: string | Buffer;
+}): StoredFile {
+  if (!input.name.trim()) throw new Error("File name is required.");
+  const id = crypto.randomUUID();
+  const safeName = path.basename(input.name).replace(/[^a-zA-Z0-9._-]/g, "_");
+  return {
+    id, name: input.name, mimeType: input.mimeType, size: input.size,
+    checksum: crypto.createHash("sha256").update(input.content).digest("hex"),
+    storageKey: `media/${id}/${safeName}`,
+    fileUrl: `/api/files/${id}`, createdAt: new Date(),
+  };
+}
+
 export function validateFileType(
   mimeType: string,
   allowedTypes: string[]

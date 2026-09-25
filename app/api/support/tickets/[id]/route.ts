@@ -29,7 +29,7 @@ export async function GET(
         driver: true,
         vendor: true,
         corporate: true,
-        assignedTo: true,
+        assignedTo: { select: { id: true, name: true, email: true } },
         messages: { orderBy: { createdAt: "asc" } },
         attachments: true,
         escalations: { orderBy: { createdAt: "desc" } },
@@ -77,7 +77,7 @@ export async function PATCH(
         ...(body.status === "IN_PROGRESS" && { firstResponseAt: new Date() }),
       },
       include: {
-        assignedTo: true,
+        assignedTo: { select: { id: true, name: true, email: true } },
         messages: true,
         sla: true,
       },

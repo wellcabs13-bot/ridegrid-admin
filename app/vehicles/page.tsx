@@ -165,7 +165,7 @@ function mapApiVehicle(vehicle: ApiVehicle): Vehicle {
       Number(vehicle.totalTrips) || 0,
 
     earnings:
-      `Ã¢â€šÂ¹${Number(
+      `₹${Number(
         vehicle.baseFare || 0
       ).toLocaleString()}`,
 
@@ -434,7 +434,7 @@ export default function VehiclesPage() {
         const value =
           Number(
             vehicle.earnings.replace(
-              /[Ã¢â€šÂ¹,]/g,
+              /[₹,]/g,
               ""
             )
           ) || 0;
@@ -918,7 +918,7 @@ export default function VehiclesPage() {
         maintenance={
           maintenanceVehicles
         }
-        revenue={`Ã¢â€šÂ¹${totalRevenue.toLocaleString()}`}
+        revenue={`₹${totalRevenue.toLocaleString()}`}
       />
 
       <VehicleFilters

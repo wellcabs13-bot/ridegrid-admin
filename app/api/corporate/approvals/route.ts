@@ -1,10 +1,13 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-access";
+import { NextRequest, NextResponse } from "next/server";
 import {
   corporateApprovalService,
 } from "@/lib/services/corporate/CorporateApprovalService";
 
 export async function GET(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const { searchParams } =
       new URL(request.url);
 

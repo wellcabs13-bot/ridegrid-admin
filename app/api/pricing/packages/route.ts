@@ -1,3 +1,5 @@
+import { pricingAccess, pricingResponse } from "@/lib/services/pricing/access";
+import { PricingError } from "@/lib/services/pricing/engine";
 ﻿import { NextRequest, NextResponse } from "next/server";
 
 import {
@@ -10,21 +12,10 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/auth/middleware";
 
 async function getUser(request: NextRequest) {
-  const authorization =
-    request.headers.get("authorization");
-
-  const headerToken =
-    authorization?.startsWith("Bearer ")
-      ? authorization.slice(7)
-      : undefined;
-
-  const cookieToken =
-    request.cookies.get("ridegrid_access_token")?.value ??
-    request.cookies.get("ridegrid-token")?.value;
-
-  return authenticate(
-    headerToken ?? cookieToken
-  );
+  const vendorId = request.method === "GET" ? request.nextUrl.searchParams.get("vendorId") : (await request.clone().json()).vendorId;
+  const access = await pricingAccess(request, vendorId);
+  if (request.method !== "GET" && access.finance) throw new PricingError("FORBIDDEN", "Finance may configure policies but cannot change vendor fares", 403);
+  return access.user;
 }
 
 function enumValue<T extends Record<string, string>>(
@@ -143,6 +134,7 @@ export async function GET(
       count: packages.length,
     });
   } catch (error) {
+    if (error instanceof PricingError) return pricingResponse(error);
     console.error(
       "GET /api/pricing/packages:",
       error
@@ -443,8 +435,9 @@ export async function POST(
       );
     }
 
+    const saved = await prisma.$transaction(async tx => {
     const rule =
-      await prisma.pricingRule.upsert({
+      await tx.pricingRule.upsert({
         where: {
           vendorId_vehicleCategory_pricingType_tripType:
             {
@@ -545,7 +538,7 @@ export async function POST(
       : packageName.trim();
 
     const existing =
-      await prisma.pricingPackage.findFirst({
+      await tx.pricingPackage.findFirst({
         where: {
           vehicleId,
           pricingRuleId: rule.id,
@@ -577,6 +570,8 @@ export async function POST(
       });
 
     const packageData = {
+      fromCity: pricingType === PricingType.OUTSTATION ? fromCity.trim() : null,
+      toCity: pricingType === PricingType.OUTSTATION ? toCity.trim() : null,
       packageType:
         typeof packageType ===
           "string" &&
@@ -658,14 +653,14 @@ export async function POST(
 
     const saved =
       existing
-        ? await prisma.pricingPackage.update({
+        ? await tx.pricingPackage.update({
             where: {
               id: existing.id,
             },
 
             data: packageData,
           })
-        : await prisma.pricingPackage.create({
+        : await tx.pricingPackage.create({
             data: {
               pricingRuleId:
                 rule.id,
@@ -676,24 +671,28 @@ export async function POST(
             },
           });
 
+    await tx.auditLog.create({data:{userId:user.id,action:existing ? "UPDATE" : "CREATE",entityName:"Pricing",entityId:saved.id,...(existing ? {oldValue:JSON.parse(JSON.stringify(existing))} : {}),newValue:JSON.parse(JSON.stringify({...saved,vendorId}))}});
+    return { value:saved, existed:!!existing };
+    });
     return NextResponse.json(
       {
         success: true,
 
         message:
-          existing
+          saved.existed
             ? "Pricing package updated successfully."
             : "Pricing package created successfully.",
 
-        data: saved,
+        data: saved.value,
       },
 
       {
         status:
-          existing ? 200 : 201,
+          saved.existed ? 200 : 201,
       }
     );
   } catch (error) {
+    if (error instanceof PricingError) return pricingResponse(error);
     console.error(
       "POST /api/pricing/packages:",
       error

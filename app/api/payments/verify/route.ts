@@ -5,10 +5,12 @@
 
 import {
   PaymentStatus,
+  UserRole,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/auth/middleware";
+import { bookingScope } from "@/lib/request-access";
 import { transactionRepository } from "@/lib/repositories/transaction";
 import {
   verifyPaymentSignature,
@@ -133,6 +135,14 @@ export async function POST(
       );
     }
 
+    if (!transaction.bookingId || !["SUPER_ADMIN","OPERATIONS","FINANCE","CUSTOMER","VENDOR","CORPORATE_ADMIN","CORPORATE_EMPLOYEE"].includes(String(user.role))) {
+      return NextResponse.json({ success: false, message: "Access denied." }, { status: 403 });
+    }
+    const ownedBooking = await prisma.booking.findFirst({
+      where: { ...bookingScope({ id: user.id, role: user.role as UserRole }), id: transaction.bookingId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!ownedBooking) return NextResponse.json({ success: false, message: "You cannot verify payment for this booking." }, { status: 403 });
     if (
       transaction.paymentStatus ===
       PaymentStatus.PAID

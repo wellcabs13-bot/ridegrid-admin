@@ -29,19 +29,26 @@ function serializeVendor(vendor: any) {
       ).length ?? 0,
     completedTrips:
       vendor.bookings?.filter(
-        (booking: any) => booking.status === "COMPLETED"
+        (booking: any) => booking.status === "TRIP_COMPLETED"
       ).length ?? 0,
 
-    totalEarnings: "?0",
-    pendingPayment: "?0",
-    rating: 0,
+    totalEarnings: new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
+      vendor.bookings?.filter((b: any) => b.status === "TRIP_COMPLETED").reduce((sum: number, b: any) => sum + Number(b.vendorEarning ?? 0), 0) ?? 0
+    ),
+    pendingPayment: new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Math.max(0,
+      (vendor.bookings?.filter((b: any) => b.status === "TRIP_COMPLETED").reduce((sum: number, b: any) => sum + Number(b.vendorEarning ?? 0), 0) ?? 0) -
+      (vendor.settlements?.reduce((sum: number, s: any) => sum + Number(s.netAmount ?? 0), 0) ?? 0)
+    )),
+    rating: vendor.reviews?.length ? vendor.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / vendor.reviews.length : 0,
     status: vendor.isApproved ? "Active" : "Pending",
     joinedDate: new Date(vendor.createdAt).toLocaleDateString("en-IN"),
   };
 }
 
 const vendorInclude = {
-  user: true,
+  user: { select: { name: true, mobile: true, email: true } },
+  settlements: { where: { settlementStatus: "COMPLETED" as const }, select: { netAmount: true } },
+  reviews: { where: { status: "PUBLISHED" as const }, select: { rating: true } },
   vehicles: {
     where: {
       deletedAt: null,
@@ -53,6 +60,7 @@ const vendorInclude = {
     },
     select: {
       status: true,
+      vendorEarning: true,
     },
   },
 };
@@ -62,10 +70,12 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const search = searchParams.get("search")?.trim() || "";
     const status = searchParams.get("status") || "";
+    const city = searchParams.get("city")?.trim() || "";
 
     const vendors = await prisma.vendor.findMany({
       where: {
         deletedAt: null,
+        ...(city ? { city: { contains: city, mode: "insensitive" as const } } : {}),
 
         ...(status === "Active"
           ? { isApproved: true }

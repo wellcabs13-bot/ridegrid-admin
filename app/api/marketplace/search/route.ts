@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
       category: p.get("category") || "",
       date: p.get("date") || "",
       time: p.get("time") || "",
+      days: p.get("days") || "",
       search: p.get("search") || p.get("q") || "",
       page: Number(p.get("page") || 1),
       limit: Number(p.get("limit") || 20),

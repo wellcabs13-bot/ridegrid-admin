@@ -13,7 +13,7 @@ export default async function InfoPage({ slug }: { slug: string }) {
   const page = INFO_PAGES.find(p => p.slug === slug)!;
   const chrome = await resolvePublicChrome("GENERATED_PAGES");
   return <PublicShell navigation={chrome.navigation}><article className={s.page}>
-    <header className={s.hero}><div className={s.container}><p className={s.eyebrow}>RIDEGRID / WELLCABS</p><h1>{page.title}</h1><p>{page.description}</p><Link href="/">Home</Link><span aria-hidden="true"> / </span><span>{page.title}</span></div></header>
+    <header className={s.hero}><div className={s.container}><p className={s.eyebrow}>WELLCABS · GO PLACES. YOUR WAY.</p><h1>{page.title}</h1><p>{page.description}</p><Link href="/">Home</Link><span aria-hidden="true"> / </span><span>{page.title}</span></div></header>
     <div className={`${s.container} ${s.layout}`}><nav aria-label="On this page" className={s.contents}><strong>On this page</strong>{page.sections.map((section, i) => <a href={`#section-${i}`} key={section.heading}>{section.heading}</a>)}</nav>
       <div className={s.body}>{page.review && <aside className={s.review}><strong>Business and legal review pending</strong><p>This page provides information while the business verifies its legal details and final terms. Unconfirmed values are explicitly marked below. It does not claim legal compliance.</p></aside>}
         {page.sections.map((section, i) => <section id={`section-${i}`} key={section.heading}><h2>{section.heading}</h2>{section.paragraphs.map(p => <p key={p}>{p}</p>)}</section>)}

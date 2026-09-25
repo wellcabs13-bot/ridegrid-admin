@@ -1,3 +1,5 @@
+import { pricingAccess, pricingResponse } from "@/lib/services/pricing/access";
+import { PricingError } from "@/lib/services/pricing/engine";
 ﻿import { NextRequest, NextResponse } from "next/server";
 import {
   PricingType,
@@ -10,18 +12,10 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/auth/middleware";
 
 async function getUser(request: NextRequest) {
-  const authorization = request.headers.get("authorization");
-
-  const headerToken =
-    authorization?.startsWith("Bearer ")
-      ? authorization.slice(7)
-      : undefined;
-
-  const cookieToken =
-    request.cookies.get("ridegrid_access_token")?.value ??
-    request.cookies.get("ridegrid-token")?.value;
-
-  return authenticate(headerToken ?? cookieToken);
+  const vendorId = request.method === "GET" ? request.nextUrl.searchParams.get("vendorId") : (await request.clone().json()).vendorId;
+  const access = await pricingAccess(request, vendorId);
+  if (request.method !== "GET" && access.finance) throw new PricingError("FORBIDDEN", "Finance may configure policies but cannot change vendor fares", 403);
+  return access.user;
 }
 
 function validEnum<T extends Record<string, string>>(
@@ -73,6 +67,7 @@ export async function GET(request: NextRequest) {
       count: rules.length,
     });
   } catch (error) {
+    if (error instanceof PricingError) return pricingResponse(error);
     console.error("GET /api/pricing/rules:", error);
 
     return NextResponse.json(
@@ -150,6 +145,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    for (const [name,value] of Object.entries({minimumKm,includedKm,pricePerKm,pricePerHour,driverAllowance,nightCharge,waitingCharge})) { if (value != null && (typeof value !== "number" && typeof value !== "string" || !/^\d{1,8}(\.\d{1,2})?$/.test(String(value)) || (["minimumKm","includedKm"].includes(name) && !Number.isInteger(Number(value))))) throw new PricingError("INVALID_INPUT", `Invalid ${name}`, 400); }
+    if (typeof isActive !== "boolean") throw new PricingError("INVALID_INPUT","Invalid active status",400);
     const numericBaseFare = Number(baseFare);
 
     if (!Number.isFinite(numericBaseFare) || numericBaseFare < 0) {
@@ -171,7 +168,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rule = await prisma.pricingRule.upsert({
+    const rule = await prisma.$transaction(async tx => {
+      const before = await tx.pricingRule.findUnique({where:{vendorId_vehicleCategory_pricingType_tripType:{vendorId,vehicleCategory,pricingType,tripType}}});
+      const savedRule = await tx.pricingRule.upsert({
       where: {
         vendorId_vehicleCategory_pricingType_tripType: {
           vendorId,
@@ -252,6 +251,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
+      await tx.auditLog.create({data:{userId:user.id,action:before ? "UPDATE" : "CREATE",entityName:"Pricing",entityId:savedRule.id,...(before ? {oldValue:JSON.parse(JSON.stringify(before))} : {}),newValue:JSON.parse(JSON.stringify(savedRule))}});
+      return savedRule;
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -261,6 +264,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof PricingError) return pricingResponse(error);
     console.error("POST /api/pricing/rules:", error);
 
     return NextResponse.json(

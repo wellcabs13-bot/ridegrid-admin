@@ -5,9 +5,16 @@ import { AutomationTrigger } from "@/types/automation";
 import { automationEngine } from "@/lib/automation/automation-engine";
 
 import { createAutomationEvent } from "@/lib/automation/automation-events";
+import { getAutomationRules } from "@/lib/automation/automation-rules";
+import { requireAdmin } from "@/lib/admin-access";
 
 export async function GET(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
+    if (request.nextUrl.searchParams.get("view") === "rules") {
+      return NextResponse.json({ success: true, data: getAutomationRules().map(({ id, name, description, trigger, action, enabled, status }) => ({ id, name, description, trigger, action, enabled, status })) });
+    }
     const trigger = new URL(request.url).searchParams.get("trigger");
 
     if (!trigger) {
@@ -54,6 +61,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const body = await request.json();
 
     if (!body.trigger) {

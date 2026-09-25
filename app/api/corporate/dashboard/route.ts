@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-access";
 import { prisma } from "@/lib/prisma";
 
 function toNumber(value: unknown): number {
@@ -17,8 +18,10 @@ function monthEnd(offset: number) {
   return new Date(date.getFullYear(), date.getMonth() + offset + 1, 1);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const currentStart = monthStart(0);
     const currentEnd = monthEnd(0);
     const previousStart = monthStart(-1);
@@ -85,11 +88,7 @@ export async function GET() {
       });
     }
 
-    /*
-     * Booking currently has no direct corporateId relation in the project schema.
-     * Corporate bookings are therefore resolved through CorporateApprovalRequest,
-     * whose bookingId is the existing corporate-to-booking link.
-     */
+    // Include direct corporate bookings and the existing legacy approval linkage.
     const requests = await prisma.corporateApprovalRequest.findMany({
       where: {
         corporateId: { in: corporateIds },
@@ -117,7 +116,21 @@ export async function GET() {
       }
     }
 
-    const uniqueRequests = Array.from(latestRequestByBooking.values());
+    const actualBookings = await prisma.booking.findMany({
+      where: { deletedAt: null, OR: [
+        { corporateId: { in: corporateIds } },
+        { id: { in: Array.from(latestRequestByBooking.keys()) } },
+      ] },
+      select: { id: true, corporateId: true, finalFare: true, estimatedFare: true, createdAt: true },
+    });
+    const uniqueRequests = actualBookings.flatMap(booking => {
+      const corporateId = booking.corporateId ?? latestRequestByBooking.get(booking.id)?.corporateId;
+      return corporateId && corporateIds.includes(corporateId) ? [{
+        corporateId, bookingId: booking.id,
+        amount: booking.finalFare ?? booking.estimatedFare,
+        submittedAt: booking.createdAt,
+      }] : [];
+    });
     const bookingIds = uniqueRequests
       .map((request) => request.bookingId)
       .filter((value): value is string => Boolean(value));
@@ -294,6 +307,16 @@ export async function GET() {
           ) / 10
         : null;
 
+    const profiles = await prisma.$queryRaw<{
+      corporateId: string; expectedMonthlyBookings: number | null; customerTier: string;
+      serviceTypes: string[]; quotationFileUrl: string | null; quotationFileName: string | null;
+      agreementFileUrl: string | null; agreementFileName: string | null;
+    }[]>`
+      SELECT "corporateId", "expectedMonthlyBookings", "customerTier", "serviceTypes",
+             "quotationFileUrl", "quotationFileName", "agreementFileUrl", "agreementFileName"
+      FROM "CorporateCommercialProfile" WHERE "corporateId" = ANY(${corporateIds}::text[])
+    `;
+    const profilesByCorporate = new Map(profiles.map(profile => [profile.corporateId, profile]));
     const result = corporates.map((corporate) => {
       const corporateRatingsForRow = corporateRatings.get(corporate.id) ?? [];
       const averageRating =
@@ -306,6 +329,7 @@ export async function GET() {
           : null;
 
       return {
+        ...profilesByCorporate.get(corporate.id),
         id: corporate.id,
         companyName: corporate.companyName,
         legalName: corporate.legalName,

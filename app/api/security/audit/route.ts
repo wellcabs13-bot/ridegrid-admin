@@ -1,9 +1,12 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-access";
+import { NextRequest, NextResponse } from "next/server";
 
 import { auditLogger } from "@/lib/security/audit-log";
 
 export async function GET(request: NextRequest) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const { searchParams } = new URL(request.url);
 
     const userId = searchParams.get("userId");

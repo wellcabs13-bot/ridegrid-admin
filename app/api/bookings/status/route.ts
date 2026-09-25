@@ -1,6 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { notifyAssignedDriver } from "@/lib/services/booking/DriverNotification";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authenticate } from "@/lib/auth/middleware";
+import { requestPermission } from "@/lib/request-access";
+import { Permission } from "@/lib/permissions";
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   PENDING: ["CONFIRMED", "CANCELLED"],
@@ -21,31 +23,8 @@ const STATUS_ACTION: Record<string, string> = {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const authorization =
-      request.headers.get("authorization");
-
-    const headerToken =
-      authorization?.startsWith("Bearer ")
-        ? authorization.slice(7)
-        : undefined;
-
-    const cookieToken =
-      request.cookies.get("ridegrid_access_token")?.value ??
-      request.cookies.get("ridegrid-token")?.value;
-
-    const user = await authenticate(
-      headerToken ?? cookieToken
-    );
-
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized.",
-        },
-        { status: 401 }
-      );
-    }
+    const access = await requestPermission(request, Permission.BOOKING_UPDATE); if (access.denied) return access.denied;
+    const user = access.user!;
 
     const body = await request.json();
 
@@ -157,6 +136,7 @@ export async function PATCH(request: NextRequest) {
           },
         });
 
+        await notifyAssignedDriver(tx, booking.id, "Booking status updated");
         return updated;
       });
 

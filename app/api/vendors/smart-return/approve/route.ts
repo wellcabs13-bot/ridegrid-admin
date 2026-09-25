@@ -1,3 +1,5 @@
+import { vendorFailure } from "@/lib/vendor-mobile/access";
+import { legacyVendorId } from "@/lib/vendor-mobile/legacy";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -5,7 +7,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const listingId = String(body?.listingId ?? "");
-    const vendorId = String(body?.vendorId ?? "");
+    const vendorId = await legacyVendorId(req, typeof body.vendorId === "string" ? body.vendorId : undefined);
     const approved = Boolean(body?.approved);
 
     if (!listingId || !vendorId) {
@@ -33,8 +35,5 @@ export async function POST(req: NextRequest) {
       data: updated,
       status: updated.status,
     });
-  } catch (error) {
-    console.error("Smart Return approval error:", error);
-    return NextResponse.json({ success: false, message: "Approval failed." }, { status: 500 });
-  }
+  } catch (error) { return vendorFailure(error); }
 }

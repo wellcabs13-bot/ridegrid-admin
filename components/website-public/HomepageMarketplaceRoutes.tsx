@@ -147,13 +147,13 @@ export default function HomepageMarketplaceRoutes({ media }: { media?: PublicMed
 
             <h2>
               Popular routes available
-              on RideGrid
+              on Wellcabs
             </h2>
 
             <p>
               Route availability below
               comes from the current
-              RideGrid marketplace
+              Wellcabs marketplace
               configuration.
             </p>
           </div>
@@ -205,7 +205,7 @@ export default function HomepageMarketplaceRoutes({ media }: { media?: PublicMed
                     {route.categories
                       .size > 0
                       ? `${route.categories.size} vehicle categor${route.categories.size === 1 ? "y" : "ies"} configured`
-                      : "Current RideGrid marketplace route"}
+                      : "Current Wellcabs marketplace route"}
                   </p>
 
                   <Link

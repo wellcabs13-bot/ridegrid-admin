@@ -1,3 +1,5 @@
+import { quoteService } from "@/lib/services/pricing/QuoteService";
+import { PricingError, decimal } from "@/lib/services/pricing/engine";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -34,15 +36,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        listings: listings.map((listing) => ({
+        listings: (await Promise.all(listings.map(async (listing) => {
+          let quote;
+          try { quote=await quoteService.quote({vendorId:listing.vendorId,vehicleId:listing.vehicleId,vehicleCategory:listing.vehicle.category,service:"OUTSTATION_ONE_WAY",origin:listing.pickupLocation,destination:listing.dropLocation,city:listing.vehicle.homeCity,at:new Date(),ownerId:"smart-return-preview",smartReturnListingId:listing.id},false); } catch(error) { if(error instanceof PricingError) return null; throw error; }
+          return ({
           id: listing.id,
           type: "SMART_RETURN",
           status: listing.status,
           pickupLocation: listing.pickupLocation,
           dropLocation: listing.dropLocation,
-          fare: Number(listing.fare),
-          baseFare: Number(listing.baseFare),
-          discountPercent: Number(listing.discountPercent),
+          fare: Number(quote.snapshot.finalPayable),
+          quote: quote.snapshot,
+          vendorFare: quote.snapshot.vendorFare,
+          baseFare: Number(quote.snapshot.normalFare),
+          discountPercent: decimal(quote.snapshot.normalFare).isZero() ? 0 : decimal(quote.snapshot.normalFare).minus(quote.snapshot.vendorFare).div(quote.snapshot.normalFare).mul(100).toDecimalPlaces(2).toNumber(),
           publishedAt: listing.publishedAt,
           expiresAt: listing.expiresAt,
           vehicle: {
@@ -56,7 +63,8 @@ export async function GET(req: NextRequest) {
           vendor: {
             id: listing.vendor.id,
           },
-        })),
+        });
+        }))).filter(Boolean),
         pagination: {
           page,
           limit,

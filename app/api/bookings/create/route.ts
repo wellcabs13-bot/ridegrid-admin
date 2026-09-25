@@ -1,3 +1,7 @@
+import { consumeQuote } from "@/lib/services/pricing/QuoteService";
+import { json } from "@/lib/services/pricing/RateService";
+import { PricingError } from "@/lib/services/pricing/engine";
+import { pricingResponse } from "@/lib/services/pricing/access";
 import {
   NextRequest,
   NextResponse,
@@ -12,6 +16,11 @@ import { generateBookingNumber } from "@/lib/services/booking/BookingNumberServi
 import {
   pricingService,
 } from "@/lib/services/pricing/PricingService";
+import {
+  findBookingConflict,
+  reservationWindowFromPickup,
+  tripDaysFromSnapshot,
+} from "@/lib/services/marketplace/BookingAvailabilityService";
 
 export async function POST(
   request: NextRequest
@@ -410,6 +419,10 @@ export async function POST(
     const pricing =
       await pricingService.calculate(
         {
+          pricingPackageId: typeof pricingPackageId === "string" ? pricingPackageId : undefined,
+          city: pickupLocation.split(",")[0]?.trim(),
+          origin: pickupLocation.split(",")[0]?.trim(),
+          destination: dropLocation.split(",")[0]?.trim(),
           vendorId:
             vendor.id,
 
@@ -443,6 +456,17 @@ export async function POST(
           customerId:
             customer.id,
         }
+      );
+
+    const bookingDays =
+      validTripType === TripType.ROUNDTRIP
+        ? tripDaysFromSnapshot(pricing.priceSnapshot, 1)
+        : 1;
+
+    const reservationWindow =
+      reservationWindowFromPickup(
+        pickupDate,
+        bookingDays
       );
 
     let resolvedPricingPackageId =
@@ -543,43 +567,25 @@ export async function POST(
           }
 
           const conflictingBooking =
-            await tx.booking.findFirst(
+            await findBookingConflict(
+              tx,
               {
-                where: {
-                  vehicleId:
-                    currentVehicle.id,
-
-                  pickupDateTime:
-                    pickupDate,
-
-                  deletedAt: null,
-
-                  status: {
-                    in: [
-                      "PENDING",
-                      "CONFIRMED",
-                      "DRIVER_ASSIGNED",
-                      "TRIP_STARTED",
-                    ],
-                  },
-                },
-                select: {
-                  id: true,
-                  bookingNumber:
-                    true,
-                  status: true,
-                },
+                vehicleId: currentVehicle.id,
+                driverId: currentVehicle.driverId,
+                window: reservationWindow,
               }
             );
 
-          if (
-            conflictingBooking
-          ) {
+          if (conflictingBooking) {
             throw new BookingConflictError(
-              "This vehicle is already booked for the selected pickup time."
+              conflictingBooking.vehicleConflict
+                ? "This vehicle is already booked for one or more selected travel dates."
+                : "The assigned driver is already booked for one or more selected travel dates."
             );
           }
 
+          if (!pricing.quoteId) throw new PricingError("QUOTE_REQUIRED");
+          await consumeQuote(tx, pricing.quoteId, `customer:${customer.id}`, currentVehicle.id);
           const createdBooking =
             await tx.booking.create(
               {
@@ -603,6 +609,8 @@ export async function POST(
                     currentVehicle.driverId ??
                     null,
 
+                  priceSnapshot: json(pricing.priceSnapshot),
+                  pricingQuoteId: pricing.quoteId,
                   pricingPackageId:
                     resolvedPricingPackageId,
 
@@ -614,6 +622,18 @@ export async function POST(
 
                   pickupDateTime:
                     pickupDate,
+
+                  reservedFrom:
+                    reservationWindow.start,
+
+                  reservedUntil:
+                    reservationWindow.end,
+
+                  tripDays:
+                    bookingDays,
+
+                  tripType:
+                    validTripType,
 
                   estimatedFare:
                     pricing.finalFare,
@@ -690,6 +710,7 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof PricingError) return pricingResponse(error);
     if (
       error instanceof
       BookingConflictError

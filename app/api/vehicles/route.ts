@@ -1,3 +1,4 @@
+import { centralFleetAccess } from "@/lib/vendor-mobile/legacy";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -172,6 +173,7 @@ export async function GET(
   request: NextRequest
 ) {
   try {
+    const denied = await centralFleetAccess(request, "fleet"); if (denied) return denied;
     const { searchParams } =
       new URL(request.url);
 
@@ -334,6 +336,7 @@ export async function POST(
   request: NextRequest
 ) {
   try {
+    const denied = await centralFleetAccess(request, "fleet"); if (denied) return denied;
     const body =
       await request.json();
 
@@ -672,6 +675,7 @@ export async function PUT(
   request: NextRequest
 ) {
   try {
+    const denied = await centralFleetAccess(request, "fleet"); if (denied) return denied;
     const body =
       await request.json();
 
@@ -1020,6 +1024,7 @@ export async function DELETE(
   request: NextRequest
 ) {
   try {
+    const denied = await centralFleetAccess(request, "fleet"); if (denied) return denied;
     const { searchParams } =
       new URL(request.url);
 

@@ -1,22 +1,15 @@
+import { pricingAccess, pricingResponse } from "@/lib/services/pricing/access";
+import { PricingError } from "@/lib/services/pricing/engine";
 ﻿import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/auth/middleware";
 
 async function getUser(request: NextRequest) {
-  const authorization =
-    request.headers.get("authorization");
-
-  const headerToken =
-    authorization?.startsWith("Bearer ")
-      ? authorization.slice(7)
-      : undefined;
-
-  const cookieToken =
-    request.cookies.get("ridegrid_access_token")?.value ??
-    request.cookies.get("ridegrid-token")?.value;
-
-  return authenticate(headerToken ?? cookieToken);
+  const vendorId = request.method === "GET" ? request.nextUrl.searchParams.get("vendorId") : (await request.clone().json()).vendorId;
+  const access = await pricingAccess(request, vendorId);
+  if (request.method !== "GET" && access.finance) throw new PricingError("FORBIDDEN", "Finance may configure policies but cannot change vendor fares", 403);
+  return access.user;
 }
 
 export async function GET(request: NextRequest) {
@@ -104,6 +97,7 @@ export async function GET(request: NextRequest) {
       count: vehicles.length,
     });
   } catch (error) {
+    if (error instanceof PricingError) return pricingResponse(error);
     console.error(
       "GET /api/pricing/vehicles:",
       error

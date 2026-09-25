@@ -24,7 +24,7 @@ export async function GET(
 
     const messages = await prisma.ticketMessage.findMany({
       where: { ticketId: id },
-      include: { sender: true },
+      include: { sender: { select: { id: true, name: true } } },
       orderBy: { createdAt: "asc" },
     });
 

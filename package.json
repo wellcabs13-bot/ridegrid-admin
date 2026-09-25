@@ -17,7 +17,10 @@
     "backup": "powershell -ExecutionPolicy Bypass -File scripts/backup-db.ps1",
     "backup:verify": "powershell -ExecutionPolicy Bypass -File scripts/verify-backup.ps1",
     "restore": "powershell -ExecutionPolicy Bypass -File scripts/restore-db.ps1",
-    "lint": "next lint"
+    "lint": "next lint",
+    "encoding:check": "node scripts/encoding-guard.cjs",
+    "prebuild": "npm run encoding:check",
+    "predev": "npm run encoding:check"
   },
   "dependencies": {
     "@prisma/client": "^6.16.3",

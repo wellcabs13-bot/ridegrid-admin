@@ -1,4 +1,6 @@
-﻿import {
+import { legacyVendorId } from "@/lib/vendor-mobile/legacy";
+import { vendorFailure } from "@/lib/vendor-mobile/access";
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -61,10 +63,7 @@ export async function GET(
       );
     }
 
-    const vendorId =
-      request.nextUrl.searchParams.get(
-        "vendorId"
-      );
+    const vendorId = await legacyVendorId(request);
 
     if (!vendorId) {
       return NextResponse.json(
@@ -109,18 +108,5 @@ export async function GET(
       success: true,
       data: wallet,
     });
-  } catch (error) {
-    console.error(
-      "GET /api/vendors/wallet:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to fetch wallet.",
-      },
-      { status: 500 }
-    );
-  }
+  } catch (error) { return vendorFailure(error); }
 }

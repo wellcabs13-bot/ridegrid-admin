@@ -427,7 +427,7 @@ export default function DriverForm() {
                   key={vehicle.id}
                   value={vehicle.id}
                 >
-                  {vehicle.registrationNumber} â€”{" "}
+                  {vehicle.registrationNumber} —{" "}
                   {vehicle.make} {vehicle.model}
                 </option>
               ))}

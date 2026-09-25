@@ -1,87 +1,21 @@
-'use client';
-
-import DashboardLayout from '@/components/DashboardLayout';
-
-import NotificationsHeader from '@/components/notifications/NotificationsHeader';
-import NotificationStats from '@/components/notifications/NotificationStats';
-import NotificationTabs from '@/components/notifications/NotificationTabs';
-
-import PushNotificationCard from '@/components/notifications/PushNotificationCard';
-import EmailCampaignCard from '@/components/notifications/EmailCampaignCard';
-import SMSCampaignCard from '@/components/notifications/SMSCampaignCard';
-import WhatsAppCampaignCard from '@/components/notifications/WhatsAppCampaignCard';
-
-import TemplateManager from '@/components/notifications/TemplateManager';
-import ScheduledNotifications from '@/components/notifications/ScheduledNotifications';
-
-import AnnouncementCenter from '@/components/notifications/AnnouncementCenter';
-import NotificationHistory from '@/components/notifications/NotificationHistory';
-import DeliveryStatus from '@/components/notifications/DeliveryStatus';
-
-import FailedNotifications from '@/components/notifications/FailedNotifications';
-import AudienceSelector from '@/components/notifications/AudienceSelector';
-import QuickBroadcast from '@/components/notifications/QuickBroadcast';
-
-import NotificationAnalytics from '@/components/notifications/NotificationAnalytics';
-import RecentActivity from '@/components/notifications/RecentActivity';
-import CommunicationLogs from '@/components/notifications/CommunicationLogs';
-
+"use client";
+import { useState } from "react";
+import DashboardLayout from "@/components/DashboardLayout";
+import { useAuth } from "@/contexts/AuthContext";
+import { DataState, PageHeading, Metric, useAdminData, Badge, date } from "@/components/admin/Primitives";
+import RecordTable, { RecordRow } from "@/components/admin/RecordTable";
 export default function NotificationsPage() {
-  return (
-    <DashboardLayout>
-      <div className="space-y-6 p-6">
-        <NotificationsHeader />
-
-        <NotificationStats />
-
-        <NotificationTabs />
-
-        {/* Campaign Builder */}
-        <div className="grid gap-6 xl:grid-cols-2">
-          <PushNotificationCard />
-
-          <EmailCampaignCard />
-
-          <SMSCampaignCard />
-
-          <WhatsAppCampaignCard />
-        </div>
-
-        {/* Audience */}
-        <AudienceSelector />
-
-        {/* Broadcast */}
-        <QuickBroadcast />
-
-        {/* Templates & Scheduler */}
-        <div className="grid gap-6 xl:grid-cols-2">
-          <TemplateManager />
-
-          <ScheduledNotifications />
-        </div>
-
-        {/* Announcements */}
-        <AnnouncementCenter />
-
-        {/* Analytics */}
-        <NotificationAnalytics />
-
-        {/* Delivery & Failed */}
-        <div className="grid gap-6 xl:grid-cols-2">
-          <DeliveryStatus />
-
-          <FailedNotifications />
-        </div>
-
-        {/* Activity */}
-        <RecentActivity />
-
-        {/* History */}
-        <NotificationHistory />
-
-        {/* Communication Logs */}
-        <CommunicationLogs />
-      </div>
-    </DashboardLayout>
-  );
+  const {user}=useAuth();
+  const [status,setStatus]=useState("");
+  const {data,loading,error,reload}=useAdminData<RecordRow[]>(user ? "/api/notifications?userId="+encodeURIComponent(user.id) : null);
+  const rows=data??[];
+  const filtered=rows.filter(row=>!status || row.status===status);
+  return <DashboardLayout><div className="space-y-6"><PageHeading title="Notifications" description="Notification records for your account, with the delivery status recorded by the existing notification service."><button className="rg-secondary" disabled={loading} onClick={reload}>Refresh</button></PageHeading>
+    <DataState loading={loading} error={error} onRetry={reload}>
+      <div className="grid gap-4 sm:grid-cols-3"><Metric label="Notifications" value={rows.length}/><Metric label="Pending delivery" value={rows.filter(r=>r.status==="PENDING").length}/><Metric label="Failed delivery" value={rows.filter(r=>r.status==="FAILED").length}/></div>
+      <label className="mt-6 block max-w-xs text-sm">Delivery status<select className="rg-input mt-2" value={status} onChange={e=>setStatus(e.target.value)}><option value="">All statuses</option>{Array.from(new Set(rows.map(r=>String(r.status)))).map(s=><option key={s}>{s}</option>)}</select></label>
+      <div className="mt-4"><RecordTable rows={filtered} columns={[{key:"title",title:"Title"},{key:"message",title:"Message"},{key:"notificationType",title:"Channel"},{key:"status",title:"Delivery",render:r=><Badge>{String(r.status)}</Badge>},{key:"createdAt",title:"Created",render:r=>date(String(r.createdAt))}]}/></div>
+    </DataState>
+    <p className="text-xs text-neutral-500">Delivery and read receipts are different. This system currently exposes delivery records; no read status is inferred.</p>
+  </div></DashboardLayout>;
 }

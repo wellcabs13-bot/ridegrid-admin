@@ -7,10 +7,12 @@ import {
   PaymentMethod,
   PaymentStatus,
   TransactionType,
+  UserRole,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/auth/middleware";
+import { bookingScope } from "@/lib/request-access";
 import { transactionRepository } from "@/lib/repositories/transaction";
 import { auditLog } from "@/lib/audit";
 import {
@@ -70,8 +72,8 @@ export async function POST(
     }
 
     const booking =
-      await prisma.booking.findUnique({
-        where: { id: bookingId },
+      await prisma.booking.findFirst({
+        where: { ...bookingScope({ id: user.id, role: user.role as UserRole }), id: bookingId, deletedAt: null },
         include: {
           transactions: {
             where: {
@@ -123,31 +125,6 @@ export async function POST(
       );
     }
 
-    if (
-      String(user.role) === "CUSTOMER" &&
-      booking.customerId !== user.id
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "You cannot pay for this booking.",
-        },
-        { status: 403 }
-      );
-    }
-
-    if (
-      String(user.role) === "VENDOR" &&
-      booking.vendorId !== user.id
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "You cannot pay for this booking.",
-        },
-        { status: 403 }
-      );
-    }
 
     const existing =
       booking.transactions[0];

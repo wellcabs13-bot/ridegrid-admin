@@ -86,7 +86,7 @@ function ResetPasswordForm() {
 
       if (!response.ok || !result.success) {
         throw new Error(
-          result.message ??
+          (Array.isArray(result.errors) ? result.errors.join(" ") : result.message) ??
             "Password reset failed."
         );
       }
@@ -125,7 +125,7 @@ function ResetPasswordForm() {
           </div>
 
           {error && (
-            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div role="alert" className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
@@ -140,6 +140,7 @@ function ResetPasswordForm() {
             onSubmit={handleSubmit}
             className="space-y-5"
           >
+            {!token && <p role="alert" className="text-sm text-red-700">This reset link is missing or invalid. <Link href="/forgot-password" className="underline">Request a new link</Link>.</p>}
             <div>
               <label
                 htmlFor="password"
@@ -202,7 +203,7 @@ function ResetPasswordForm() {
           <div className="mt-6 text-center">
             <Link
               href="/login"
-              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              className="text-sm font-medium text-red-700 hover:text-blue-700"
             >
               Back to Login
             </Link>

@@ -38,6 +38,7 @@ model User {
 }
 
 model Customer {
+  savedRoutes CustomerSavedRoute[]
   id               String             @id @default(cuid())
   userId           String             @unique
   firstName        String
@@ -202,6 +203,9 @@ model Vehicle {
 }
 
 model Booking {
+  priceSnapshot      Json?
+  pricingQuoteId     String? @unique
+  pricingQuote       PricingQuote? @relation(fields: [pricingQuoteId], references: [id], onDelete: Restrict)
   id                  String                 @id @default(cuid())
   bookingNumber       String                 @unique
   bookingSource       BookingSource          @default(WEBSITE)
@@ -214,6 +218,9 @@ model Booking {
   pickupLocation      String
   dropLocation        String
   pickupDateTime      DateTime
+  reservedFrom        DateTime?
+  reservedUntil       DateTime?
+  tripDays            Int                    @default(1)
   tripType            TripType               @default(ONEWAY)
   status              BookingStatus          @default(PENDING)
   estimatedFare       Decimal                @db.Decimal(10, 2)
@@ -263,6 +270,9 @@ model Booking {
   @@index([customerId, status])
   @@index([vendorId, status])
   @@index([driverId, status])
+  @@index([vehicleId, reservedFrom, reservedUntil])
+  @@index([driverId, reservedFrom, reservedUntil])
+  @@index([status, reservedFrom, reservedUntil])
   @@index([pickupDateTime, status])
   @@index([customerId, pickupDateTime])
   @@index([vendorId, pickupDateTime])
@@ -383,6 +393,7 @@ model VendorDocument {
 }
 
 model PricingRule {
+  versions            PricingRateVersion[]
   id                  String               @id @default(cuid())
   vendorId            String
   vehicleCategory     VehicleCategory
@@ -2893,6 +2904,7 @@ model EventRetryQueue {
 }
 
 model PricingPackage {
+  versions      PricingRateVersion[]
   id            String @id @default(cuid())
   pricingRuleId String
   vehicleId     String
@@ -2982,6 +2994,8 @@ model CorporateApprovalRequest {
   completedAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  // Requested ride criteria (package, pickup time, addresses, quoted fare) an approver decides on.
+  requestSnapshot Json?
 
   corporate Corporate               @relation(fields: [corporateId], references: [id], onDelete: Cascade)
   employee  CorporateEmployee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -3384,4 +3398,94 @@ model WebsiteSeoSearchObservation {
   @@index([keywordId, observedAt])
   @@index([pageId, observedAt])
   @@index([competitorId, observedAt])
+}
+
+// Historical rules/packages remain the source identities; published terms live in versions.
+model PricingRateVersion {
+  id String @id @default(cuid())
+  pricingRuleId String
+  pricingPackageId String?
+  pricingRule PricingRule @relation(fields: [pricingRuleId], references: [id], onDelete: Restrict)
+  pricingPackage PricingPackage? @relation(fields: [pricingPackageId], references: [id], onDelete: Restrict)
+  scopeKey String
+  vendorId String
+  vehicleCategory VehicleCategory
+  service String
+  city String @default("")
+  origin String @default("")
+  destination String @default("")
+  area String @default("")
+  version Int
+  status String @default("DRAFT")
+  effectiveFrom DateTime
+  effectiveTo DateTime?
+  fare Decimal @db.Decimal(14, 2)
+  terms Json
+  smartReturnFare Decimal? @db.Decimal(14, 2)
+  createdBy String
+  reviewedBy String?
+  reviewReason String?
+  reviewedAt DateTime?
+  deactivatedAt DateTime?
+  createdAt DateTime @default(now())
+  quotes PricingQuote[]
+  @@unique([scopeKey, version])
+  @@index([vendorId, service, vehicleCategory, status, effectiveFrom])
+  @@index([scopeKey, status, effectiveFrom, effectiveTo])
+}
+
+// Versioned policy payloads are validated by pricing/config.ts before persistence.
+model PricingPolicy {
+  id String @id @default(cuid())
+  key String
+  version Int
+  kind String
+  name String
+  city String @default("")
+  service String @default("")
+  vehicleCategory String @default("")
+  vendorId String @default("")
+  route String @default("")
+  effectiveFrom DateTime
+  effectiveTo DateTime?
+  active Boolean @default(true)
+  data Json
+  createdBy String
+  createdAt DateTime @default(now())
+  @@unique([key, version])
+  @@index([kind, active, service, city, effectiveFrom])
+}
+
+model PricingQuote {
+  id String @id @default(cuid())
+  idempotencyKey String @unique
+  requestHash String
+  ownerId String
+  vendorId String
+  vehicleId String
+  rateVersionId String
+  rateVersion PricingRateVersion @relation(fields: [rateVersionId], references: [id], onDelete: Restrict)
+  snapshot Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  booking Booking?
+  @@index([vendorId, createdAt])
+  @@index([expiresAt])
+}
+
+model CustomerSavedRoute {
+  id String @id @default(cuid())
+  customerId String
+  serviceType String
+  tripType String
+  pickupCity String
+  dropCity String
+  category String
+  packageName String
+  fareWatch Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  @@index([customerId])
+  @@unique([customerId, serviceType, tripType, pickupCity, dropCity, category, packageName], map: "customer_saved_route_identity")
 }

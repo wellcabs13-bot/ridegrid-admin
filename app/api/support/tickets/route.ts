@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         driver: true,
         vendor: true,
         corporate: true,
-        assignedTo: true,
+        assignedTo: { select: { id: true, name: true, email: true } },
         messages: true,
         sla: true,
       },

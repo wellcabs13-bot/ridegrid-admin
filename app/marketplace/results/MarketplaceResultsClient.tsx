@@ -1,4 +1,5 @@
-﻿"use client";
+"use client";
+import { FareDetails, FareDetailsValue } from "@/components/pricing/FareDetails";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -31,11 +32,16 @@ type Listing = {
     fromCity?: string | null;
     toCity?: string | null;
     baseFare: number;
+    finalPayable: number;
+    quote: FareDetailsValue;
     includedHours?: number | null;
     includedKm?: number | null;
+    includedKmPerDay?: number | null;
     extraKmRate?: number | null;
     extraHourRate?: number | null;
     driverAllowance?: number | null;
+    driverAllowancePerDay?: number | null;
+    tripDays?: number | null;
     nightCharge?: number | null;
     waitingCharge?: number | null;
     tollCharge?: number | null;
@@ -187,6 +193,8 @@ export default function MarketplaceResultsClient() {
   const date = searchParams.get("date") || "";
   const time = searchParams.get("time") || "";
   const category = searchParams.get("category") || "";
+  const days = searchParams.get("days") || "";
+  const endDate = searchParams.get("endDate") || "";
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,7 +216,7 @@ export default function MarketplaceResultsClient() {
         params.set("limit", "100");
         for (const [key, value] of Object.entries({
           serviceType, tripType, pickupCity, dropCity, city, packageName,
-          airport, airportDirection, airportSlab, date, time, category
+          airport, airportDirection, airportSlab, date, time, category, days, endDate
         })) {
           if (value) params.set(key, value);
         }
@@ -256,12 +264,12 @@ export default function MarketplaceResultsClient() {
 
     load();
     return () => { cancelled = true; };
-  }, [serviceType, tripType, pickupCity, dropCity, city, packageName, airport, airportDirection, airportSlab, date, time, category]);
+  }, [serviceType, tripType, pickupCity, dropCity, city, packageName, airport, airportDirection, airportSlab, date, time, category, days, endDate]);
 
   const sortedListings = useMemo(() => {
     const items = [...listings];
-    if (sortBy === "price_low") return items.sort((a, b) => a.pricing.baseFare - b.pricing.baseFare);
-    if (sortBy === "price_high") return items.sort((a, b) => b.pricing.baseFare - a.pricing.baseFare);
+    if (sortBy === "price_low") return items.sort((a, b) => a.pricing.finalPayable - b.pricing.finalPayable);
+    if (sortBy === "price_high") return items.sort((a, b) => b.pricing.finalPayable - a.pricing.finalPayable);
     if (sortBy === "rating") return items.sort((a, b) => (b.ratings?.vehicle?.average ?? b.marketplace.rating ?? 0) - (a.ratings?.vehicle?.average ?? a.marketplace.rating ?? 0));
     if (sortBy === "trips") return items.sort((a, b) => b.marketplace.totalTrips - a.marketplace.totalTrips);
     return items.sort((a, b) => {
@@ -284,6 +292,8 @@ export default function MarketplaceResultsClient() {
       time,
     });
     if (category) params.set("category", category);
+    if (days) params.set("days", days);
+    if (endDate) params.set("endDate", endDate);
     if (packageName) params.set("packageName", packageName);
     if (airport) params.set("airport", airport);
     if (airportDirection) params.set("airportDirection", airportDirection);
@@ -323,6 +333,12 @@ export default function MarketplaceResultsClient() {
                 {date && <InfoPill label="Date" value={dateLabel(date)} />}
                 {time && <InfoPill label="Time" value={time} />}
                 {category && <InfoPill label="Category" value={title(category)} />}
+                {tripType === "ROUNDTRIP" && days && (
+                  <InfoPill
+                    label="Trip Duration"
+                    value={`${days} ${Number(days) === 1 ? "Day" : "Days"}`}
+                  />
+                )}
                 {packageName && <InfoPill label="Package" value={packageName} />}
                 {airport && <InfoPill label="Airport" value={airport} />}
                 {airportSlab && <InfoPill label="KM Slab" value={`${airportSlab} KM`} />}
@@ -449,6 +465,16 @@ function MarketplaceListingCard({
   const driverRating = listing.ratings?.driver;
   const pkg = listing.pricing;
 
+  const quoteMeta = pkg.quote as any;
+
+  const isRoundTripDisplay =
+    pkg.tripType === "ROUNDTRIP" ||
+    quoteMeta?.calculationRule?.operational?.service === "ROUNDTRIP";
+
+  const roundTripDisplayDays = isRoundTripDisplay
+    ? Math.max(1, Number(quoteMeta?.tripMetrics?.days || 1))
+    : 1;
+
   const saveAmount =
     pkg.extraKmRate != null && pkg.baseFare > 0
       ? null
@@ -475,7 +501,7 @@ function MarketplaceListingCard({
               />
             ) : (
               <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-                <div className="text-5xl">ðŸš—</div>
+                <div className="text-5xl">🚗</div>
                 <div className="mt-3 text-sm font-bold text-slate-300">Vehicle photo not uploaded</div>
                 <div className="mt-1 text-xs text-slate-500">No demo image is used.</div>
               </div>
@@ -627,7 +653,16 @@ function MarketplaceListingCard({
 
         {/* PRICING */}
         <div className="border-t border-white/10 bg-slate-950/60 p-6 lg:border-l lg:border-t-0">
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">Total Package</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
+                TOTAL PACKAGE
+                {(pkg as any).tripDays ? (
+                  <>
+                    {" · "}
+                    {(pkg as any).tripDays}{" "}
+                    {(pkg as any).tripDays === 1 ? "DAY" : "DAYS"}
+                  </>
+                ) : null}
+              </div>
           <div className="mt-2 text-xl font-black">{packageHeadline(listing)}</div>
 
           {locationLine(listing) && (
@@ -635,17 +670,37 @@ function MarketplaceListingCard({
           )}
 
           <div className="mt-5 flex items-end gap-2">
-            <span className="text-4xl font-black text-cyan-300">{currency(pkg.baseFare)}</span>
-            <span className="pb-1 text-xs text-slate-500">saved pricing</span>
+            <span className="text-4xl font-black text-cyan-300">{currency(pkg.finalPayable)}</span>
+            <span className="pb-1 text-xs text-slate-500">Final payable</span>
           </div>
 
           <div className="mt-5 space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-xs">
-            {pkg.includedKm != null && <PriceLine label="Included KM" value={`${pkg.includedKm} KM`} />}
+            {pkg.includedKm != null && (
+              <PriceLine
+                label="Included KM"
+                value={`${pkg.includedKm} KM${
+                  isRoundTripDisplay && pkg.includedKmPerDay != null
+                    ? ` (${pkg.includedKmPerDay} KM/day)`
+                    : ""
+                }`}
+              />
+            )}
             {pkg.includedHours != null && <PriceLine label="Included Hours" value={`${pkg.includedHours} Hrs`} />}
             {pkg.extraKmRate != null && <PriceLine label="Extra KM" value={`${currency(pkg.extraKmRate)} / KM`} />}
             {pkg.extraHourRate != null && <PriceLine label="Extra Hour" value={`${currency(pkg.extraHourRate)} / Hr`} />}
             {pkg.nightCharge != null && <PriceLine label="Night Charges" value={currency(pkg.nightCharge)} />}
-            {pkg.driverAllowance != null && <PriceLine label="Driver Allowance" value={pkg.driverAllowance === 0 ? "Included" : currency(pkg.driverAllowance)} />}
+            {pkg.driverAllowance != null && (
+              <PriceLine
+                label="Driver Allowance"
+                value={
+                  pkg.driverAllowance === 0
+                    ? "Included"
+                    : isRoundTripDisplay && pkg.driverAllowancePerDay != null
+                      ? `${currency(pkg.driverAllowance)} (${currency(pkg.driverAllowancePerDay)}/day)`
+                      : currency(pkg.driverAllowance)
+                }
+              />
+            )}
             {pkg.waitingCharge != null && <PriceLine label="Waiting" value={currency(pkg.waitingCharge)} />}
             {pkg.tollCharge != null && <PriceLine label="Toll" value={currency(pkg.tollCharge)} />}
             {pkg.parkingCharge != null && <PriceLine label="Parking" value={currency(pkg.parkingCharge)} />}
@@ -654,10 +709,68 @@ function MarketplaceListingCard({
 
           {pkg.pricingType === "AIRPORT" && (
             <div className="mt-3 rounded-xl border border-cyan-300/15 bg-cyan-300/5 px-3 py-2 text-xs text-cyan-100">
-              {pkg.airportName || "Airport"}{pkg.transferDirection ? ` • ${title(pkg.transferDirection)}` : ""}{pkg.includedKm != null ? ` • ${pkg.includedKm} KM slab` : ""}
+              {pkg.airportName || "Airport"}{pkg.transferDirection ? ` • ${title(pkg.transferDirection)}` : ""}{pkg.includedKm != null ? ` • ${isRoundTripDisplay ? Number(pkg.includedKm || 0) * roundTripDisplayDays : pkg.includedKm} KM${isRoundTripDisplay && pkg.includedKm != null ? ` (${pkg.includedKm} KM/day)` : ""} slab` : ""}
             </div>
           )}
 
+                    {/* ROUNDTRIP PACKAGE SUMMARY */}
+          {isRoundTripDisplay && (
+            <div className="my-3 rounded-xl border border-orange-300/20 bg-orange-300/5 p-3">
+              <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-orange-300">
+                Roundtrip Package
+              </div>
+
+              <div className="grid gap-2 text-xs">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-slate-400">Trip Duration</span>
+                  <span className="font-black text-white">
+                    {roundTripDisplayDays} {roundTripDisplayDays === 1 ? "Day" : "Days"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-slate-400">Daily Package</span>
+                  <span className="font-black text-white">
+                    {currency(Number(pkg.baseFare || 0) / roundTripDisplayDays)} / day
+                  </span>
+                </div>
+
+                {pkg.includedKm != null && (
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-slate-400">Included KM</span>
+                    <span className="font-black text-white">
+                      {pkg.includedKm} KM
+                      <span className="ml-1 font-medium text-slate-400">
+                        ({pkg.includedKmPerDay} KM/day)
+                      </span>
+                    </span>
+                  </div>
+                )}
+
+                {pkg.driverAllowance != null && (
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-slate-400">Driver Allowance</span>
+                    <span className="font-black text-white">
+                      {currency(pkg.driverAllowance)}
+                      <span className="ml-1 font-medium text-slate-400">
+                        ({currency(pkg.driverAllowancePerDay ?? pkg.driverAllowance)}/day)
+                      </span>
+                    </span>
+                  </div>
+                )}
+
+                {pkg.extraKmRate != null && (
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-slate-400">Extra KM</span>
+                    <span className="font-black text-white">
+                      {currency(pkg.extraKmRate)}/KM
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <details className="my-3"><summary>Fare details</summary><FareDetails value={pkg.quote}/></details>
           <button
             type="button"
             disabled={bookingLoading}

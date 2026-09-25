@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
+import CorporateOperations from "@/components/admin/CorporateOperations";
 
 type Status = "ACTIVE" | "INACTIVE" | "SUSPENDED";
 type BillingCycle = "PER_TRIP" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
@@ -158,11 +159,11 @@ const formatNumber = (value: number) =>
   new Intl.NumberFormat("en-IN").format(Number.isFinite(value) ? value : 0);
 
 const formatCycle = (value?: string | null) =>
-  value ? value.replaceAll("_", " ") : "â€”";
+  value ? value.replaceAll("_", " ") : "—";
 
 const formatPercent = (current: number, previous: number) => {
   if (previous === 0 && current === 0) return null;
-  if (previous === 0) return 100;
+  if (previous === 0) return null;
   return Math.round(((current - previous) / previous) * 100);
 };
 
@@ -194,7 +195,7 @@ function getCorporateTier(monthlyBookings: number) {
     return {
       key: "STARTER",
       label: "Starter",
-      range: "1â€“10 bookings / month",
+      range: "1–10 bookings / month",
       working: "Standard corporate servicing and pricing.",
     };
   }
@@ -202,7 +203,7 @@ function getCorporateTier(monthlyBookings: number) {
     return {
       key: "GROWTH",
       label: "Growth",
-      range: "11â€“30 bookings / month",
+      range: "11–30 bookings / month",
       working: "Priority account handling and volume-based commercial review.",
     };
   }
@@ -210,7 +211,7 @@ function getCorporateTier(monthlyBookings: number) {
     return {
       key: "ENTERPRISE",
       label: "Enterprise",
-      range: "31â€“75 bookings / month",
+      range: "31–75 bookings / month",
       working: "Dedicated account attention with negotiated enterprise terms.",
     };
   }
@@ -459,7 +460,7 @@ export default function CorporatePage() {
         throw new Error(result.message || "Failed to load corporate details.");
       }
 
-      setViewing(result.data as CorporateDetails);
+      setViewing({ ...item, ...result.data } as CorporateDetails);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to load corporate details.");
     } finally {
@@ -588,8 +589,13 @@ export default function CorporatePage() {
     try {
       setSaving(true);
 
+      const { expectedMonthlyBookings, serviceTypes, quotationFile, agreementFile, ...baseForm } = form;
+      const expected = expectedMonthlyBookings === "" ? null : Number(expectedMonthlyBookings);
+      if (expected !== null && (!Number.isInteger(expected) || expected < 0)) {
+        throw new Error("Expected monthly bookings must be a whole number of 0 or more.");
+      }
       const payload = {
-        ...form,
+        ...baseForm,
         creditLimit: form.creditLimit ? Number(form.creditLimit) : null,
         paymentTermsDays: Number(form.paymentTermsDays || 30),
         accountManagerName: form.accountManagerName || null,
@@ -614,10 +620,15 @@ export default function CorporatePage() {
         throw new Error("Corporate was saved but no corporate ID was returned.");
       }
 
+      // Keep the saved ID if a subsequent upload/profile save fails, so retry updates.
+      if (!selected) setSelected({ ...result.data, id: savedCorporateId } as Corporate);
+
       setDocumentUploading(true);
       await saveCommercialProfile(savedCorporateId);
 
-      closeModal();
+      setModalOpen(false);
+      setSelected(null);
+      setForm({ ...emptyForm });
       await fetchDashboard();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to save corporate account.");
@@ -737,7 +748,7 @@ export default function CorporatePage() {
               onClick={exportCsv}
               className="inline-flex items-center gap-2 rounded-lg border border-[#dbe3ef] bg-white px-4 py-2 text-[12px] font-semibold text-[#334155] shadow-sm hover:bg-[#f8fafc]"
             >
-              <span>â‡©</span>
+              <span>⇩</span>
               Export
             </button>
             <button
@@ -760,35 +771,35 @@ export default function CorporatePage() {
           <KpiCard
             title="Total Corporates"
             value={formatNumber(totals.totalCorporates)}
-            icon="â–¥"
+            icon="▥"
             tone="indigo"
             footer={totals.totalCorporates ? "All active records in database" : "No corporate records"}
           />
           <KpiCard
             title="Active Corporates"
             value={formatNumber(totals.activeCorporates)}
-            icon="â™§"
+            icon="♧"
             tone="green"
             footer={`${activePercent}% of total`}
           />
           <KpiCard
             title="Inactive / Suspended"
             value={formatNumber(totals.inactiveSuspendedCorporates)}
-            icon="â…¡"
+            icon="Ⅱ"
             tone="amber"
             footer={`${inactivePercent}% of total`}
           />
           <KpiCard
             title="Total Bookings (Corporate)"
             value={formatNumber(totals.totalBookings)}
-            icon="â–¡"
+            icon="□"
             tone="blue"
             footer={
               bookingGrowth === null
                 ? "No monthly booking activity"
                 : bookingGrowth >= 0
-                  ? `â†‘ ${bookingGrowth}% this month`
-                  : `â†“ ${Math.abs(bookingGrowth)}% this month`
+                  ? `↑ ${bookingGrowth}% this month`
+                  : `↓ ${Math.abs(bookingGrowth)}% this month`
             }
             positive={bookingGrowth === null ? undefined : bookingGrowth >= 0}
           />
@@ -796,21 +807,21 @@ export default function CorporatePage() {
           <KpiCard
             title="Total Booking Value"
             value={formatMoney(totals.totalBookingValue)}
-            icon="â‚¹"
+            icon="₹"
             tone="violet"
             footer={
               valueGrowth === null
                 ? "No monthly booking activity"
                 : valueGrowth >= 0
-                  ? `â†‘ ${valueGrowth}% this month`
-                  : `â†“ ${Math.abs(valueGrowth)}% this month`
+                  ? `↑ ${valueGrowth}% this month`
+                  : `↓ ${Math.abs(valueGrowth)}% this month`
             }
             positive={valueGrowth === null ? undefined : valueGrowth >= 0}
           />
           <KpiCard
             title="Outstanding Amount"
             value={formatMoney(totals.outstandingAmount)}
-            icon="Â¤"
+            icon="¤"
             tone="blue"
             footer="Unpaid corporate-linked invoices"
             positive={false}
@@ -818,14 +829,14 @@ export default function CorporatePage() {
           <KpiCard
             title="Avg. Monthly Bookings"
             value={formatNumber(totals.averageMonthlyBookings)}
-            icon="Ã—"
+            icon="×"
             tone="rose"
             footer="Based on available corporate booking history"
           />
           <KpiCard
             title="Avg. Corporate Rating"
-            value={totals.averageCorporateRating == null ? "â€”" : totals.averageCorporateRating.toFixed(1)}
-            icon="âŒ"
+            value={totals.averageCorporateRating == null ? "—" : totals.averageCorporateRating.toFixed(1)}
+            icon="⌁"
             tone="green"
             footer={
               totals.averageCorporateRating == null
@@ -969,7 +980,7 @@ export default function CorporatePage() {
 
                       <td className="px-4 py-3">
                         <div className="text-[10px] font-semibold text-[#243b5a]">
-                          {item.accountManagerName || "â€”"}
+                          {item.accountManagerName || "—"}
                         </div>
                         <div className="mt-0.5 text-[9px] text-[#64748b]">
                           {item.accountManagerMobile || item.mobile}
@@ -981,10 +992,10 @@ export default function CorporatePage() {
 
                       <td className="px-4 py-3">
                         <div className="text-[10px] font-medium text-[#334155]">
-                          {item.city || "â€”"}
+                          {item.city || "—"}
                         </div>
                         <div className="text-[9px] text-[#8a9ab1]">
-                          {item.state || item.country || "â€”"}
+                          {item.state || item.country || "—"}
                         </div>
                       </td>
 
@@ -1012,11 +1023,11 @@ export default function CorporatePage() {
                         >
                           {item.previousMonthBookingCount === 0
                             ? item.monthlyBookingCount > 0
-                              ? "â†‘ New this month"
+                              ? "↑ New this month"
                               : "No activity"
                             : item.monthlyBookingCount >= item.previousMonthBookingCount
-                              ? `â†‘ ${Math.round(((item.monthlyBookingCount - item.previousMonthBookingCount) / item.previousMonthBookingCount) * 100)}%`
-                              : `â†“ ${Math.abs(Math.round(((item.monthlyBookingCount - item.previousMonthBookingCount) / item.previousMonthBookingCount) * 100))}%`}
+                              ? `↑ ${Math.round(((item.monthlyBookingCount - item.previousMonthBookingCount) / item.previousMonthBookingCount) * 100)}%`
+                              : `↓ ${Math.abs(Math.round(((item.monthlyBookingCount - item.previousMonthBookingCount) / item.previousMonthBookingCount) * 100))}%`}
                         </div>
                       </td>
 
@@ -1048,7 +1059,7 @@ export default function CorporatePage() {
                             onClick={() => void openView(item)}
                             className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-[#f8fafc]"
                           >
-                            â—‰
+                            ◉
                           </button>
                           <button
                             type="button"
@@ -1056,7 +1067,7 @@ export default function CorporatePage() {
                             onClick={() => openEdit(item)}
                             className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-[#f8fafc]"
                           >
-                            âœŽ
+                            ✎
                           </button>
                           <button
                             type="button"
@@ -1067,7 +1078,7 @@ export default function CorporatePage() {
                             }}
                             className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-[#f8fafc]"
                           >
-                            â‹¯
+                            ⋯
                           </button>
 
                           {menuId === item.id && (
@@ -1136,7 +1147,7 @@ export default function CorporatePage() {
                   onClick={() => setViewing(null)}
                   className="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100"
                 >
-                  âœ•
+                  ✕
                 </button>
               </div>
 
@@ -1162,10 +1173,10 @@ export default function CorporatePage() {
 
                 <InfoBlock title="Address">
                   <InfoRow label="Address" value={viewing.address || "Not provided"} />
-                  <InfoRow label="City" value={viewing.city || "â€”"} />
-                  <InfoRow label="State" value={viewing.state || "â€”"} />
+                  <InfoRow label="City" value={viewing.city || "—"} />
+                  <InfoRow label="State" value={viewing.state || "—"} />
                   <InfoRow label="Country" value={viewing.country || "India"} />
-                  <InfoRow label="Pincode" value={viewing.pincode || "â€”"} />
+                  <InfoRow label="Pincode" value={viewing.pincode || "—"} />
                 </InfoBlock>
 
                 <InfoBlock title="Commercial Controls">
@@ -1178,13 +1189,14 @@ export default function CorporatePage() {
 
                 <InfoBlock title="Account Manager">
                   <InfoRow label="Name" value={viewing.accountManagerName || "Not assigned"} />
-                  <InfoRow label="Email" value={viewing.accountManagerEmail || "â€”"} />
-                  <InfoRow label="Mobile" value={viewing.accountManagerMobile || "â€”"} />
+                  <InfoRow label="Email" value={viewing.accountManagerEmail || "—"} />
+                  <InfoRow label="Mobile" value={viewing.accountManagerMobile || "—"} />
                   <InfoRow label="Outstanding" value={formatMoney(viewing.outstandingAmount)} />
                   <InfoRow label="Rating" value={viewing.averageRating == null ? "No rating" : viewing.averageRating.toFixed(1)} />
                 </InfoBlock>
               </div>
 
+              <div className="px-6 pb-6"><CorporateOperations corporateId={viewing.id}/></div>
               <div className="flex justify-end border-t border-slate-100 px-6 py-4">
                 <button
                   type="button"
@@ -1224,7 +1236,7 @@ export default function CorporatePage() {
                   disabled={saving || documentUploading}
                   className="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100"
                 >
-                  âœ•
+                  ✕
                 </button>
               </div>
 
@@ -1546,7 +1558,7 @@ function DocumentHint({
   if (!fileName && !fileUrl) {
     return (
       <p className="mt-1 text-[9px] text-slate-400">
-        Optional â€¢ PDF, JPG or PNG â€¢ Max 10 MB
+        Optional · PDF, JPG or PNG · Max 10 MB
       </p>
     );
   }
@@ -1566,7 +1578,7 @@ function DocumentHint({
       ) : (
         fileName
       )}
-      {" â€¢ Choose a new file to replace it."}
+      {" · Choose a new file to replace it."}
     </p>
   );
 }

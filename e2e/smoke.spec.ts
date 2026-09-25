@@ -14,7 +14,7 @@ test.describe(
         await expect(
           page
         ).toHaveTitle(
-          /RideGrid/i
+          /Wellcabs/i
         );
       }
     );

@@ -10,19 +10,7 @@ export async function POST(request: NextRequest) {
     const refreshToken =
       typeof body.refreshToken === "string"
         ? body.refreshToken
-        : "";
-
-    if (!refreshToken) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Refresh token is required.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
+        : request.cookies.get("ridegrid_refresh_token")?.value ?? "";
 
     const authorization =
       request.headers.get("authorization");
@@ -60,7 +48,7 @@ export async function POST(request: NextRequest) {
         "unknown",
     };
 
-    await authService.logout(session);
+    if (refreshToken) await authService.logout(session);
 
     const response = NextResponse.json({
       success: true,
@@ -68,6 +56,8 @@ export async function POST(request: NextRequest) {
     });
 
     response.cookies.delete("ridegrid_access_token");
+    response.cookies.delete("ridegrid_refresh_token");
+    response.cookies.delete("ridegrid-token");
 
     return response;
   } catch (error) {

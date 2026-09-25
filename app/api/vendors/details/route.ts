@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const vendor = await prisma.vendor.findUnique({
       where: { id: vendorId },
       include: {
-        user: true,
+        user: { select: { name: true, mobile: true, email: true } },
 
         vehicles: {
           where: { deletedAt: null },
@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
         },
 
         reviews: {
+          where: { status: "PUBLISHED" },
           select: {
             rating: true,
           },
@@ -93,23 +94,20 @@ export async function GET(request: NextRequest) {
     }
 
     const completedBookings = vendor.bookings.filter(
-      (booking) => booking.status === "COMPLETED" as any
+      (booking) => booking.status === "TRIP_COMPLETED"
     );
 
     const totalEarned = completedBookings.reduce(
       (sum, booking) =>
-        sum + Number(booking.vendorEarning ?? booking.finalFare ?? booking.estimatedFare ?? 0),
+        sum + Number(booking.vendorEarning ?? 0),
       0
     );
 
-    const completedSettlements = vendor.settlements.filter(
-      (settlement) => settlement.settlementStatus === "COMPLETED"
-    );
-
-    const totalSettled = completedSettlements.reduce(
-      (sum, settlement) => sum + Number(settlement.netAmount ?? 0),
-      0
-    );
+    const settlementTotal = await prisma.vendorSettlement.aggregate({
+      where: { vendorId, settlementStatus: "COMPLETED" },
+      _sum: { netAmount: true },
+    });
+    const totalSettled = Number(settlementTotal._sum.netAmount ?? 0);
 
     const pendingPayment = Math.max(totalEarned - totalSettled, 0);
 

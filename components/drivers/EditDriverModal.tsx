@@ -497,7 +497,7 @@ export default function EditDriverModal({
             disabled={saving}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-2xl text-slate-500 hover:bg-slate-100"
           >
-            Ãƒâ€”
+            ×
           </button>
         </div>
 
@@ -594,7 +594,7 @@ export default function EditDriverModal({
                         value={vehicle.id}
                       >
                         {vehicle.registrationNumber}
-                        {" Ã¢â‚¬â€ "}
+                        {" — "}
                         {vehicle.make}{" "}
                         {vehicle.model}
                       </option>

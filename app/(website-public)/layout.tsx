@@ -5,18 +5,18 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   title: {
     default:
-      "RideGrid by Wellcabs | Cab & Ground Transportation Marketplace",
+      "Wellcabs | Cab & Ground Transportation Marketplace",
     template:
-      "%s | RideGrid by Wellcabs",
+      "%s | Wellcabs",
   },
 
   description:
-    "Search and book cab, taxi, airport, local and outstation ground transportation with RideGrid by Wellcabs.",
+    "Search and book cab, taxi, airport, local and outstation ground transportation with Wellcabs.",
 
   openGraph: {
     type: "website",
     siteName:
-      "RideGrid by Wellcabs",
+      "Wellcabs",
     images: [],
   },
 

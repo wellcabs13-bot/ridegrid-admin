@@ -1,3 +1,5 @@
+import { legacyVendorId } from "@/lib/vendor-mobile/legacy";
+import { vendorFailure } from "@/lib/vendor-mobile/access";
 import { NextRequest, NextResponse } from "next/server";
 import { TripType } from "@prisma/client";
 
@@ -8,7 +10,7 @@ import {
 
 export async function GET(req: NextRequest) {
   try {
-    const vendorId = req.nextUrl.searchParams.get("vendorId");
+    const vendorId = await legacyVendorId(req);
 
     if (!vendorId) {
       return NextResponse.json(
@@ -135,15 +137,5 @@ export async function GET(req: NextRequest) {
         eligibilityRule: "COMPLETED_OUTSTATION_ONE_WAY_ONLY",
       },
     });
-  } catch (error) {
-    console.error("GET /api/vendors/smart-return error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to calculate Smart Return opportunities.",
-      },
-      { status: 500 }
-    );
-  }
+  } catch (error) { return vendorFailure(error); }
 }

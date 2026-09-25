@@ -1,3 +1,4 @@
+import { centralDocumentAccess } from "@/lib/vendor-mobile/central-documents";
 import { NextRequest, NextResponse } from "next/server";
 import {
   DocumentStatus,
@@ -10,6 +11,7 @@ export async function GET(
   request: NextRequest
 ) {
   try {
+    const denied = await centralDocumentAccess(request); if (denied) return denied;
     const { searchParams } =
       new URL(request.url);
 
@@ -88,6 +90,7 @@ export async function POST(
   request: NextRequest
 ) {
   try {
+    const denied = await centralDocumentAccess(request); if (denied) return denied;
     const body =
       await request.json();
 

@@ -24,6 +24,10 @@
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": [
+  "apps/customer-mobile",
+  "apps/vendor-mobile",
+  "apps/driver-mobile",
+  "apps/corporate-employee-mobile",
   "node_modules",
   "playwright.config.ts",
   "e2e",

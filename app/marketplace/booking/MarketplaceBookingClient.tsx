@@ -1,4 +1,5 @@
-﻿"use client";
+"use client";
+import { FareDetails, FareDetailsValue } from "@/components/pricing/FareDetails";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -23,9 +24,13 @@ type Listing = {
     packageName?: string | null;
     packageType?: string | null;
     baseFare: number;
+    finalPayable: number;
+    quote: FareDetailsValue & { calculationRule?: { operational?: { service: string } } };
+    quoteId?: string;
     includedHours?: number | null;
     includedKm?: number | null;
     pricePerKm?: number | null;
+    extraKmRate?: number | null;
     extraHourRate?: number | null;
     driverAllowance?: number | null;
     nightCharge?: number | null;
@@ -116,6 +121,7 @@ export default function MarketplaceBookingClient() {
   const airportSlab = params.get("airportSlab") || "";
   const corporateId = params.get("corporateId") || "";
   const corporateName = params.get("corporateName") || "";
+  const effectiveTime = time || (tripType === "ROUNDTRIP" ? "12:00" : "");
 
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -130,6 +136,15 @@ export default function MarketplaceBookingClient() {
   const [specialRequest, setSpecialRequest] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [readyMessage, setReadyMessage] = useState("");
+  const tripDaysParam =
+    Number.parseInt(params.get("days") || "1", 10);
+
+  const tripDays =
+    tripType === "ROUNDTRIP" &&
+    Number.isInteger(tripDaysParam) &&
+    tripDaysParam > 0
+      ? String(tripDaysParam)
+      : "1";
 
   const [pickupCoordinates, setPickupCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [dropCoordinates, setDropCoordinates] = useState<{ lat: number; lng: number } | null>(null);
@@ -167,6 +182,9 @@ export default function MarketplaceBookingClient() {
         if (airport) search.set("airport", airport);
         if (airportDirection) search.set("airportDirection", airportDirection);
         if (airportSlab) search.set("airportSlab", airportSlab);
+        if (tripType === "ROUNDTRIP") {
+          search.set("days", tripDays);
+        }
 
         const response = await fetch(`/api/marketplace/search?${search.toString()}`, {
           cache: "no-store",
@@ -187,7 +205,13 @@ export default function MarketplaceBookingClient() {
         }
 
         if (!cancelled) {
-          setListing(found);
+          const quoted = await fetch("/api/pricing/quote", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ pricingPackageId:found.pricing.pricingPackageId, at:new Date(`${date}T${effectiveTime}:00+05:30`).toISOString(), idempotencyKey:crypto.randomUUID(), ...(tripType === "ROUNDTRIP" ? { days:tripDays } : {}) }) });
+          const result = await quoted.json();
+          if (!quoted.ok) throw new Error(result.message || "Unable to quote this trip");
+          found.pricing.quote = result.data.snapshot;
+          found.pricing.quoteId = result.data.id;
+          found.pricing.finalPayable = Number(result.data.snapshot.finalPayable);
+          if (!cancelled) setListing(found);
         }
       } catch (err) {
         if (!cancelled) {
@@ -207,6 +231,7 @@ export default function MarketplaceBookingClient() {
     listingId,
     serviceType,
     tripType,
+    tripDays,
     pickupCity,
     dropCity,
     date,
@@ -239,7 +264,7 @@ export default function MarketplaceBookingClient() {
         const result = await response.json();
 
         if (!cancelled && response.ok && result.success) {
-          setCoupons(result.data || []);
+          setCoupons([]); // Only funding-aware discounts in the server quote may change the payable.
         }
       } catch {
         if (!cancelled) {
@@ -267,31 +292,8 @@ export default function MarketplaceBookingClient() {
     [coupons, selectedCouponId]
   );
 
-  const discountAmount = useMemo(() => {
-    if (!selectedCoupon) return 0;
-
-    const fare = Number(listing?.pricing.baseFare || 0);
-    if (selectedCoupon.minimumBooking != null && fare < Number(selectedCoupon.minimumBooking)) {
-      return 0;
-    }
-
-    const raw =
-      selectedCoupon.couponType === "PERCENTAGE"
-        ? fare * (Number(selectedCoupon.discountValue) / 100)
-        : Number(selectedCoupon.discountValue);
-
-    const capped =
-      selectedCoupon.maximumDiscount != null
-        ? Math.min(raw, Number(selectedCoupon.maximumDiscount))
-        : raw;
-
-    return Math.max(0, Math.min(capped, fare));
-  }, [listing, selectedCoupon]);
-
-  const finalFare = useMemo(
-    () => Math.max(0, Number(total) - Number(discountAmount)),
-    [total, discountAmount]
-  );
+  const discountAmount = 0;
+  const finalFare = Number(listing?.pricing.quote?.finalPayable || 0);
 
   function applyCoupon(id: string) {
     setCouponMessage("");
@@ -338,6 +340,7 @@ export default function MarketplaceBookingClient() {
   }
 
   function continueToPaymentPreparation() {
+    if (!listing?.pricing.quoteId || new Date(listing.pricing.quote.quoteExpiry) <= new Date()) { setError("Your quote expired. Refresh this page before booking."); return false; }
     setReadyMessage("");
 
     if (!firstName.trim()) {
@@ -379,12 +382,13 @@ export default function MarketplaceBookingClient() {
 
     const bookingDraft = {
       listingId,
+      tripDays: Number(tripDays),
       serviceType,
       tripType,
       pickupCity,
       dropCity,
       date,
-      time,
+      time: effectiveTime,
       category,
       packageName,
       airport,
@@ -424,6 +428,8 @@ export default function MarketplaceBookingClient() {
             discountAmount: Number(discountAmount),
           }
         : null,
+      quoteId: listing?.pricing.quoteId,
+      finalFare: Number(finalFare),
       totalFare: Number(finalFare),
       originalFare: Number(total),
       discountAmount: Number(discountAmount),
@@ -450,7 +456,7 @@ export default function MarketplaceBookingClient() {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
         <div className="w-full max-w-xl rounded-3xl border bg-white p-12 text-center shadow-sm">
-          <div className="text-4xl">ðŸš—</div>
+          <div className="text-4xl">🚗</div>
           <h1 className="mt-4 text-2xl font-bold text-slate-900">Vehicle unavailable</h1>
           <p className="mt-2 text-sm text-red-600">{error || "Selected listing is unavailable."}</p>
           <button
@@ -515,6 +521,21 @@ export default function MarketplaceBookingClient() {
       <section className="mx-auto max-w-7xl px-6 py-8">
         <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
           <div className="space-y-6">
+            {listing.pricing.quote.calculationRule?.operational?.service === "ROUNDTRIP" && (
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Trip Duration
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Selected in Marketplace
+                  </p>
+                </div>
+                <p className="text-lg font-black text-slate-900">
+                  {tripDays} Day{tripDays === "1" ? "" : "s"}
+                </p>
+              </div>
+            )}
             <section className="rounded-3xl border bg-white p-6 shadow-sm">
               <p className="text-xs font-black uppercase tracking-widest text-blue-600">Step 1</p>
               <h2 className="mt-1 text-2xl font-black text-slate-900">Customer Information</h2>
@@ -759,19 +780,19 @@ export default function MarketplaceBookingClient() {
                 </p>
 
                 {listing.pricing.includedKm != null && (
-                  <SummaryRow label="Included KM" value={`${listing.pricing.includedKm} KM`} />
+                  <SummaryRow label={listing.pricing.quote.calculationRule?.operational?.service === "ROUNDTRIP" ? "Included KM / day" : "Included KM"} value={`${listing.pricing.includedKm} KM`} />
                 )}
                 {listing.pricing.includedHours != null && (
                   <SummaryRow label="Included Hours" value={`${listing.pricing.includedHours} Hrs`} />
                 )}
-                {listing.pricing.pricePerKm != null && (
-                  <SummaryRow label="Extra KM" value={`${currency(listing.pricing.pricePerKm)}/KM`} />
+                {(listing.pricing.extraKmRate ?? listing.pricing.pricePerKm) != null && (
+                  <SummaryRow label="Extra KM" value={`${currency(listing.pricing.extraKmRate ?? listing.pricing.pricePerKm)}/KM`} />
                 )}
                 {listing.pricing.extraHourRate != null && (
                   <SummaryRow label="Extra Hour" value={`${currency(listing.pricing.extraHourRate)}/Hr`} />
                 )}
                 {listing.pricing.driverAllowance != null && (
-                  <SummaryRow label="Driver Allowance" value={currency(listing.pricing.driverAllowance)} />
+                  <SummaryRow label={listing.pricing.quote.calculationRule?.operational?.service === "ROUNDTRIP" ? "Driver allowance / day (included)" : "Driver Allowance"} value={currency(listing.pricing.driverAllowance)} />
                 )}
                 {listing.pricing.nightCharge != null && (
                   <SummaryRow label="Night Charge" value={currency(listing.pricing.nightCharge)} />
@@ -790,12 +811,13 @@ export default function MarketplaceBookingClient() {
               <div className="mt-6 border-t pt-5">
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <p className="text-sm font-bold text-slate-500">Saved Package Fare</p>
+                    <p className="text-sm font-bold text-slate-500">Customer Final Amount</p>
                     <p className="mt-1 text-xs text-slate-400">Taken directly from the Marketplace pricing result.</p>
                   </div>
                   <p className="text-3xl font-black text-slate-900">{currency(finalFare)}</p>
                 </div>
 
+                <FareDetails value={listing.pricing.quote}/>
                 {selectedCoupon && discountAmount > 0 && (
                   <div className="mt-4 space-y-2 border-t pt-4">
                     <SummaryRow label="Original Fare" value={currency(total)} />
@@ -1017,7 +1039,5 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
-
 
 

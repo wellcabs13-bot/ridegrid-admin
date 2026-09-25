@@ -167,7 +167,7 @@ export default function VehicleDetailsDrawer({
             onClick={onClose}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-2xl hover:bg-slate-100"
           >
-            Ã—
+            ×
           </button>
         </div>
 

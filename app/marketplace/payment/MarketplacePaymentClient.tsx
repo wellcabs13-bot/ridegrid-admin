@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -46,6 +46,7 @@ type BookingDraft = {
     includedHours?: number | null;
     includedKm?: number | null;
   } | null;
+  quoteId?: string;
   totalFare?: number;
   discountAmount?: number;
   couponId?: string | null;
@@ -150,6 +151,10 @@ export default function MarketplacePaymentClient() {
   async function confirmCashBooking() {
     if (!draft) return;
 
+    const effectiveTime =
+      draft.time ||
+      (draft.tripType === "ROUNDTRIP" ? "12:00" : "");
+
     if (!draft.customer?.firstName?.trim() || !draft.customer?.lastName?.trim()) {
       setMessage("Customer name is required.");
       return;
@@ -170,7 +175,7 @@ export default function MarketplacePaymentClient() {
       return;
     }
 
-    if (!draft.date || !draft.time) {
+    if (!draft.date || !effectiveTime) {
       setMessage("Pickup date and time are required.");
       return;
     }
@@ -190,7 +195,7 @@ export default function MarketplacePaymentClient() {
       setMessage("");
       setSuccess("");
 
-      const pickupDateTime = new Date(`${draft.date}T${draft.time}`);
+      const pickupDateTime = new Date(`${draft.date}T${effectiveTime}:00+05:30`);
 
       if (
         Number.isNaN(pickupDateTime.getTime()) ||
@@ -206,6 +211,7 @@ export default function MarketplacePaymentClient() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          quoteId: draft.quoteId,
           listingId: draft.listingId,
           pricingPackageId: draft.pricing.pricingPackageId,
           serviceType: draft.serviceType,
@@ -253,8 +259,8 @@ export default function MarketplacePaymentClient() {
       const successDraft = {
         bookingId: createdBooking.id,
         bookingNumber: createdBooking.bookingNumber,
-        paymentMethod: "CASH",
-        paymentStatus: "PENDING",
+        paymentMethod: createdBooking.paymentMethod,
+        paymentStatus: createdBooking.paymentStatus,
         customer: draft.customer,
         vehicle: draft.vehicle,
         pricing: draft.pricing,
@@ -346,7 +352,7 @@ export default function MarketplacePaymentClient() {
                     method === "CASH" ? "border-cyan-500 bg-cyan-50" : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
-                  <div className="text-3xl">ðŸ’µ</div>
+                  <div className="text-3xl">💵</div>
                   <h3 className="mt-3 text-xl font-black text-slate-900">Cash on Pickup</h3>
                   <p className="mt-1 text-sm text-slate-500">Pay the applicable booking amount directly as per RideGrid&apos;s cash-payment policy.</p>
                   {method === "CASH" && <p className="mt-4 text-xs font-black text-cyan-700">✓ SELECTED</p>}
@@ -361,7 +367,7 @@ export default function MarketplacePaymentClient() {
                     method === "ONLINE" ? "border-cyan-500 bg-cyan-50" : "border-slate-200 bg-white hover:border-slate-300"
                   }`}
                 >
-                  <div className="text-3xl">ðŸ’³</div>
+                  <div className="text-3xl">💳</div>
                   <h3 className="mt-3 text-xl font-black text-slate-900">Online Payment</h3>
                   <p className="mt-1 text-sm text-slate-500">Razorpay checkout will be used for secure online payment.</p>
                   {method === "ONLINE" && <p className="mt-4 text-xs font-black text-cyan-700">✓ SELECTED</p>}
@@ -396,14 +402,14 @@ export default function MarketplacePaymentClient() {
               <section className="rounded-3xl border border-blue-200 bg-blue-50 p-6">
                 <h2 className="text-xl font-black text-slate-900">Online Payment</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Razorpay integration is kept open here and will be connected after the Cash on Pickup flow is successfully tested.
+                  Online checkout is unavailable for new marketplace bookings. The current booking workflow supports Cash on Pickup and eligible Corporate Credit accounts.
                 </p>
                 <button
                   type="button"
                   disabled
                   className="mt-6 w-full rounded-2xl bg-slate-300 px-5 py-4 font-black text-slate-600"
                 >
-                  Razorpay Payment — Coming Next
+                  Online checkout unavailable
                 </button>
               </section>
             )}
