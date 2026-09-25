@@ -1,0 +1,110 @@
+.eyebrow { font-size: .72rem; letter-spacing: .2em; font-weight: 800; text-transform: uppercase; color: #bd3f2a; }
+.container { width: min(1240px,calc(100% - 48px)); margin-inline:auto; }
+.section { padding:clamp(56px,8vw,108px) 0; }
+.heading { font-size:clamp(2rem,4vw,3.65rem); line-height:1.08; letter-spacing:-.055em; font-weight:750; max-width:800px; margin:16px 0 24px; }
+.lead { max-width:650px; font-size:1.08rem; line-height:1.8; color:#62717c; }
+.button { min-height:52px; display:inline-flex; align-items:center; justify-content:center; gap:12px; padding:14px 24px; background:#c84630; color:white; border:1px solid #e86147; border-radius:12px; font-size:.9rem; font-weight:750; box-shadow:0 4px 0 #963523,0 14px 28px #c8463023; transition:transform .2s,box-shadow .2s; }
+.button:hover { transform:translateY(-3px); box-shadow:0 7px 0 #963523,0 20px 32px #c8463030; }
+.button:active { transform:translateY(2px); box-shadow:0 1px 0 #963523; }
+.secondary { background:transparent; color:inherit; border-color:#a8bbc45c; box-shadow:none; }
+.actions { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-top:30px; }
+.journeyVisual { position:relative; width:100%; max-width:520px; border:1px solid #c8e0ed28; border-radius:32px; padding:24px; background:linear-gradient(145deg,#21475c80,#0a202ba8); box-shadow:0 36px 90px #0004,inset 0 1px #fff1; transform:perspective(1000px) rotateY(-8deg) rotateX(3deg); }
+.journeyTop { display:flex; justify-content:space-between; gap:20px; align-items:center; color:#d1e2e9; font-size:10px; letter-spacing:.15em; font-weight:700; }
+.journeyTop span { display:flex;align-items:center;gap:8px; }
+.liveDot { width:6px;height:6px;border-radius:50%;background:#ffbfa2;box-shadow:0 0 14px #ffac77; }
+.journeyMap { width:100%;height:auto;overflow:visible; }
+.routeLine { stroke-dasharray:700; animation:traceRoute 2.8s ease-out both; }
+.journeyCard { position:relative;display:flex;gap:14px;align-items:center;padding:20px;border-radius:18px;background:#fff;color:#102a38;box-shadow:0 18px 38px #0003;margin-top:-15px;animation:floatCard 7s ease-in-out infinite; }
+.journeyCard strong { display:block;font-size:15px;letter-spacing:-.025em; }
+.journeyCard p { color:#617480;font-size:12px;margin-top:5px; }
+.journeyCard > svg { margin-left:auto;color:#467c64;flex-shrink:0; }
+.miniIcon { display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:#fff0e7;color:#c15334;flex-shrink:0; }
+.journeyTag { display:flex;gap:7px;align-items:center;justify-content:center;font-size:10px;letter-spacing:.07em;color:#b5cbd5;margin-top:20px; }
+.contactHero { position:relative;overflow:hidden;background:#0b2432;color:#fff;padding:clamp(60px,8vw,112px) 0 145px; }
+.contactHero::before { content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 95% 20%,#23546d 0,transparent 55%),linear-gradient(120deg,transparent 60%,#ffab6c0c); }
+.contactHero .container { position:relative; }
+.contactHero .eyebrow { color:#ffb49a; }
+.contactHero h1 { max-width:850px;font-size:clamp(2.9rem,6.3vw,6.25rem);font-weight:750;line-height:1.02;letter-spacing:-.065em;margin:24px 0; }
+.contactHero h1 span { color:#ffbc9e; }
+.contactHero .lead { color:#c0d0d9; }
+.contactGrid { display:grid;grid-template-columns:1.35fr 1fr;gap:24px;position:relative;margin-top:-80px; }
+.whatsappCard { background:#e4f3e9;border:1px solid #c9e5d4;border-radius:26px;padding:clamp(26px,4vw,50px);box-shadow:0 24px 64px #112f3910;display:flex;flex-direction:column;align-items:flex-start; }
+.whatsappCard > svg { padding:13px;width:60px;height:60px;border-radius:18px;background:#176242;color:#fff; }
+.whatsappCard h2 { font-size:clamp(1.8rem,3vw,2.65rem);font-weight:750;letter-spacing:-.05em;margin:25px 0 14px;line-height:1.14; }
+.whatsappCard p { color:#3b6050;line-height:1.75;max-width:450px; }
+.whatsappCard .button { background:#176242;border-color:#1d754e;box-shadow:0 4px #0b422c;color:#fff;margin-top:28px; }
+.contactMethods { display:grid;gap:20px; }
+.contactMethod { display:flex;align-items:flex-start;gap:20px;padding:30px;border:1px solid #e0e7e8;border-radius:24px;background:#fff;box-shadow:0 10px 30px #102f3805;transition:transform .2s;min-width:0; }
+.contactMethod:hover { transform:translateY(-4px); }
+.contactMethod > svg { color:#c95235;flex-shrink:0;margin-top:6px; }
+.contactMethod h2 { font-size:14px;color:#5c707c;margin-bottom:10px;font-weight:600; }
+.contactMethod strong { font-size:clamp(1rem,2vw,1.5rem);font-weight:750;letter-spacing:-.035em;overflow-wrap:anywhere; }
+.contactMethod p { font-size:13px;color:#5c707c;margin-top:10px;line-height:1.6; }
+.supportGrid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:36px; }
+.supportCard { border:1px solid #e0e7e8;border-radius:22px;padding:28px;background:#fff; }
+.supportCard > svg { color:#c95235; }
+.supportCard h3 { margin:22px 0 12px;font-size:1.15rem;font-weight:750;letter-spacing:-.025em; }
+.supportCard p { font-size:.9rem;color:#60727e;line-height:1.8; }
+.supportCard a { display:inline-flex;align-items:center;gap:10px;min-height:44px;margin-top:18px;font-size:.85rem;font-weight:750;color:#b33a23; }
+.office { display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;padding:clamp(28px,5vw,60px);border:1px solid #e0e7e8;border-radius:28px;background:#fff; }
+.office address { font-style:normal;color:#526673;line-height:1.9;max-width:380px; }
+.officeArt { min-height:310px;position:relative;display:grid;place-items:center;border-radius:22px;background:repeating-linear-gradient(35deg,transparent 0 49px,#9bafb122 50px 52px,transparent 53px 99px),repeating-linear-gradient(125deg,#edf1e9 0 69px,#d4dcd3 70px 73px,#edf1e9 74px 145px);overflow:hidden; }
+.officeArt::before { content:"";position:absolute;width:100%;height:24px;background:#fff8;transform:rotate(-20deg); }
+.officePin { position:relative;display:flex;align-items:center;gap:14px;padding:20px;background:#fff;border:1px solid #d8e2dc;border-radius:18px;box-shadow:0 20px 40px #143c3c1a; }
+.officePin svg { color:#d65337; }
+.officePin strong { display:block;color:#173442; }
+.officePin small { color:#627780; }
+.officeCaption { position:absolute;bottom:16px;font-size:10px;color:#556d66; }
+.coverage { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px;padding:26px 0;border-block:1px solid #dae3e5;color:#425d6b; }
+.coverage strong { text-transform:uppercase;letter-spacing:.12em;font-size:10px; }
+.coverage ul { display:flex;flex-wrap:wrap;gap:14px 26px;font-size:13px;font-weight:600; }
+.faq { border-bottom:1px solid #dce4e6;padding:22px 0; }
+.faq summary { cursor:pointer;font-size:1.05rem;font-weight:700;line-height:1.6;padding-right:15px; }
+.faq p { max-width:800px;line-height:1.85;color:#586f7b;margin-top:18px; }
+@keyframes traceRoute { from { stroke-dashoffset:700; } to { stroke-dashoffset:0; } }
+@keyframes floatCard { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-7px); } }
+@media(max-width:800px) { .contactGrid,.office { grid-template-columns:1fr; }.supportGrid{grid-template-columns:1fr;}.contactHero{padding-bottom:125px;}.office{gap:30px;}.journeyVisual{transform:none;}.journeyCard{animation:none;}.coverage ul{gap:12px 20px;} }
+@media(max-width:480px) { .container{width:calc(100% - 32px);}.contactMethod{padding:24px;gap:14px;}.button{width:100%;}.journeyVisual{padding:18px;border-radius:24px;}.journeyCard{padding:15px;}.journeyCard strong{font-size:13px;} }
+@media(prefers-reduced-motion:reduce) { .routeLine,.journeyCard { animation:none; }.button,.contactMethod { transition:none; }.button:hover,.contactMethod:hover { transform:none; } }
+
+/* ---------- RideGrid premium dark reskin ---------- */
+.eyebrow { color: var(--rg-red-light); }
+.lead { color: var(--rg-text-muted); }
+.button { background: linear-gradient(135deg, var(--rg-red-light), var(--rg-red-dark)); border-color: var(--rg-red); box-shadow: var(--rg-shadow-glow); }
+.button:hover { box-shadow: 0 10px 26px -6px var(--rg-red-glow); }
+.secondary { border-color: var(--rg-border-strong); }
+.journeyVisual { border-color: var(--rg-border); background: linear-gradient(145deg, var(--rg-surface-2), var(--rg-black)); box-shadow: 0 36px 90px rgba(0,0,0,.6), inset 0 1px rgba(255,255,255,.05); }
+.journeyTop { color: var(--rg-text-secondary); }
+.liveDot { background: var(--rg-red-light); box-shadow: 0 0 14px var(--rg-red-glow); }
+.journeyCard { background: var(--rg-surface-2); color: var(--rg-text); box-shadow: 0 18px 38px rgba(0,0,0,.5); }
+.journeyCard p { color: var(--rg-text-muted); }
+.miniIcon { background: rgba(220,38,38,.14); color: var(--rg-red-light); }
+.journeyTag { color: var(--rg-text-muted); }
+.contactHero { background: var(--rg-black); }
+.contactHero::before { background: radial-gradient(ellipse at 95% 20%,rgba(220,38,38,.16) 0,transparent 55%),linear-gradient(120deg,transparent 60%,rgba(220,38,38,.06)); }
+.contactHero .eyebrow { color: var(--rg-red-light); }
+.contactHero .lead { color: var(--rg-text-secondary); }
+.whatsappCard { background: var(--rg-surface-2); border-color: rgba(74,222,128,.22); box-shadow: var(--rg-shadow-card); }
+.whatsappCard p { color: var(--rg-text-muted); }
+.whatsappCard .button { background: #15532c; border-color: #22c55e40; box-shadow: 0 4px #0b3a1e; }
+.contactMethods { }
+.contactMethod { border-color: var(--rg-border); background: var(--rg-surface-2); box-shadow: var(--rg-shadow-card); }
+.contactMethod > svg { color: var(--rg-red-light); }
+.contactMethod h2 { color: var(--rg-text-muted); }
+.contactMethod p { color: var(--rg-text-muted); }
+.supportCard { border-color: var(--rg-border); background: var(--rg-surface-2); }
+.supportCard > svg { color: var(--rg-red-light); }
+.supportCard p { color: var(--rg-text-muted); }
+.supportCard a { color: var(--rg-red-light); }
+.office { border-color: var(--rg-border); background: var(--rg-surface-2); }
+.office address { color: var(--rg-text-muted); }
+.officeArt { background: repeating-linear-gradient(35deg,transparent 0 49px,rgba(220,38,38,.05) 50px 52px,transparent 53px 99px),repeating-linear-gradient(125deg,var(--rg-surface) 0 69px,var(--rg-surface-3) 70px 73px,var(--rg-surface) 74px 145px); }
+.officeArt::before { background: rgba(255,255,255,.04); }
+.officePin { background: var(--rg-surface-3); border-color: var(--rg-border-strong); box-shadow: 0 20px 40px rgba(0,0,0,.45); }
+.officePin svg { color: var(--rg-red-light); }
+.officePin strong { color: var(--rg-text); }
+.officePin small { color: var(--rg-text-muted); }
+.officeCaption { color: var(--rg-text-dim); }
+.coverage { border-block-color: var(--rg-border); color: var(--rg-text-muted); }
+.faq { border-bottom-color: var(--rg-border); }
+.faq p { color: var(--rg-text-muted); }

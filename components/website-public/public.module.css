@@ -224,3 +224,69 @@
     text-align: center;
   }
 }
+/* Shared search, editorial and published SEO page presentation. */
+.hero{background:radial-gradient(ellipse at 90% 10%,#28576a,transparent 65%),#0c2635;}
+.heroVisual{background:#193c4c;border:1px solid #aac5d52b;box-shadow:0 30px 70px #06141d38;}
+.heroDescription{color:#c1d2db;}.eyebrow{color:#bb4930;}.hero .eyebrow{color:#ffb89d;}
+.button{background:#c84630;border:1px solid #e2684f;border-radius:12px;box-shadow:0 4px 0 #993523;min-height:50px;}.button:hover{background:#c53f2b;}
+.secondaryButton{min-height:50px;border-radius:12px;}
+.search{border-radius:24px;border-color:#dce5e4;box-shadow:0 22px 60px #15384716;padding:clamp(22px,3vw,38px);}
+.searchTitle{font-size:clamp(22px,2.7vw,30px);letter-spacing:-.045em;color:#102b3a;}
+.muted,.sectionIntro,.card p{color:#607582;}.tabs{padding:7px;border:1px solid #e5eae5;background:#f5f6f2;border-radius:14px;gap:6px;}
+.tab{border-radius:9px;min-height:44px;font-size:12px;color:#4f6875;transition:background .2s,color .2s;}.tab:hover{background:#e6ece8;}.tabActive,.tabActive:hover{background:#102b3a;color:#fff;box-shadow:0 3px 8px #102b3a15;}
+.field{color:#526b77;}.field input,.field select{border-color:#d9e2e2;background:#fbfcf9;border-radius:12px;}.field input:focus,.field select:focus{outline-color:#bd4a30;}
+.searchBottom .button{background:#c84630 !important;border-radius:12px !important;box-shadow:0 4px 0 #993523,0 12px 24px #b74c3020 !important;}.searchBottom .button:hover{background:#c53f2b !important;}
+.card{border-color:#dfe6e3;border-radius:22px;transition:transform .25s,box-shadow .25s;}.card:hover{transform:translateY(-4px);box-shadow:0 20px 45px #173b4710;}.tag{background:#f9ebe4;color:#a94029;}
+.cta{background:radial-gradient(at 90% 0%,#28576a,transparent 70%),#0c2735;border-radius:28px;}.cta p{color:#b8cbd5;}
+.faq{max-width:none;border-color:#d7e1df;padding:24px 0;}.faq summary{min-height:28px;color:#173a4a;line-height:1.5;}.faq[open] summary{color:#a9412b;}.faq p,.prose p,.prose li{color:#526c78;}
+.breadcrumbs{color:#b0c6d2;}.breadcrumbs a{min-height:28px;display:inline-flex;align-items:center;}
+@media(max-width:700px){.search{padding:20px;}.hero h1{font-size:clamp(2.4rem,9vw,3.5rem);}.tabs{gap:6px;}.tab{font-size:11px;}.searchWrap{scroll-margin-top:92px;}}
+@media(prefers-reduced-motion:reduce){.card,.button,.tab{transition:none;}.card:hover,.button:hover{transform:none;}}
+
+/* ---------- RideGrid premium dark reskin ---------- */
+.site { --red: var(--rg-red); background: var(--rg-black); color: var(--rg-text); }
+.site :global(a:focus-visible), .site :global(button:focus-visible), .site :global(input:focus-visible), .site :global(select:focus-visible), .site :global(summary:focus-visible) { outline-color: var(--rg-red-light); }
+.header { background: var(--rg-black); border-bottom-color: var(--rg-border); }
+.brand small { color: var(--rg-text-dim); }
+.desktopNav a:hover, .footer a:hover { color: var(--rg-red-light); }
+.button, .secondaryButton { background: linear-gradient(135deg, var(--rg-red-light), var(--rg-red-dark)); box-shadow: var(--rg-shadow-glow); }
+.button:hover { background: linear-gradient(135deg, #f87171, var(--rg-red)); }
+.secondaryButton { background: transparent; border-color: var(--rg-border-strong); }
+.hero { background: radial-gradient(ellipse at 90% 10%, rgba(220,38,38,.14), transparent 65%), var(--rg-black); }
+.heroVisual { background: var(--rg-surface-3); border-color: var(--rg-border-strong); box-shadow: 0 30px 70px rgba(0,0,0,.5); }
+.heroDescription { color: var(--rg-text-secondary); }
+.eyebrow, .hero .eyebrow { color: var(--rg-red-light); }
+.searchWrap { --red: var(--rg-red); }
+.search { background: var(--rg-surface-2); border-color: var(--rg-border); box-shadow: 0 22px 60px rgba(0,0,0,.4); }
+.searchTitle { color: var(--rg-text); }
+.muted, .sectionIntro, .card p { color: var(--rg-text-muted); }
+.tabs { background: var(--rg-surface-2); border-color: var(--rg-border); }
+.tab { color: var(--rg-text-muted); }
+.tab:hover { background: var(--rg-surface-3); }
+.tabActive, .tabActive:hover { background: linear-gradient(135deg, var(--rg-red-light), var(--rg-red-dark)); color: #fff; box-shadow: var(--rg-shadow-glow); }
+.field { color: var(--rg-text-muted); }
+.field input, .field select { background: var(--rg-surface-2); border-color: var(--rg-border-strong); color: var(--rg-text); }
+.field input:focus, .field select:focus { outline-color: var(--rg-red-light); background: var(--rg-surface-3); }
+.searchBottom .button { background: linear-gradient(135deg, var(--rg-red-light), var(--rg-red-dark)) !important; box-shadow: var(--rg-shadow-glow) !important; }
+.searchBottom .button:hover { background: linear-gradient(135deg, #f87171, var(--rg-red)) !important; }
+.searchSubmit { background: linear-gradient(135deg, var(--rg-red-light), var(--rg-red-dark)) !important; box-shadow: var(--rg-shadow-glow); }
+.searchSubmit:hover { background: linear-gradient(135deg, #f87171, var(--rg-red)) !important; }
+.card { border-color: var(--rg-border); background: linear-gradient(180deg, var(--rg-surface-2), var(--rg-surface)); }
+.card:hover { box-shadow: 0 20px 45px -10px rgba(220,38,38,.16); }
+.tag { color: var(--rg-red-light); background: rgba(220,38,38,.14); }
+.marketplace { background: var(--rg-black); border-color: var(--rg-border); }
+.step { border-color: var(--rg-border); background: var(--rg-surface-2); }
+.stepIcon { background: linear-gradient(135deg, var(--rg-red-light), var(--rg-red-dark)); }
+.step p { color: var(--rg-text-muted); }
+.cta { background: var(--rg-black); }
+.cta:after { color: rgba(220,38,38,.04); }
+.cta p { color: var(--rg-text-muted); }
+.footer { background: var(--rg-black); }
+.footer nav { color: var(--rg-text-muted); }
+.footerBottom { border-top-color: var(--rg-border); color: var(--rg-text-dim); }
+.prose p, .prose li, .faq p { color: var(--rg-text-muted); }
+.faq { border-color: var(--rg-border); }
+.faq summary { color: var(--rg-text); }
+.faq[open] summary { color: var(--rg-red-light); }
+.breadcrumbs { color: var(--rg-text-muted); }
+.notice { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.3); color: #fcd34d; }
