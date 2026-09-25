@@ -69,6 +69,24 @@ export async function POST(
     }
 
     /*
+     * This route predates the hardened marketplace
+     * quote/booking flow (QuoteService + commitMarketplaceBooking)
+     * and has no known frontend caller. It is restricted to
+     * internal staff for manual/back-office booking creation
+     * so it cannot be used by customers to bypass the
+     * marketplace's quote consumption and conflict checks.
+     */
+    if (user.role !== "SUPER_ADMIN" && user.role !== "OPERATIONS") {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Not authorized.",
+        },
+        { status: 403 }
+      );
+    }
+
+    /*
      * ============================================================
      * 2. REQUEST VALIDATION
      * ============================================================

@@ -32,7 +32,12 @@ describe("Website completion source safety", () => {
     expect(page.sections.length).toBeGreaterThan(1);
   });
   it("keeps unverified business details explicit and unclaimed", () => {
-    expect(Object.values(PUBLIC_BUSINESS_REVIEW).every(value => value === null)).toBe(true);
+    // supportEmail/supportPhone were confirmed and published for launch; every other
+    // legal/registration field must stay unclaimed until independently verified.
+    const { supportEmail, supportPhone, ...unverified } = PUBLIC_BUSINESS_REVIEW;
+    expect(Object.values(unverified).every(value => value === null)).toBe(true);
+    expect(supportEmail).not.toBeNull();
+    expect(supportPhone).not.toBeNull();
     expect(INFO_PAGES.find(p => p.slug === "privacy-policy")?.review).toBe(true);
   });
   it.each(websiteSeoNavigation)("resolves dashboard destination $title", item => {

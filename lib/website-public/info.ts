@@ -6,7 +6,7 @@ const section = (heading: string, ...paragraphs: string[]): InfoSection => ({ he
 // from legacy marketing copy or a vendor/customer record.
 export const PUBLIC_BUSINESS_REVIEW = {
   legalEntityName: null, registeredAddress: null, registrationNumber: null, gstNumber: null,
-  supportEmail: null, supportPhone: null, privacyContact: null, grievanceProcess: null,
+  supportEmail: "service@wellcabs.com", supportPhone: "9011079304", privacyContact: null, grievanceProcess: null,
   retentionSchedule: null, refundProcessingTime: null, cancellationSchedule: null,
   applicableJurisdiction: null, effectiveDate: null, corporateAgreement: null,
 };
@@ -50,15 +50,15 @@ export const INFO_PAGES: InfoPage[] = [
     section("Ongoing improvements", "Accessibility is an ongoing process. This statement does not claim certification or complete conformance. Third-party payment and location interfaces may behave differently from the public website."),
     section("Reporting a barrier", "If a verified booking contact is available, describe the page, device and barrier without including sensitive payment details. Business review required: publish a dedicated accessibility contact and response process."),
   ] },
-  { slug: "about", title: "About RideGrid", description: "RideGrid by Wellcabs brings journey search, vehicle choices and booking into one connected experience.", review: false, sections: [
+  { slug: "about", title: "About Wellcabs", description: "Your journey, your choice. Wellcabs brings cab search, vehicle choices and booking into one connected travel experience.", review: false, sections: [
     section("Ground travel, thoughtfully connected", "RideGrid by Wellcabs brings together journey search, available marketplace options and a managed booking flow. Start with your travel plans, compare the current choices and review the details before you book."),
     section("Every journey starts with clarity", "Explore one-way, round-trip, local, airport and rental options where they are available in the live marketplace. Business travel uses the platform's corporate account and approval workflow where enabled."),
     section("Built around real information", "Published travel pages and managed visuals complement the live marketplace. We do not substitute invented fares, reviews or counts for actual availability."),
   ] },
-  { slug: "contact", title: "Contact Us", description: "Find the appropriate next step for a RideGrid booking, payment question or business enquiry.", review: true, sections: [
+  { slug: "contact", title: "Contact Wellcabs", description: "Contact Wellcabs for cab booking help and business enquiries. Call 9011079304, message us on WhatsApp or email service@wellcabs.com.", review: false, sections: [
     section("Existing bookings", "Keep your booking reference, travel date and payment reference ready. If your booking confirmation or agreement provides a verified contact, use that channel. Never share passwords, card security codes or one-time passwords."),
     section("Booking and payment questions", "You can return to the marketplace to review current journey options. For a payment query, retain the provider reference and check the recorded payment status before attempting a second payment."),
-    section("Business and privacy enquiries", "Business review required: add the verified public support email and telephone, responsible legal entity, service address, business enquiry channel and privacy/grievance contact. These fields are deliberately unpublished until verified."),
+    section("Booking and business enquiries", "Call 9011079304 or email service@wellcabs.com for booking help and business enquiries. Our office is at L-307, 2nd floor, Mega Center, Pune - Solapur Rd, Magarpatta, North Hadapsar, Hadapsar, Pune, Maharashtra 411028."),
   ] },
   { slug: "payment-refund-information", title: "Payment & Refund Information", description: "Practical information about RideGrid payment references, confirmation and refund review.", review: true, sections: [
     section("Paying for a booking", "Review the amount and breakdown in the existing booking flow. Available payment methods are those presented for that booking. Complete any required verification in the payment provider's interface."),
