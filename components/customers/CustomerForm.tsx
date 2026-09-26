@@ -1,133 +1,151 @@
-'use client';
+﻿"use client";
 
-import { useState } from 'react';
+import { FormEvent, useState } from "react";
 
 export interface CustomerFormData {
-  name: string;
-  mobile: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  city: string;
+  mobile: string;
+  password: string;
 }
 
-interface CustomerFormProps {
-  onSave: (customer: CustomerFormData) => void;
+interface Props {
+  onSave: (data: CustomerFormData) => void;
   onCancel: () => void;
 }
 
-export default function CustomerForm({ onSave, onCancel }: CustomerFormProps) {
-  const [form, setForm] = useState<CustomerFormData>({
-    name: '',
-    mobile: '',
-    email: '',
-    city: '',
-  });
+export default function CustomerForm({
+  onSave,
+  onCancel,
+}: Props) {
+  const [form, setForm] =
+    useState<CustomerFormData>({
+      firstName: "",
+      lastName: "",
+      email: "",
+      mobile: "",
+      password: "",
+    });
 
-  const updateField = (field: keyof CustomerFormData, value: string) => {
-    setForm((prev) => ({
-      ...prev,
+  function update(
+    field: keyof CustomerFormData,
+    value: string
+  ) {
+    setForm((current) => ({
+      ...current,
       [field]: value,
     }));
-  };
+  }
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (
-      !form.name.trim() ||
-      !form.mobile.trim() ||
-      !form.email.trim() ||
-      !form.city.trim()
-    ) {
-      alert('Please fill all fields.');
-      return;
-    }
-
+  function submit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
     onSave(form);
-
-    setForm({
-      name: '',
-      mobile: '',
-      email: '',
-      city: '',
-    });
-  };
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-slate-700">
-            Customer Name
-          </label>
+    <form
+      onSubmit={submit}
+      className="space-y-5"
+    >
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Input
+          label="First Name"
+          value={form.firstName}
+          onChange={(value) =>
+            update("firstName", value)
+          }
+          required
+        />
 
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => updateField('name', e.target.value)}
-            placeholder="Enter customer name"
-            className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500"
-          />
-        </div>
+        <Input
+          label="Last Name"
+          value={form.lastName}
+          onChange={(value) =>
+            update("lastName", value)
+          }
+          required
+        />
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-slate-700">
-            Mobile Number
-          </label>
+        <Input
+          label="Email"
+          type="email"
+          value={form.email}
+          onChange={(value) =>
+            update("email", value)
+          }
+          required
+        />
 
-          <input
-            type="text"
-            value={form.mobile}
-            onChange={(e) => updateField('mobile', e.target.value)}
-            placeholder="+91 9876543210"
-            className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500"
-          />
-        </div>
+        <Input
+          label="Mobile"
+          value={form.mobile}
+          onChange={(value) =>
+            update("mobile", value)
+          }
+        />
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-slate-700">
-            Email Address
-          </label>
-
-          <input
-            type="email"
-            value={form.email}
-            onChange={(e) => updateField('email', e.target.value)}
-            placeholder="customer@email.com"
-            className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold text-slate-700">
-            City
-          </label>
-
-          <input
-            type="text"
-            value={form.city}
-            onChange={(e) => updateField('city', e.target.value)}
-            placeholder="Enter city"
-            className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500"
-          />
-        </div>
+        <Input
+          label="Password"
+          type="password"
+          value={form.password}
+          onChange={(value) =>
+            update("password", value)
+          }
+          required
+        />
       </div>
 
-      <div className="flex justify-end gap-3 border-t pt-6">
+      <div className="flex justify-end gap-3 border-t pt-5">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-slate-300 px-6 py-3 font-medium text-slate-700 hover:bg-slate-100"
+          className="rounded-lg border px-4 py-2 text-sm font-medium"
         >
           Cancel
         </button>
 
         <button
           type="submit"
-          className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
+          className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white"
         >
-          Save Customer
+          Create Customer
         </button>
       </div>
     </form>
+  );
+}
+
+function Input({
+  label,
+  value,
+  onChange,
+  type = "text",
+  required = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium text-slate-700">
+        {label}
+      </span>
+
+      <input
+        type={type}
+        value={value}
+        required={required}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="w-full rounded-lg border px-3 py-2.5 outline-none focus:border-slate-500"
+      />
+    </label>
   );
 }

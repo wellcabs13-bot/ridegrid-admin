@@ -1,4 +1,4 @@
-import {
+﻿import {
   FraudRiskLevel,
   PredictionType,
   RecommendationType,
@@ -17,27 +17,18 @@ export class AIRepository {
     return prisma.aIRecommendation.create({
       data: {
         customerId: data.customerId,
-        recommendationType:
-          data.recommendationType,
-        title: data.title,
-        description:
-          data.description,
-        confidenceScore:
-          data.confidenceScore,
+        recommendationType: data.recommendationType,
+        title: data.title.trim(),
+        description: data.description?.trim() || undefined,
+        confidenceScore: data.confidenceScore,
       },
     });
   }
 
-  async getCustomerRecommendations(
-    customerId: string
-  ) {
+  async getCustomerRecommendations(customerId: string) {
     return prisma.aIRecommendation.findMany({
-      where: {
-        customerId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      where: { customerId },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -50,26 +41,20 @@ export class AIRepository {
   }) {
     return prisma.demandPrediction.create({
       data: {
-        city: data.city,
-        predictionType:
-          data.predictionType,
-        predictionDate:
-          data.predictionDate,
-        predictedValue:
-          data.predictedValue,
-        confidence:
-          data.confidence,
+        city: data.city.trim(),
+        predictionType: data.predictionType,
+        predictionDate: data.predictionDate,
+        predictedValue: data.predictedValue,
+        confidence: data.confidence,
       },
     });
   }
 
-  async getDemandPredictions(
-    city?: string
-  ) {
+  async getDemandPredictions(city?: string) {
     return prisma.demandPrediction.findMany({
       where: city
         ? {
-            city,
+            city: city.trim(),
           }
         : undefined,
       orderBy: {
@@ -89,26 +74,19 @@ export class AIRepository {
         bookingId: data.bookingId,
         riskLevel: data.riskLevel,
         score: data.score,
-        reason: data.reason,
+        reason: data.reason?.trim() || undefined,
       },
     });
   }
 
-  async getBookingFraudChecks(
-    bookingId: string
-  ) {
+  async getBookingFraudChecks(bookingId: string) {
     return prisma.fraudDetection.findMany({
-      where: {
-        bookingId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      where: { bookingId },
+      orderBy: { createdAt: "desc" },
     });
   }
 }
 
-export const aiRepository =
-  new AIRepository();
+export const aiRepository = new AIRepository();
 
 export default aiRepository;

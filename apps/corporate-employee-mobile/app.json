@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "RideGrid Corporate",
+    "slug": "ridegrid-corporate-employee",
+    "scheme": "ridegrid-corporate",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "bundleIdentifier": "com.ridegrid.corporate",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.ridegrid.corporate"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}

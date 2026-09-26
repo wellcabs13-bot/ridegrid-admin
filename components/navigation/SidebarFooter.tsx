@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import Link from "next/link";
 import {
@@ -6,11 +6,33 @@ import {
   LogOut,
   Settings2,
 } from "lucide-react";
+import { useState } from "react";
 
 export default function SidebarFooter() {
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    } catch {
+      // Continue to login even if the logout request fails.
+    } finally {
+      window.location.href = "/login";
+    }
+  };
+
   return (
     <div className="space-y-2">
-
       <Link
         href="/settings"
         className="flex items-center gap-3 rounded-xl px-4 py-3 text-slate-300 hover:bg-slate-800 hover:text-white"
@@ -20,7 +42,7 @@ export default function SidebarFooter() {
       </Link>
 
       <Link
-        href="/help"
+        href="/support"
         className="flex items-center gap-3 rounded-xl px-4 py-3 text-slate-300 hover:bg-slate-800 hover:text-white"
       >
         <HelpCircle size={18} />
@@ -28,12 +50,14 @@ export default function SidebarFooter() {
       </Link>
 
       <button
-        className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-red-400 hover:bg-red-500/10"
+        type="button"
+        onClick={handleLogout}
+        disabled={loggingOut}
+        className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-red-400 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <LogOut size={18} />
-        <span>Logout</span>
+        <span>{loggingOut ? "Logging out..." : "Logout"}</span>
       </button>
-
     </div>
   );
 }

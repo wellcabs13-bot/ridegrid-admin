@@ -1,10 +1,17 @@
 'use client';
 
-export default function ProfitLossCard() {
-  const revenue = 4876500;
-  const expenses = 2985400;
-  const profit = revenue - expenses;
-  const margin = ((profit / revenue) * 100).toFixed(1);
+interface ProfitLossCardProps {
+  revenue: number;
+  expenses: number;
+  profit: number;
+}
+
+export default function ProfitLossCard({
+  revenue,
+  expenses,
+  profit,
+}: ProfitLossCardProps) {
+  const margin = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : '0.0';
 
   const items = [
     {
@@ -29,7 +36,9 @@ export default function ProfitLossCard() {
       <div className="border-b border-slate-200 px-6 py-5">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">Profit & Loss</h2>
+            <h2 className="text-xl font-bold text-slate-900">
+              Profit & Loss
+            </h2>
 
             <p className="mt-1 text-sm text-slate-500">
               Current financial performance
@@ -51,7 +60,7 @@ export default function ProfitLossCard() {
               </span>
 
               <span className="font-bold text-slate-900">
-                ₹{item.amount.toLocaleString()}
+                ₹{item.amount.toLocaleString('en-IN')}
               </span>
             </div>
 
@@ -59,7 +68,7 @@ export default function ProfitLossCard() {
               <div
                 className={`h-full rounded-full ${item.color}`}
                 style={{
-                  width: `${(item.amount / revenue) * 100}%`,
+                  width: `${revenue > 0 ? Math.min((item.amount / revenue) * 100, 100) : 0}%`,
                 }}
               />
             </div>
@@ -70,26 +79,20 @@ export default function ProfitLossCard() {
           <p className="text-sm opacity-80">Net Profit</p>
 
           <h2 className="mt-2 text-4xl font-bold">
-            ₹{profit.toLocaleString()}
+            ₹{profit.toLocaleString('en-IN')}
           </h2>
 
           <div className="mt-5 flex items-center justify-between">
             <div>
               <p className="text-xs opacity-80">Profit Margin</p>
-
               <h4 className="mt-1 text-lg font-semibold">{margin}%</h4>
             </div>
 
             <div>
-              <p className="text-xs opacity-80">Growth</p>
-
-              <h4 className="mt-1 text-lg font-semibold">+18.6%</h4>
-            </div>
-
-            <div>
               <p className="text-xs opacity-80">Status</p>
-
-              <h4 className="mt-1 text-lg font-semibold">Healthy</h4>
+              <h4 className="mt-1 text-lg font-semibold">
+                {profit >= 0 ? 'Healthy' : 'Loss'}
+              </h4>
             </div>
           </div>
         </div>

@@ -8,6 +8,8 @@ export async function GET(request: NextRequest) {
 
     const bookingId = searchParams.get("bookingId");
     const vendorId = searchParams.get("vendorId");
+    const status = searchParams.get("status");
+    const type = searchParams.get("type");
 
     if (bookingId) {
       const data =
@@ -33,8 +35,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const where: Record<string, unknown> = {};
+
+    if (status) {
+      where.paymentStatus = status;
+    }
+
+    if (type) {
+      where.transactionType = type;
+    }
+
     const data =
-      await financeService.getTransactions();
+      await financeService.getTransactions(where);
 
     return NextResponse.json({
       success: true,
@@ -63,9 +75,7 @@ export async function POST(
     const body = await request.json();
 
     const transaction =
-      await financeService.createTransaction(
-        body
-      );
+      await financeService.createTransaction(body);
 
     return NextResponse.json(
       {

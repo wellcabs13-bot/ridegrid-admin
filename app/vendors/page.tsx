@@ -1,70 +1,110 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from "react";
 
-import DashboardLayout from '../../components/DashboardLayout';
+import DashboardLayout from "../../components/DashboardLayout";
 
-import VendorHeader from '../../components/vendors/VendorHeader';
-import VendorStats from '../../components/vendors/VendorStats';
-import VendorFilters from '../../components/vendors/VendorFilters';
-import VendorTable from '../../components/vendors/VendorTable';
+import VendorHeader from "../../components/vendors/VendorHeader";
+import VendorStats from "../../components/vendors/VendorStats";
+import VendorFilters from "../../components/vendors/VendorFilters";
+import VendorTable from "../../components/vendors/VendorTable";
 
-import AddVendorModal from '../../components/vendors/AddVendorModal';
+import AddVendorModal from "../../components/vendors/AddVendorModal";
 import VendorForm, {
   VendorFormData,
-} from '../../components/vendors/VendorForm';
+} from "../../components/vendors/VendorForm";
 
-import VendorDetailsDrawer from '../../components/vendors/VendorDetailsDrawer';
+import VendorDetailsDrawer from "../../components/vendors/VendorDetailsDrawer";
 
-import { vendors as vendorData, Vendor } from '../../data/vendors';
+import { Vendor } from "../../data/vendors";
 
 export default function VendorsPage() {
-  const [vendors, setVendors] = useState<Vendor[]>(vendorData);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
-  const [city, setCity] = useState('');
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [city, setCity] = useState("");
 
   const [openAddModal, setOpenAddModal] = useState(false);
-
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [selectedVendor, setSelectedVendor] =
+    useState<Vendor | null>(null);
 
-  const filteredVendors = useMemo(() => {
-    return vendors.filter((vendor) => {
-      const matchSearch =
-        vendor.companyName.toLowerCase().includes(search.toLowerCase()) ||
-        vendor.ownerName.toLowerCase().includes(search.toLowerCase()) ||
-        vendor.mobile.includes(search);
+  const [editingVendor, setEditingVendor] =
+    useState<Vendor | null>(null);
 
-      const matchStatus = status === '' || vendor.status === status;
+  const fetchVendors = useCallback(async () => {
+    try {
+      setLoading(true);
 
-      const matchCity =
-        city === '' || vendor.city.toLowerCase().includes(city.toLowerCase());
+      const params = new URLSearchParams();
 
-      return matchSearch && matchStatus && matchCity;
-    });
-  }, [vendors, search, status, city]);
+      if (search.trim()) params.set("search", search.trim());
+      if (status) params.set("status", status);
+      if (city.trim()) params.set("city", city.trim());
 
-  const totalVendors = filteredVendors.length;
+      params.set("page", "1");
+      params.set("limit", "100");
 
-  const activeVendors = filteredVendors.filter(
-    (vendor) => vendor.status === 'Active'
+      const response = await fetch(
+        `/api/vendors?${params.toString()}`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Failed to load vendors."
+        );
+      }
+
+      setVendors(result.data || []);
+    } catch (error) {
+      console.error("Failed to load vendors:", error);
+      setVendors([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, status, city]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchVendors();
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [fetchVendors]);
+
+  const totalVendors = vendors.length;
+
+  const activeVendors = vendors.filter(
+    (vendor) => vendor.status === "Active"
   ).length;
 
-  const inactiveVendors = filteredVendors.filter(
-    (vendor) => vendor.status !== 'Active'
+  const inactiveVendors = vendors.filter(
+    (vendor) => vendor.status !== "Active"
   ).length;
 
-  const totalEarnings = filteredVendors.reduce((sum, vendor) => {
-    return sum + Number(vendor.totalEarnings.replace(/[₹,]/g, ''));
+  const totalEarnings = vendors.reduce((sum, vendor) => {
+    return (
+      sum +
+      Number(
+        String(vendor.totalEarnings)
+          .replace(/[^\d.-]/g, "")
+      )
+    );
   }, 0);
 
   function resetFilters() {
-    setSearch('');
-    setStatus('');
-    setCity('');
+    setSearch("");
+    setStatus("");
+    setCity("");
   }
 
   function handleViewVendor(vendor: Vendor) {
@@ -72,34 +112,184 @@ export default function VendorsPage() {
     setDrawerOpen(true);
   }
 
-  function handleSaveVendor(vendor: VendorFormData) {
-    const newVendor: Vendor = {
-      id: `VEN${Date.now()}`,
-      companyName: vendor.companyName,
-      ownerName: vendor.ownerName,
-      mobile: vendor.mobile,
-      email: vendor.email,
-      city: vendor.city,
-      totalVehicles: 0,
-      activeVehicles: 0,
-      completedTrips: 0,
-      totalEarnings: '₹0',
-      pendingPayment: '₹0',
-      rating: 5,
-      status: 'Pending',
-      joinedDate: new Date().toLocaleDateString(),
-    };
+  function handleEditVendor(vendor: Vendor) {
+    setEditingVendor(vendor);
+    setOpenAddModal(true);
+  }
 
-    setVendors((prev) => [newVendor, ...prev]);
+  async function fileToPayload(file: File | null) {
+    if (!file) return null;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/files/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "File upload failed.");
+    }
+
+    return {
+      fileName: file.name,
+      mimeType: file.type,
+      fileSize: file.size,
+      fileUrl: result.data.fileUrl,
+      storageKey: result.data.storageKey,
+    };
+  }
+  async function handleSaveVendor(data: VendorFormData) {
+    try {
+      setSaving(true);
+
+      const isEditing = Boolean(editingVendor);
+
+      const documents = {
+        aadhaarCard: await fileToPayload(data.aadhaarCard),
+        panCard: await fileToPayload(data.panCard),
+        cancelledCheque: await fileToPayload(data.cancelledCheque),
+      };
+
+      const response = await fetch("/api/vendors", {
+        method: isEditing ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          isEditing
+            ? {
+                id: editingVendor?.id,
+                companyName: data.companyName,
+                ownerName: data.ownerName,
+                mobile: data.mobile,
+                email: data.email,
+                homeCity: data.homeCity,
+                fleetSize: data.fleetSize,
+                address: data.address,
+                city: data.city,
+                state: data.state,
+                pinCode: data.pinCode,
+                bankName: data.bankName,
+                accountNumber: data.accountNumber,
+                ifscCode: data.ifscCode,
+                branchName: data.branchName,
+                documents,
+                status: data.status,
+              }
+            : {
+                companyName: data.companyName,
+                ownerName: data.ownerName,
+                mobile: data.mobile,
+                email: data.email,
+                homeCity: data.homeCity,
+                fleetSize: data.fleetSize,
+                address: data.address,
+                city: data.city,
+                state: data.state,
+                pinCode: data.pinCode,
+                bankName: data.bankName,
+                accountNumber: data.accountNumber,
+                ifscCode: data.ifscCode,
+                branchName: data.branchName,
+                documents,
+              }
+        ),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            (isEditing
+              ? "Failed to update vendor."
+              : "Failed to create vendor.")
+        );
+      }
+
+      setOpenAddModal(false);
+      setEditingVendor(null);
+
+      await fetchVendors();
+
+      alert(
+        isEditing
+          ? "Vendor updated successfully."
+          : "Vendor added successfully."
+      );
+    } catch (error) {
+      console.error("Vendor save failed:", error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to save vendor."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function handleDeleteVendor(vendor: Vendor) {
+    const confirmed = window.confirm(
+      `Delete ${vendor.companyName}?\n\nThis will remove the vendor from the Super Admin vendor list.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(
+        `/api/vendors?id=${encodeURIComponent(vendor.id)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Failed to delete vendor."
+        );
+      }
+
+      await fetchVendors();
+
+      if (selectedVendor?.id === vendor.id) {
+        setSelectedVendor(null);
+        setDrawerOpen(false);
+      }
+
+      alert("Vendor deleted successfully.");
+    } catch (error) {
+      console.error("Vendor delete failed:", error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete vendor."
+      );
+    }
+  }
+
+  function closeModal() {
+    if (saving) return;
 
     setOpenAddModal(false);
+    setEditingVendor(null);
   }
 
   return (
     <DashboardLayout>
       <VendorHeader
         totalVendors={totalVendors}
-        onAddVendor={() => setOpenAddModal(true)}
+        onAddVendor={() => {
+          setEditingVendor(null);
+          setOpenAddModal(true);
+        }}
       />
 
       <VendorStats
@@ -119,22 +309,61 @@ export default function VendorsPage() {
         onReset={resetFilters}
       />
 
-      <VendorTable vendors={filteredVendors} onView={handleViewVendor} />
+      {loading ? (
+        <div className="rounded-xl bg-white p-10 text-center text-slate-500 shadow-sm">
+          Loading vendors...
+        </div>
+      ) : (
+        <VendorTable
+          vendors={vendors}
+          onView={handleViewVendor}
+          onEdit={handleEditVendor}
+          onDelete={handleDeleteVendor}
+        />
+      )}
 
       <VendorDetailsDrawer
         open={drawerOpen}
         vendor={selectedVendor}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSelectedVendor(null);
+        }}
       />
 
       <AddVendorModal
         isOpen={openAddModal}
-        title="Add New Vendor"
-        onClose={() => setOpenAddModal(false)}
+        title={editingVendor ? "Edit Vendor" : "Add New Vendor"}
+        onClose={closeModal}
       >
         <VendorForm
+          initialData={
+            editingVendor
+              ? {
+                  companyName: editingVendor.companyName,
+                  ownerName: editingVendor.ownerName,
+                  mobile: editingVendor.mobile,
+                  email: editingVendor.email,
+                  homeCity: editingVendor.homeCity ?? "",
+                  fleetSize:
+                    editingVendor.fleetSize != null
+                      ? String(editingVendor.fleetSize)
+                      : "",
+                  address: editingVendor.address ?? "",
+                  city: editingVendor.city ?? "",
+                  state: editingVendor.state ?? "",
+                  pinCode: editingVendor.pinCode ?? "",
+                  bankName: editingVendor.bankName ?? "",
+                  accountNumber: editingVendor.accountNumber ?? "",
+                  ifscCode: editingVendor.ifscCode ?? "",
+                  branchName: editingVendor.branchName ?? "",
+                  status: editingVendor.status,
+                }
+              : undefined
+          }
           onSave={handleSaveVendor}
-          onCancel={() => setOpenAddModal(false)}
+          onCancel={closeModal}
+          saving={saving}
         />
       </AddVendorModal>
     </DashboardLayout>

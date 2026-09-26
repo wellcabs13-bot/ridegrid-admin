@@ -8,34 +8,37 @@ datasource db {
 }
 
 model User {
-  id                String             @id @default(cuid())
-  name              String
-  email             String             @unique
-  mobile            String?            @unique
-  password          String
-  role              UserRole           @default(CUSTOMER)
-  isActive          Boolean            @default(true)
-  isVerified        Boolean            @default(false)
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  deletedAt         DateTime?
-  apiKeys           APIKey[]
-  auditLogs         AuditLog[]
-  crmActivities     CRMActivity[]      @relation("ActivityOwner")
-  crmTasks          CRMTask[]          @relation("TaskOwner")
-  corporateEmployee CorporateEmployee?
-  customer          Customer?
-  driver            Driver?
-  assignedLeads     Lead[]             @relation("LeadOwner")
-  loginHistory      LoginHistory[]
-  notifications     Notification[]
-  securityEvents    SecurityEvent[]
-  assignedTickets   SupportTicket[]    @relation("AssignedSupportAgent")
-  ticketMessages    TicketMessage[]    @relation("SupportMessageSender")
-  vendor            Vendor?
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  mobile              String?              @unique
+  password            String
+  role                UserRole             @default(CUSTOMER)
+  isActive            Boolean              @default(true)
+  isVerified          Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  apiKeys             APIKey[]
+  auditLogs           AuditLog[]
+  crmActivities       CRMActivity[]        @relation("ActivityOwner")
+  crmTasks            CRMTask[]            @relation("TaskOwner")
+  corporateEmployee   CorporateEmployee?
+  customer            Customer?
+  driver              Driver?
+  assignedLeads       Lead[]               @relation("LeadOwner")
+  loginHistory        LoginHistory[]
+  notifications       Notification[]
+  securityEvents      SecurityEvent[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  assignedTickets     SupportTicket[]      @relation("AssignedSupportAgent")
+  ticketMessages      TicketMessage[]      @relation("SupportMessageSender")
+  vendor              Vendor?
 }
 
 model Customer {
+  savedRoutes CustomerSavedRoute[]
   id               String             @id @default(cuid())
   userId           String             @unique
   firstName        String
@@ -49,61 +52,89 @@ model Customer {
   couponUsages     CouponUsage[]
   user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   loyaltyAccount   LoyaltyAccount?
+  invoices         Invoice[]
   referralPrograms ReferralProgram[]
   reviews          Review[]
   supportTickets   SupportTicket[]
 }
 
 model Vendor {
-  id                 String              @id @default(cuid())
-  userId             String              @unique
-  companyName        String
-  isApproved         Boolean             @default(false)
-  deletedAt          DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  bookings           Booking[]
-  pricingRules       PricingRule[]
-  revenueReports     RevenueSummary[]
-  reviews            Review[]
-  supportTickets     SupportTicket[]
-  transactions       Transaction[]
-  vehicles           Vehicle[]
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  analytics          VendorAnalytics[]
-  documents          VendorDocument[]
-  performanceReports VendorPerformance[]
-  promotions         VendorPromotion[]
-  settlements        VendorSettlement[]
-  wallet             VendorWallet?
+  id                  String               @id @default(cuid())
+  userId              String               @unique
+  companyName         String
+  homeCity            String?
+  fleetSize           Int?
+  address             String?
+  city                String?
+  state               String?
+  pinCode             String?
+  bankName            String?
+  accountNumber       String?
+  ifscCode            String?
+  branchName          String?
+  isApproved          Boolean              @default(false)
+  deletedAt           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  bookings            Booking[]
+  pricingRules        PricingRule[]
+  revenueReports      RevenueSummary[]
+  reviews             Review[]
+  supportTickets      SupportTicket[]
+  transactions        Transaction[]
+  invoices            Invoice[]
+  vehicles            Vehicle[]
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analytics           VendorAnalytics[]
+  documents           VendorDocument[]
+  performanceReports  VendorPerformance[]
+  promotions          VendorPromotion[]
+  settlements         VendorSettlement[]
+  wallet              VendorWallet?
+  smartReturnListings SmartReturnListing[]
+}
+
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
 
 model Driver {
-  id                 String              @id @default(cuid())
-  userId             String              @unique
-  firstName          String
-  lastName           String
-  licenseNumber      String              @unique
-  deletedAt          DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  bookings           Booking[]
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  analytics          DriverAnalytics[]
-  attendance         DriverAttendance[]
-  documents          DriverDocument[]
-  incentives         DriverIncentive[]
-  leaveRequests      DriverLeave[]
-  payrolls           DriverPayroll[]
-  penalties          DriverPenalty[]
-  performanceReports DriverPerformance[]
-  shifts             DriverShift[]
-  reviews            Review[]
-  sosEvents          SOSEvent[]
-  supportTickets     SupportTicket[]
-  trips              Trip[]
-  tripLocations      TripLocation[]
-  vehicles           Vehicle[]
+  id                       String              @id @default(cuid())
+  userId                   String              @unique
+  firstName                String
+  lastName                 String
+  licenseNumber            String              @unique
+  address                  String?
+  city                     String?
+  state                    String?
+  pincode                  String?
+  dateOfBirth              DateTime?
+  experience               String?
+  aadhaarNumber            String?
+  policeVerificationNumber String?
+  status                   DriverStatus        @default(ACTIVE)
+  deletedAt                DateTime?
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  bookings                 Booking[]
+  user                     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analytics                DriverAnalytics[]
+  attendance               DriverAttendance[]
+  documents                DriverDocument[]
+  incentives               DriverIncentive[]
+  leaveRequests            DriverLeave[]
+  payrolls                 DriverPayroll[]
+  penalties                DriverPenalty[]
+  performanceReports       DriverPerformance[]
+  shifts                   DriverShift[]
+  reviews                  Review[]
+  sosEvents                SOSEvent[]
+  supportTickets           SupportTicket[]
+  trips                    Trip[]
+  tripLocations            TripLocation[]
+  vehicles                 Vehicle[]
 
   @@index([userId])
   @@index([licenseNumber])
@@ -112,50 +143,52 @@ model Driver {
 }
 
 model Vehicle {
-  id                 String               @id @default(cuid())
-  vendorId           String
-  driverId           String?
-  registrationNumber String               @unique
-  make               String
-  model              String
-  variant            String?
-  year               Int?
-  color              String?
-  category           VehicleCategory
-  fuelType           FuelType
-  transmission       TransmissionType
-  seatingCapacity    Int
-  luggageCapacity    Int?
-  homeCity           String
-  status             VehicleStatus        @default(AVAILABLE)
-  baseFare           Decimal              @db.Decimal(10, 2)
-  pricePerKm         Decimal?             @db.Decimal(10, 2)
-  waitingCharge      Decimal?             @db.Decimal(10, 2)
-  nightCharge        Decimal?             @db.Decimal(10, 2)
-  rating             Float                @default(0)
-  totalTrips         Int                  @default(0)
-  isVerified         Boolean              @default(false)
-  deletedAt          DateTime?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  bookings           Booking[]
-  fuelLogs           FuelLog[]
-  gpsDevice          GPSDevice?
-  geofenceEvents     GeofenceEvent[]
-  dometerLogs        OdometerLog[]
-  reviews            Review[]
-  routeDeviations    RouteDeviation[]
-  sosEvents          SOSEvent[]
-  serviceSchedules   ServiceSchedule[]
-  trips              Trip[]
-  tripLocations      TripLocation[]
-  driver             Driver?              @relation(fields: [driverId], references: [id])
-  vendor             Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  analytics          VehicleAnalytics[]
-  breakdowns         VehicleBreakdown[]
-  documents          VehicleDocument[]
-  maintenanceRecords VehicleMaintenance[]
-  performanceReports VehiclePerformance[]
+  id                  String               @id @default(cuid())
+  vendorId            String
+  driverId            String?
+  registrationNumber  String               @unique
+  make                String
+  model               String
+  variant             String?
+  year                Int?
+  color               String?
+  category            VehicleCategory
+  fuelType            FuelType
+  transmission        TransmissionType
+  seatingCapacity     Int
+  luggageCapacity     Int?
+  homeCity            String
+  status              VehicleStatus        @default(AVAILABLE)
+  baseFare            Decimal              @db.Decimal(10, 2)
+  pricePerKm          Decimal?             @db.Decimal(10, 2)
+  waitingCharge       Decimal?             @db.Decimal(10, 2)
+  nightCharge         Decimal?             @db.Decimal(10, 2)
+  rating              Float                @default(0)
+  totalTrips          Int                  @default(0)
+  isVerified          Boolean              @default(false)
+  deletedAt           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  bookings            Booking[]
+  fuelLogs            FuelLog[]
+  gpsDevice           GPSDevice?
+  geofenceEvents      GeofenceEvent[]
+  dometerLogs         OdometerLog[]
+  reviews             Review[]
+  routeDeviations     RouteDeviation[]
+  sosEvents           SOSEvent[]
+  serviceSchedules    ServiceSchedule[]
+  trips               Trip[]
+  tripLocations       TripLocation[]
+  driver              Driver?              @relation(fields: [driverId], references: [id])
+  vendor              Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  analytics           VehicleAnalytics[]
+  breakdowns          VehicleBreakdown[]
+  documents           VehicleDocument[]
+  maintenanceRecords  VehicleMaintenance[]
+  performanceReports  VehiclePerformance[]
+  PricingPackage      PricingPackage[]
+  smartReturnListings SmartReturnListing[]
 
   @@index([vendorId])
   @@index([driverId])
@@ -170,60 +203,86 @@ model Vehicle {
 }
 
 model Booking {
-  id                 String                 @id @default(cuid())
-  bookingNumber      String                 @unique @default(uuid())
-  customerId         String
-  vendorId           String
-  vehicleId          String
-  driverId           String?
-  pickupLocation     String
-  dropLocation       String
-  pickupDateTime     DateTime
-  status             BookingStatus          @default(PENDING)
-  estimatedFare      Decimal                @db.Decimal(10, 2)
-  baseFare           Decimal?               @db.Decimal(10, 2)
-  taxAmount          Decimal?               @db.Decimal(10, 2)
-  discountAmount     Decimal?               @db.Decimal(10, 2)
-  couponAmount       Decimal?               @db.Decimal(10, 2)
-  extraCharges       Decimal?               @db.Decimal(10, 2)
-  finalFare          Decimal?               @db.Decimal(10, 2)
-  vendorEarning      Decimal?               @db.Decimal(10, 2)
-  platformCommission Decimal?               @db.Decimal(10, 2)
-  driverPayout       Decimal?               @db.Decimal(10, 2)
-  cancelledBy        String?
-  cancelReason       String?
-  cancelledAt        DateTime?
-  cancellationCharge Decimal?               @db.Decimal(10, 2)
-  refundAmount       Decimal?               @db.Decimal(10, 2)
-  deletedAt          DateTime?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  customer           Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  driver             Driver?                @relation(fields: [driverId], references: [id])
-  vehicle            Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  vendor             Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  analytics          BookingAnalytics[]
-  statusHistory      BookingStatusHistory[]
-  couponUsages       CouponUsage[]
-  fraudChecks        FraudDetection[]
-  reviews            Review[]
-  supportTickets     SupportTicket[]
-  transactions       Transaction[]
-  trip               Trip?
+  priceSnapshot      Json?
+  pricingQuoteId     String? @unique
+  pricingQuote       PricingQuote? @relation(fields: [pricingQuoteId], references: [id], onDelete: Restrict)
+  id                  String                 @id @default(cuid())
+  bookingNumber       String                 @unique
+  bookingSource       BookingSource          @default(WEBSITE)
+  customerId          String
+  vendorId            String
+  vehicleId           String
+  driverId            String?
+  pricingPackageId    String?
+  corporateId         String?
+  pickupLocation      String
+  dropLocation        String
+  pickupDateTime      DateTime
+  reservedFrom        DateTime?
+  reservedUntil       DateTime?
+  tripDays            Int                    @default(1)
+  tripType            TripType               @default(ONEWAY)
+  status              BookingStatus          @default(PENDING)
+  estimatedFare       Decimal                @db.Decimal(10, 2)
+  baseFare            Decimal?               @db.Decimal(10, 2)
+  taxAmount           Decimal?               @db.Decimal(10, 2)
+  discountAmount      Decimal?               @db.Decimal(10, 2)
+  couponAmount        Decimal?               @db.Decimal(10, 2)
+  extraCharges        Decimal?               @db.Decimal(10, 2)
+  finalFare           Decimal?               @db.Decimal(10, 2)
+  vendorEarning       Decimal?               @db.Decimal(10, 2)
+  platformCommission  Decimal?               @db.Decimal(10, 2)
+  driverPayout        Decimal?               @db.Decimal(10, 2)
+  cancelledBy         String?
+  cancelReason        String?
+  cancelledAt         DateTime?
+  cancellationCharge  Decimal?               @db.Decimal(10, 2)
+  refundAmount        Decimal?               @db.Decimal(10, 2)
+  deletedAt           DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  customer            Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  driver              Driver?                @relation(fields: [driverId], references: [id])
+  vehicle             Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vendor              Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  corporate           Corporate?             @relation(fields: [corporateId], references: [id], onDelete: SetNull)
+  pricingPackage      PricingPackage?        @relation(fields: [pricingPackageId], references: [id], onDelete: SetNull)
+  analytics           BookingAnalytics[]
+  statusHistory       BookingStatusHistory[]
+  couponUsages        CouponUsage[]
+  fraudChecks         FraudDetection[]
+  reviews             Review[]
+  supportTickets      SupportTicket[]
+  transactions        Transaction[]
+  invoice             Invoice?
+  trip                Trip?
+  smartReturnListings SmartReturnListing[]
 
   @@index([customerId])
   @@index([vendorId])
   @@index([vehicleId])
   @@index([driverId])
+  @@index([pricingPackageId])
+  @@index([corporateId])
   @@index([status])
   @@index([pickupDateTime])
   @@index([createdAt])
   @@index([customerId, status])
   @@index([vendorId, status])
   @@index([driverId, status])
+  @@index([vehicleId, reservedFrom, reservedUntil])
+  @@index([driverId, reservedFrom, reservedUntil])
+  @@index([status, reservedFrom, reservedUntil])
   @@index([pickupDateTime, status])
   @@index([customerId, pickupDateTime])
   @@index([vendorId, pickupDateTime])
+}
+
+model BookingSequence {
+  id        String   @id
+  nextValue Int      @default(1001)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model BookingStatusHistory {
@@ -244,41 +303,42 @@ model BookingStatusHistory {
 }
 
 model Trip {
-  id                 String            @id @default(cuid())
-  bookingId          String            @unique
-  driverId           String
-  vehicleId          String
-  status             TripStatus        @default(ASSIGNED)
-  driverAssignedAt   DateTime?
-  driverAcceptedAt   DateTime?
-  arrivedPickupAt    DateTime?
-  passengerBoardedAt DateTime?
-  tripStartedAt      DateTime?
-  tripCompletedAt    DateTime?
-  cancelledAt        DateTime?
-  startTime          DateTime?
-  endTime            DateTime?
-  startKm            Int?
-  endKm              Int?
-  totalDistance      Decimal?          @db.Decimal(10, 2)
-  totalDuration      Int?
-  deletedAt          DateTime?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  damageReports      DamageReport[]
-  etaPredictions     ETAPrediction[]
-  extraCharges       ExtraCharge[]
-  geofenceEvents     GeofenceEvent[]
-  rentalExtensions   RentalExtension[]
-  returnApprovals    ReturnApproval[]
-  routeDeviations    RouteDeviation[]
-  sosevents          SOSEvent[]
-  booking            Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  driver             Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  vehicle            Vehicle           @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  tripCheckpoints    TripCheckpoint[]
-  tripExpenses       TripExpense[]
-  tripLocations      TripLocation[]
+  id                  String               @id @default(cuid())
+  bookingId           String               @unique
+  driverId            String
+  vehicleId           String
+  status              TripStatus           @default(ASSIGNED)
+  driverAssignedAt    DateTime?
+  driverAcceptedAt    DateTime?
+  arrivedPickupAt     DateTime?
+  passengerBoardedAt  DateTime?
+  tripStartedAt       DateTime?
+  tripCompletedAt     DateTime?
+  cancelledAt         DateTime?
+  startTime           DateTime?
+  endTime             DateTime?
+  startKm             Int?
+  endKm               Int?
+  totalDistance       Decimal?             @db.Decimal(10, 2)
+  totalDuration       Int?
+  deletedAt           DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  damageReports       DamageReport[]
+  etaPredictions      ETAPrediction[]
+  extraCharges        ExtraCharge[]
+  geofenceEvents      GeofenceEvent[]
+  rentalExtensions    RentalExtension[]
+  returnApprovals     ReturnApproval[]
+  routeDeviations     RouteDeviation[]
+  sosevents           SOSEvent[]
+  booking             Booking              @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  driver              Driver               @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle             Vehicle              @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  tripCheckpoints     TripCheckpoint[]
+  tripExpenses        TripExpense[]
+  tripLocations       TripLocation[]
+  smartReturnListings SmartReturnListing[]
 }
 
 model VehicleDocument {
@@ -333,6 +393,7 @@ model VendorDocument {
 }
 
 model PricingRule {
+  versions            PricingRateVersion[]
   id                  String               @id @default(cuid())
   vendorId            String
   vehicleCategory     VehicleCategory
@@ -352,6 +413,7 @@ model PricingRule {
   updatedAt           DateTime             @updatedAt
   dynamicPricingRules DynamicPricingRule[]
   vendor              Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  PricingPackage      PricingPackage[]
 
   @@unique([vendorId, vehicleCategory, pricingType, tripType])
   @@index([vendorId])
@@ -361,6 +423,177 @@ model PricingRule {
   @@index([isActive])
   @@index([vendorId, isActive])
   @@index([vehicleCategory, pricingType])
+}
+
+enum FinanceAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+model FinanceAccount {
+  id        String             @id @default(cuid())
+  code      String             @unique
+  name      String
+  type      FinanceAccountType
+  currency  String             @default("INR")
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  entries   JournalEntry[]
+
+  @@index([type])
+  @@index([isActive])
+}
+
+model Journal {
+  id            String         @id @default(cuid())
+  journalNumber String         @unique @default(uuid())
+  referenceType String?
+  referenceId   String?
+  description   String?
+  status        JournalStatus  @default(DRAFT)
+  postedAt      DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  entries       JournalEntry[]
+
+  @@index([referenceType, referenceId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model JournalEntry {
+  id          String         @id @default(cuid())
+  journalId   String
+  accountId   String
+  debit       Decimal        @default(0) @db.Decimal(14, 2)
+  credit      Decimal        @default(0) @db.Decimal(14, 2)
+  description String?
+  createdAt   DateTime       @default(now())
+  journal     Journal        @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account     FinanceAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([journalId])
+  @@index([accountId])
+}
+
+enum FinanceSettlementStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REVERSED
+}
+
+enum FinanceRefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+enum FinancePenaltyStatus {
+  PENDING
+  APPLIED
+  WAIVED
+  REVERSED
+}
+
+enum ReconciliationStatus {
+  MATCHED
+  MISMATCH
+  UNRESOLVED
+}
+
+model FinanceSettlement {
+  id               String                  @id @default(cuid())
+  settlementNumber String                  @unique @default(uuid())
+  vendorId         String?
+  driverId         String?
+  amount           Decimal                 @db.Decimal(14, 2)
+  commission       Decimal                 @default(0) @db.Decimal(14, 2)
+  netAmount        Decimal                 @db.Decimal(14, 2)
+  currency         String                  @default("INR")
+  status           FinanceSettlementStatus @default(PENDING)
+  referenceType    String?
+  referenceId      String?
+  paidAt           DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([vendorId, status])
+  @@index([driverId, status])
+  @@index([referenceType, referenceId])
+  @@index([createdAt])
+}
+
+model FinanceRefund {
+  id              String              @id @default(cuid())
+  refundNumber    String              @unique @default(uuid())
+  bookingId       String?
+  transactionId   String?
+  amount          Decimal             @db.Decimal(14, 2)
+  currency        String              @default("INR")
+  reason          String?
+  status          FinanceRefundStatus @default(PENDING)
+  gatewayName     String?
+  gatewayRefundId String?
+  processedAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([bookingId])
+  @@index([transactionId])
+  @@index([status])
+  @@index([gatewayRefundId])
+}
+
+model FinancePenalty {
+  id            String               @id @default(cuid())
+  penaltyNumber String               @unique @default(uuid())
+  vendorId      String?
+  driverId      String?
+  bookingId     String?
+  amount        Decimal              @db.Decimal(14, 2)
+  reason        String
+  status        FinancePenaltyStatus @default(PENDING)
+  appliedAt     DateTime?
+  waivedAt      DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([vendorId, status])
+  @@index([driverId, status])
+  @@index([bookingId])
+  @@index([status])
+}
+
+model FinanceReconciliation {
+  id             String               @id @default(cuid())
+  sourceType     String
+  sourceId       String
+  expectedAmount Decimal              @db.Decimal(14, 2)
+  actualAmount   Decimal              @db.Decimal(14, 2)
+  difference     Decimal              @db.Decimal(14, 2)
+  status         ReconciliationStatus
+  notes          String?
+  reconciledAt   DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([sourceType, sourceId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Transaction {
@@ -492,30 +725,30 @@ model Review {
 }
 
 model Corporate {
-  id                   String                   @id @default(cuid())
+  id                   String                     @id @default(cuid())
   companyName          String
   legalName            String?
-  gstNumber            String?                  @unique
+  gstNumber            String?                    @unique
   panNumber            String?
-  email                String                   @unique
+  email                String                     @unique
   mobile               String
   website              String?
   address              String
-  city                 String
+  city                 String?
   state                String
-  country              String                   @default("India")
+  country              String                     @default("India")
   pincode              String
-  status               CorporateStatus          @default(ACTIVE)
-  billingCycle         CorporateBillingCycle    @default(MONTHLY)
-  approvalFlow         ApprovalFlow             @default(MANAGER)
-  creditLimit          Decimal?                 @db.Decimal(12, 2)
-  paymentTermsDays     Int?                     @default(30)
+  status               CorporateStatus            @default(ACTIVE)
+  billingCycle         CorporateBillingCycle      @default(MONTHLY)
+  approvalFlow         ApprovalFlow               @default(MANAGER)
+  creditLimit          Decimal?                   @db.Decimal(12, 2)
+  paymentTermsDays     Int?                       @default(30)
   accountManagerName   String?
   accountManagerEmail  String?
   accountManagerMobile String?
   deletedAt            DateTime?
-  createdAt            DateTime                 @default(now())
-  updatedAt            DateTime                 @updatedAt
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
   approvalRules        CorporateApprovalRule[]
   branches             CorporateBranch[]
   contracts            CorporateContract[]
@@ -529,6 +762,9 @@ model Corporate {
   wallet               CorporateWallet?
   leads                Lead[]
   supportTickets       SupportTicket[]
+  approvalRequests     CorporateApprovalRequest[]
+  budgets              CorporateBudget[]
+  bookings             Booking[]
 }
 
 model CorporateBranch {
@@ -537,7 +773,7 @@ model CorporateBranch {
   branchName   String
   branchCode   String?
   address      String
-  city         String
+  city         String?
   state        String
   pincode      String
   latitude     Decimal?              @db.Decimal(10, 7)
@@ -577,34 +813,35 @@ model CorporateCostCenter {
 }
 
 model CorporateEmployee {
-  id                     String               @id @default(cuid())
+  id                     String                     @id @default(cuid())
   corporateId            String
   branchId               String?
   departmentId           String?
   costCenterId           String?
-  userId                 String?              @unique
-  employeeCode           String               @unique
+  userId                 String?                    @unique
+  employeeCode           String                     @unique
   employeeName           String
-  officialEmail          String               @unique
+  officialEmail          String                     @unique
   mobile                 String
   designation            String
   managerName            String?
   managerEmail           String?
   employeeGrade          String?
-  isApprover             Boolean              @default(false)
-  monthlyTravelLimit     Decimal?             @db.Decimal(12, 2)
-  yearlyTravelLimit      Decimal?             @db.Decimal(12, 2)
+  isApprover             Boolean                    @default(false)
+  monthlyTravelLimit     Decimal?                   @db.Decimal(12, 2)
+  yearlyTravelLimit      Decimal?                   @db.Decimal(12, 2)
   defaultPickupAddress   String?
   emergencyContactName   String?
   emergencyContactMobile String?
-  isActive               Boolean              @default(true)
-  createdAt              DateTime             @default(now())
-  updatedAt              DateTime             @updatedAt
-  branch                 CorporateBranch?     @relation(fields: [branchId], references: [id])
-  corporate              Corporate            @relation(fields: [corporateId], references: [id], onDelete: Cascade)
-  costCenter             CorporateCostCenter? @relation(fields: [costCenterId], references: [id])
-  department             CorporateDepartment? @relation(fields: [departmentId], references: [id])
-  user                   User?                @relation(fields: [userId], references: [id])
+  isActive               Boolean                    @default(true)
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+  branch                 CorporateBranch?           @relation(fields: [branchId], references: [id])
+  corporate              Corporate                  @relation(fields: [corporateId], references: [id], onDelete: Cascade)
+  costCenter             CorporateCostCenter?       @relation(fields: [costCenterId], references: [id])
+  department             CorporateDepartment?       @relation(fields: [departmentId], references: [id])
+  user                   User?                      @relation(fields: [userId], references: [id])
+  approvalRequests       CorporateApprovalRequest[]
 }
 
 model CorporateTravelPolicy {
@@ -625,13 +862,37 @@ model CorporateTravelPolicy {
 }
 
 model CorporateWallet {
-  id          String    @id @default(cuid())
-  corporateId String    @unique
-  balance     Decimal   @default(0) @db.Decimal(12, 2)
-  creditLimit Decimal?  @db.Decimal(12, 2)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  corporate   Corporate @relation(fields: [corporateId], references: [id], onDelete: Cascade)
+  id           String                       @id @default(cuid())
+  corporateId  String                       @unique
+  balance      Decimal                      @default(0) @db.Decimal(12, 2)
+  creditLimit  Decimal?                     @db.Decimal(12, 2)
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
+  corporate    Corporate                    @relation(fields: [corporateId], references: [id], onDelete: Cascade)
+  transactions CorporateWalletTransaction[]
+
+  @@index([corporateId])
+}
+
+model CorporateWalletTransaction {
+  id              String                @id @default(cuid())
+  walletId        String
+  transactionType WalletTransactionType
+  amount          Decimal               @db.Decimal(12, 2)
+  balanceBefore   Decimal?              @db.Decimal(12, 2)
+  balanceAfter    Decimal?              @db.Decimal(12, 2)
+  referenceId     String?
+  referenceType   String?
+  performedBy     String?
+  description     String?
+  createdAt       DateTime              @default(now())
+  wallet          CorporateWallet       @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([transactionType])
+  @@index([createdAt])
+  @@index([referenceId])
+  @@index([walletId, createdAt])
 }
 
 model CorporateApprovalRule {
@@ -803,7 +1064,7 @@ model CorporateDiscount {
 
 model GeoPromotion {
   id          String   @id @default(cuid())
-  city        String
+  city        String?
   state       String?
   title       String
   description String?
@@ -918,6 +1179,47 @@ model RouteDeviation {
   vehicleId  String?
   trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
   vehicle    Vehicle? @relation(fields: [vehicleId], references: [id])
+}
+
+model SmartReturnListing {
+  id              String                   @id @default(cuid())
+  tripId          String
+  bookingId       String
+  vendorId        String
+  vehicleId       String
+  pickupLocation  String
+  dropLocation    String
+  originalPickup  String
+  originalDrop    String
+  fare            Decimal                  @db.Decimal(10, 2)
+  baseFare        Decimal                  @db.Decimal(10, 2)
+  discountPercent Decimal                  @default(15) @db.Decimal(5, 2)
+  status          SmartReturnListingStatus @default(DRAFT)
+  publishedAt     DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  trip            Trip                     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  booking         Booking                  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendor          Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle                  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([bookingId])
+  @@index([vendorId])
+  @@index([vehicleId])
+  @@index([status])
+  @@index([pickupLocation, dropLocation])
+  @@index([createdAt])
+}
+
+enum SmartReturnListingStatus {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  BOOKED
+  EXPIRED
+  CANCELLED
 }
 
 model ReturnApproval {
@@ -1091,7 +1393,7 @@ model AIRecommendation {
 
 model DemandPrediction {
   id             String         @id @default(cuid())
-  city           String
+  city           String?
   predictionType PredictionType
   predictionDate DateTime
   predictedValue Decimal        @db.Decimal(12, 2)
@@ -1112,7 +1414,7 @@ model FraudDetection {
 
 model HeatMapLocation {
   id           String   @id @default(cuid())
-  city         String
+  city         String?
   latitude     Decimal  @db.Decimal(10, 7)
   longitude    Decimal  @db.Decimal(10, 7)
   bookingCount Int
@@ -1460,6 +1762,50 @@ model ETAPrediction {
   calculatedAt      DateTime
   createdAt         DateTime @default(now())
   trip              Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+enum CRMAccountStatus {
+  PROSPECT
+  ACTIVE
+  INACTIVE
+  LOST
+}
+
+model CRMAccount {
+  id          String           @id @default(cuid())
+  corporateId String?
+  accountName String
+  contactName String?
+  email       String?
+  phone       String?
+  status      CRMAccountStatus @default(PROSPECT)
+  industry    String?
+  city        String?
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([corporateId])
+  @@index([status])
+  @@index([accountName])
+  @@index([createdAt])
+}
+
+model CRMConversionEvent {
+  id         String   @id @default(cuid())
+  sourceType String
+  sourceId   String?
+  targetType String
+  targetId   String?
+  stage      String?
+  value      Decimal? @db.Decimal(14, 2)
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([sourceType, sourceId])
+  @@index([targetType, targetId])
+  @@index([stage])
+  @@index([occurredAt])
 }
 
 model Lead {
@@ -1964,12 +2310,19 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum BookingSource {
+  WEBSITE
+  APP
+  CORPORATE
+}
+
 enum PaymentMethod {
   CASH
   UPI
   CARD
   NET_BANKING
   WALLET
+  CORPORATE_CREDIT
 }
 
 enum TransactionType {
@@ -2462,4 +2815,677 @@ enum BookingStatusAction {
   REASSIGNED
   CANCELLED
   COMPLETED
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([usedAt])
+}
+
+enum EventProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum RetryQueueStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model RideGridEvent {
+  id           String                @id @default(cuid())
+  eventType    String
+  module       String
+  status       EventProcessingStatus @default(PENDING)
+  userId       String?
+  bookingId    String?
+  vendorId     String?
+  driverId     String?
+  customerId   String?
+  payload      Json?
+  errorMessage String?
+  processedAt  DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([eventType])
+  @@index([module])
+  @@index([status])
+  @@index([createdAt])
+  @@index([bookingId])
+  @@index([userId])
+}
+
+model EventRetryQueue {
+  id            String           @id @default(cuid())
+  eventId       String
+  attemptCount  Int              @default(0)
+  maxAttempts   Int              @default(3)
+  status        RetryQueueStatus @default(PENDING)
+  nextAttemptAt DateTime?
+  lastAttemptAt DateTime?
+  errorMessage  String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([eventId])
+  @@index([status])
+  @@index([nextAttemptAt])
+}
+
+model PricingPackage {
+  versions      PricingRateVersion[]
+  id            String @id @default(cuid())
+  pricingRuleId String
+  vehicleId     String
+
+  packageType       String
+  packageName       String
+  city              String?
+  fromCity          String?
+  toCity            String?
+  extraPickupCharge Decimal? @db.Decimal(10, 2)
+  extraDropCharge   Decimal? @db.Decimal(10, 2)
+  includedHours     Int?
+  includedKm        Int?
+
+  baseFare      Decimal  @db.Decimal(10, 2)
+  extraKmRate   Decimal? @db.Decimal(10, 2)
+  extraHourRate Decimal? @db.Decimal(10, 2)
+
+  driverAllowance Decimal? @db.Decimal(10, 2)
+  nightCharge     Decimal? @db.Decimal(10, 2)
+
+  tollCharge    Decimal? @db.Decimal(10, 2)
+  parkingCharge Decimal? @db.Decimal(10, 2)
+  otherCharges  Decimal? @db.Decimal(10, 2)
+
+  airportName       String?
+  transferDirection String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pricingRule PricingRule @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  bookings    Booking[]
+
+  @@unique([vehicleId, pricingRuleId, city, packageName, fromCity, toCity])
+  @@index([vehicleId])
+  @@index([pricingRuleId])
+  @@index([packageType])
+  @@index([city])
+  @@index([fromCity])
+  @@index([toCity])
+  @@index([isActive])
+}
+
+model Invoice {
+  id             String         @id @default(cuid())
+  invoiceNumber  String         @unique
+  bookingId      String         @unique
+  customerId     String
+  vendorId       String
+  subtotal       Decimal        @db.Decimal(12, 2)
+  taxAmount      Decimal        @default(0) @db.Decimal(12, 2)
+  discountAmount Decimal        @default(0) @db.Decimal(12, 2)
+  totalAmount    Decimal        @db.Decimal(12, 2)
+  currency       String         @default("INR")
+  paymentStatus  PaymentStatus  @default(PENDING)
+  paymentMethod  PaymentMethod?
+  invoiceDate    DateTime       @default(now())
+  dueDate        DateTime?
+  pdfUrl         String?
+  emailedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  booking  Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([paymentStatus])
+  @@index([invoiceDate])
+}
+
+model CorporateApprovalRequest {
+  id           String    @id @default(cuid())
+  corporateId  String
+  employeeId   String
+  bookingId    String?
+  amount       Decimal?  @db.Decimal(12, 2)
+  currentStage String
+  status       String    @default("PENDING")
+  submittedAt  DateTime  @default(now())
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  // Requested ride criteria (package, pickup time, addresses, quoted fare) an approver decides on.
+  requestSnapshot Json?
+
+  corporate Corporate               @relation(fields: [corporateId], references: [id], onDelete: Cascade)
+  employee  CorporateEmployee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  steps     CorporateApprovalStep[]
+
+  @@index([corporateId])
+  @@index([employeeId])
+  @@index([bookingId])
+  @@index([status])
+}
+
+model CorporateApprovalStep {
+  id         String    @id @default(cuid())
+  requestId  String
+  level      Int
+  stage      String
+  status     String    @default("PENDING")
+  approverId String?
+  remarks    String?
+  actedAt    DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  request CorporateApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, level])
+  @@index([requestId])
+  @@index([status])
+}
+
+enum CorporateBudgetPeriod {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+  CUSTOM
+}
+
+enum CorporateBudgetStatus {
+  ACTIVE
+  EXHAUSTED
+  EXPIRED
+  SUSPENDED
+}
+
+enum CorporateBudgetAlertType {
+  THRESHOLD
+  EXHAUSTED
+  EXPIRED
+}
+
+model CorporateBudget {
+  id              String                @id @default(cuid())
+  corporateId     String
+  budgetName      String
+  period          CorporateBudgetPeriod
+  status          CorporateBudgetStatus @default(ACTIVE)
+  allocatedAmount Decimal               @db.Decimal(12, 2)
+  utilizedAmount  Decimal               @default(0) @db.Decimal(12, 2)
+  alertThreshold  Decimal?              @db.Decimal(5, 2)
+  startDate       DateTime
+  endDate         DateTime
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  corporate   Corporate                   @relation(fields: [corporateId], references: [id], onDelete: Cascade)
+  allocations CorporateBudgetAllocation[]
+  alerts      CorporateBudgetAlert[]
+
+  @@index([corporateId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model CorporateBudgetAllocation {
+  id          String   @id @default(cuid())
+  budgetId    String
+  amount      Decimal  @db.Decimal(12, 2)
+  bookingId   String?
+  description String?
+  allocatedBy String?
+  createdAt   DateTime @default(now())
+
+  budget CorporateBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+  @@index([bookingId])
+  @@index([createdAt])
+}
+
+model CorporateBudgetAlert {
+  id           String                   @id @default(cuid())
+  budgetId     String
+  alertType    CorporateBudgetAlertType
+  threshold    Decimal?                 @db.Decimal(5, 2)
+  message      String
+  acknowledged Boolean                  @default(false)
+  createdAt    DateTime                 @default(now())
+
+  budget CorporateBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+  @@index([alertType])
+  @@index([createdAt])
+}
+
+model FileAsset {
+  id           String           @id @default(cuid())
+  fileName     String
+  originalName String?
+  mimeType     String?
+  fileSize     Int?
+  fileUrl      String
+  storageKey   String?
+  entityType   String?
+  entityId     String?
+  uploadedBy   String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  documents    DocumentRecord[]
+
+  @@index([entityType, entityId])
+  @@index([uploadedBy])
+  @@index([createdAt])
+}
+
+model DocumentRecord {
+  id             String         @id @default(cuid())
+  fileId         String
+  entityType     String
+  entityId       String
+  documentType   DocumentType
+  documentNumber String?
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  status         DocumentStatus @default(PENDING)
+  remarks        String?
+  verifiedBy     String?
+  verifiedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  file           FileAsset      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+  @@index([documentType])
+  @@index([status])
+  @@index([expiryDate])
+  @@index([fileId])
+}
+
+//
+// Website & SEO Core Entity Engine
+//
+
+model WebsiteSeoEntity {
+  id     String                 @id @default(cuid())
+  type   WebsiteSeoEntityType
+  name   String
+  slug   String
+  status WebsiteSeoEntityStatus @default(DRAFT)
+
+  sourceId String?
+  parentId String?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent         WebsiteSeoEntity?   @relation("WebsiteSeoEntityHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children       WebsiteSeoEntity[]  @relation("WebsiteSeoEntityHierarchy")
+  generatedPages WebsiteSeoPage[]
+  keywords       WebsiteSeoKeyword[] @relation("WebsiteSeoKeywordEntity")
+
+  @@unique([type, slug])
+  @@index([type])
+  @@index([status])
+  @@index([sourceId])
+  @@index([parentId])
+  @@index([createdAt])
+}
+
+enum WebsiteSeoEntityType {
+  ROUTE
+  CITY
+  SERVICE
+  AIRPORT
+  AREA
+  VEHICLE
+}
+
+enum WebsiteSeoEntityStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+model WebsiteSeoTemplate {
+  id          String                   @id @default(cuid())
+  name        String
+  key         String                   @unique
+  entityType  WebsiteSeoEntityType
+  status      WebsiteSeoTemplateStatus @default(DRAFT)
+  pathPattern String
+
+  sections Json
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  generatedPages WebsiteSeoPage[]
+
+  @@index([entityType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum WebsiteSeoTemplateStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+model WebsiteSeoPage {
+  id String @id @default(cuid())
+
+  key      String               @unique
+  pathname String               @unique
+  status   WebsiteSeoPageStatus @default(DRAFT)
+
+  entityId   String
+  templateId String
+
+  generationVersion Int   @default(1)
+  metadata          Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entity   WebsiteSeoEntity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  template WebsiteSeoTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@unique([entityId, templateId])
+  @@index([entityId])
+  @@index([templateId])
+  @@index([status])
+  @@index([pathname])
+  @@index([createdAt])
+}
+
+enum WebsiteSeoPageStatus {
+  DRAFT
+  READY
+  PUBLISHED
+  ARCHIVED
+}
+
+model WebsiteSeoKeyword {
+  id                String                  @id @default(cuid())
+  keyword           String
+  normalizedKeyword String
+  type              WebsiteSeoKeywordType
+  intent            WebsiteSeoKeywordIntent
+  status            WebsiteSeoKeywordStatus @default(DISCOVERED)
+
+  entityId         String?
+  entityType       WebsiteSeoEntityType?
+  clusterKey       String?
+  primaryKeywordId String?
+
+  metrics  Json?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entity         WebsiteSeoEntity?   @relation("WebsiteSeoKeywordEntity", fields: [entityId], references: [id], onDelete: SetNull)
+  primaryKeyword WebsiteSeoKeyword?  @relation("WebsiteSeoKeywordHierarchy", fields: [primaryKeywordId], references: [id], onDelete: SetNull)
+  childKeywords  WebsiteSeoKeyword[] @relation("WebsiteSeoKeywordHierarchy")
+
+  @@unique([normalizedKeyword, entityId])
+  @@index([normalizedKeyword])
+  @@index([type])
+  @@index([intent])
+  @@index([status])
+  @@index([entityId])
+  @@index([entityType])
+  @@index([clusterKey])
+  @@index([primaryKeywordId])
+  @@index([createdAt])
+}
+
+enum WebsiteSeoKeywordType {
+  PRIMARY
+  SECONDARY
+  LONG_TAIL
+  LOCAL
+  ROUTE
+  CITY
+  AIRPORT
+  SERVICE
+  VEHICLE
+  COMMERCIAL
+  INFORMATIONAL
+  QUESTION
+}
+
+enum WebsiteSeoKeywordIntent {
+  TRANSACTIONAL
+  COMMERCIAL
+  INFORMATIONAL
+  NAVIGATIONAL
+  LOCAL
+}
+
+enum WebsiteSeoKeywordStatus {
+  DISCOVERED
+  APPROVED
+  MAPPED
+  ACTIVE
+  REJECTED
+  ARCHIVED
+}
+
+// W10: competitors and externally supplied search observations only.
+model WebsiteSeoScaleRun {
+  id String @id @default(cuid())
+  name String
+  entityType WebsiteSeoEntityType
+  rolloutLevel String
+  itemLimit Int
+  batchSize Int
+  status String @default("DRAFT")
+  executionToken String?
+  heartbeatAt DateTime?
+  startedAt DateTime?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items WebsiteSeoScaleItem[]
+  @@index([status, createdAt])
+}
+
+model WebsiteSeoScaleItem {
+  id String @id @default(cuid())
+  runId String
+  candidateKey String
+  entityType WebsiteSeoEntityType
+  name String
+  slug String
+  metadata Json?
+  selected Boolean @default(false)
+  status String @default("PENDING")
+  entityId String?
+  pageId String?
+  error String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  run WebsiteSeoScaleRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  @@unique([runId, candidateKey])
+  @@index([runId, status, id])
+}
+
+model WebsiteSeoCompetitor {
+  id           String @id @default(cuid())
+  name         String
+  domain       String @unique
+  status       String @default("ACTIVE")
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  observations WebsiteSeoSearchObservation[]
+
+  @@index([status])
+}
+
+model WebsiteSeoSearchObservation {
+  id              String @id @default(cuid())
+  kind            String
+  subject         String
+  provider        String
+  query           String
+  keywordId       String?
+  pageId          String?
+  competitorId    String?
+  url             String?
+  rank            Int?
+  visibilityScore Float?
+  mentioned       Boolean?
+  cited           Boolean?
+  observedAt      DateTime
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  competitor      WebsiteSeoCompetitor? @relation(fields: [competitorId], references: [id], onDelete: Restrict)
+
+  @@index([kind, observedAt])
+  @@index([query, observedAt])
+  @@index([keywordId, observedAt])
+  @@index([pageId, observedAt])
+  @@index([competitorId, observedAt])
+}
+
+// Historical rules/packages remain the source identities; published terms live in versions.
+model PricingRateVersion {
+  id String @id @default(cuid())
+  pricingRuleId String
+  pricingPackageId String?
+  pricingRule PricingRule @relation(fields: [pricingRuleId], references: [id], onDelete: Restrict)
+  pricingPackage PricingPackage? @relation(fields: [pricingPackageId], references: [id], onDelete: Restrict)
+  scopeKey String
+  vendorId String
+  vehicleCategory VehicleCategory
+  service String
+  city String @default("")
+  origin String @default("")
+  destination String @default("")
+  area String @default("")
+  version Int
+  status String @default("DRAFT")
+  effectiveFrom DateTime
+  effectiveTo DateTime?
+  fare Decimal @db.Decimal(14, 2)
+  terms Json
+  smartReturnFare Decimal? @db.Decimal(14, 2)
+  createdBy String
+  reviewedBy String?
+  reviewReason String?
+  reviewedAt DateTime?
+  deactivatedAt DateTime?
+  createdAt DateTime @default(now())
+  quotes PricingQuote[]
+  @@unique([scopeKey, version])
+  @@index([vendorId, service, vehicleCategory, status, effectiveFrom])
+  @@index([scopeKey, status, effectiveFrom, effectiveTo])
+}
+
+// Versioned policy payloads are validated by pricing/config.ts before persistence.
+model PricingPolicy {
+  id String @id @default(cuid())
+  key String
+  version Int
+  kind String
+  name String
+  city String @default("")
+  service String @default("")
+  vehicleCategory String @default("")
+  vendorId String @default("")
+  route String @default("")
+  effectiveFrom DateTime
+  effectiveTo DateTime?
+  active Boolean @default(true)
+  data Json
+  createdBy String
+  createdAt DateTime @default(now())
+  @@unique([key, version])
+  @@index([kind, active, service, city, effectiveFrom])
+}
+
+model PricingQuote {
+  id String @id @default(cuid())
+  idempotencyKey String @unique
+  requestHash String
+  ownerId String
+  vendorId String
+  vehicleId String
+  rateVersionId String
+  rateVersion PricingRateVersion @relation(fields: [rateVersionId], references: [id], onDelete: Restrict)
+  snapshot Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  booking Booking?
+  @@index([vendorId, createdAt])
+  @@index([expiresAt])
+}
+
+model CustomerSavedRoute {
+  id String @id @default(cuid())
+  customerId String
+  serviceType String
+  tripType String
+  pickupCity String
+  dropCity String
+  category String
+  packageName String
+  fareWatch Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  @@index([customerId])
+  @@unique([customerId, serviceType, tripType, pickupCity, dropCity, category, packageName], map: "customer_saved_route_identity")
 }

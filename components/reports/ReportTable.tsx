@@ -1,21 +1,67 @@
-'use client';
+﻿"use client";
 
-import { reportTable } from '@/data/reports';
+import { useEffect, useState } from "react";
 
-const statusColors: Record<string, string> = {
-  Completed: 'bg-green-100 text-green-700',
-  Scheduled: 'bg-blue-100 text-blue-700',
-  Processing: 'bg-amber-100 text-amber-700',
-};
+interface ReportRow {
+  report: string;
+  category: string;
+  value: string;
+}
 
 export default function ReportTable() {
+  const [rows, setRows] = useState<ReportRow[]>([]);
+
+  useEffect(() => {
+    fetch("/api/reports?report=dashboard")
+      .then((response) => response.json())
+      .then((result) => {
+        if (!result.success) return;
+
+        const data = result.data;
+
+        setRows([
+          {
+            report: "Revenue Report",
+            category: "Finance",
+            value: `₹${Number(
+              data.summary.totalRevenue
+            ).toLocaleString("en-IN")}`,
+          },
+          {
+            report: "Expense Report",
+            category: "Finance",
+            value: `₹${Number(
+              data.summary.totalExpenses
+            ).toLocaleString("en-IN")}`,
+          },
+          {
+            report: "Booking Report",
+            category: "Bookings",
+            value: Number(
+              data.summary.totalBookings
+            ).toLocaleString("en-IN"),
+          },
+          {
+            report: "GST Report",
+            category: "Tax",
+            value: `₹${Number(
+              data.summary.gstCollected
+            ).toLocaleString("en-IN")}`,
+          },
+        ]);
+      })
+      .catch(console.error);
+  }, []);
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-6 py-5">
-        <h2 className="text-xl font-bold text-slate-900">Reports Archive</h2>
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 p-6">
+        <h2 className="text-lg font-bold text-slate-900">
+          Reports Archive
+        </h2>
 
         <p className="mt-1 text-sm text-slate-500">
-          Complete report history and export records
+          Current generated report summary
         </p>
       </div>
 
@@ -26,68 +72,54 @@ export default function ReportTable() {
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Report
               </th>
-
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Category
               </th>
-
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Generated
+                Value
               </th>
-
-              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Format
-              </th>
-
-              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Size
-              </th>
-
-              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Status
-              </th>
-
               <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Action
+                Status
               </th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-slate-100">
-            {reportTable.map((item) => (
+            {rows.map((item) => (
               <tr
-                key={`${item.report}-${item.generated}`}
+                key={item.report}
                 className="hover:bg-slate-50"
               >
                 <td className="px-6 py-4 font-semibold text-slate-900">
                   {item.report}
                 </td>
 
-                <td className="px-6 py-4 text-slate-600">{item.category}</td>
+                <td className="px-6 py-4 text-slate-600">
+                  {item.category}
+                </td>
 
-                <td className="px-6 py-4 text-slate-600">{item.generated}</td>
-
-                <td className="px-6 py-4 text-slate-600">{item.format}</td>
-
-                <td className="px-6 py-4 text-slate-600">{item.size}</td>
-
-                <td className="px-6 py-4">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      statusColors[item.status]
-                    }`}
-                  >
-                    {item.status}
-                  </span>
+                <td className="px-6 py-4 font-semibold text-slate-900">
+                  {item.value}
                 </td>
 
                 <td className="px-6 py-4 text-right">
-                  <button className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-100">
-                    Download
-                  </button>
+                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                    Ready
+                  </span>
                 </td>
               </tr>
             ))}
+
+            {rows.length === 0 && (
+              <tr>
+                <td
+                  colSpan={4}
+                  className="px-6 py-10 text-center text-sm text-slate-400"
+                >
+                  No report data available
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

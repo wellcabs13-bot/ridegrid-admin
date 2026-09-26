@@ -1,9 +1,11 @@
+import { legacyVendorId } from "@/lib/vendor-mobile/legacy";
+import { vendorFailure } from "@/lib/vendor-mobile/access";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   try {
-    const vendorId = req.nextUrl.searchParams.get("vendorId");
+    const vendorId = await legacyVendorId(req);
 
     if (!vendorId) {
       return NextResponse.json(
@@ -25,10 +27,10 @@ export async function GET(req: NextRequest) {
       include: {
         driver: {
           include: {
-            user: true,
+            user: { select: { id: true, name: true, email: true, mobile: true } },
           },
         },
-        bookings: {
+        bookings: { where: { vendorId, deletedAt: null },
           take: 5,
           orderBy: {
             createdAt: "desc",
@@ -59,17 +61,5 @@ export async function GET(req: NextRequest) {
       statistics,
       data: vehicles,
     });
-  } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to fetch vehicles.",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
+  } catch (error) { return vendorFailure(error); }
 }

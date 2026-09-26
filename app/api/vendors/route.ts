@@ -1,0 +1,495 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+
+function serializeVendor(vendor: any) {
+  return {
+    id: vendor.id,
+    companyName: vendor.companyName,
+    ownerName: vendor.user?.name ?? "",
+    mobile: vendor.user?.mobile ?? "",
+    email: vendor.user?.email ?? "",
+
+    homeCity: vendor.homeCity ?? "",
+    fleetSize: vendor.fleetSize ?? null,
+    address: vendor.address ?? "",
+    city: vendor.city ?? "",
+    state: vendor.state ?? "",
+    pinCode: vendor.pinCode ?? "",
+
+    bankName: vendor.bankName ?? "",
+    accountNumber: vendor.accountNumber ?? "",
+    ifscCode: vendor.ifscCode ?? "",
+    branchName: vendor.branchName ?? "",
+
+    totalVehicles: vendor.vehicles?.length ?? 0,
+    activeVehicles:
+      vendor.vehicles?.filter(
+        (vehicle: any) => vehicle.status === "AVAILABLE"
+      ).length ?? 0,
+    completedTrips:
+      vendor.bookings?.filter(
+        (booking: any) => booking.status === "TRIP_COMPLETED"
+      ).length ?? 0,
+
+    totalEarnings: new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(
+      vendor.bookings?.filter((b: any) => b.status === "TRIP_COMPLETED").reduce((sum: number, b: any) => sum + Number(b.vendorEarning ?? 0), 0) ?? 0
+    ),
+    pendingPayment: new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Math.max(0,
+      (vendor.bookings?.filter((b: any) => b.status === "TRIP_COMPLETED").reduce((sum: number, b: any) => sum + Number(b.vendorEarning ?? 0), 0) ?? 0) -
+      (vendor.settlements?.reduce((sum: number, s: any) => sum + Number(s.netAmount ?? 0), 0) ?? 0)
+    )),
+    rating: vendor.reviews?.length ? vendor.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) / vendor.reviews.length : 0,
+    status: vendor.isApproved ? "Active" : "Pending",
+    joinedDate: new Date(vendor.createdAt).toLocaleDateString("en-IN"),
+  };
+}
+
+const vendorInclude = {
+  user: { select: { name: true, mobile: true, email: true } },
+  settlements: { where: { settlementStatus: "COMPLETED" as const }, select: { netAmount: true } },
+  reviews: { where: { status: "PUBLISHED" as const }, select: { rating: true } },
+  vehicles: {
+    where: {
+      deletedAt: null,
+    },
+  },
+  bookings: {
+    where: {
+      deletedAt: null,
+    },
+    select: {
+      status: true,
+      vendorEarning: true,
+    },
+  },
+};
+
+export async function GET(req: NextRequest) {
+  try {
+    const searchParams = req.nextUrl.searchParams;
+    const search = searchParams.get("search")?.trim() || "";
+    const status = searchParams.get("status") || "";
+    const city = searchParams.get("city")?.trim() || "";
+
+    const vendors = await prisma.vendor.findMany({
+      where: {
+        deletedAt: null,
+        ...(city ? { city: { contains: city, mode: "insensitive" as const } } : {}),
+
+        ...(status === "Active"
+          ? { isApproved: true }
+          : status === "Pending"
+            ? { isApproved: false }
+            : {}),
+
+        ...(search
+          ? {
+              OR: [
+                {
+                  companyName: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  user: {
+                    name: {
+                      contains: search,
+                      mode: "insensitive",
+                    },
+                  },
+                },
+                {
+                  user: {
+                    email: {
+                      contains: search,
+                      mode: "insensitive",
+                    },
+                  },
+                },
+                {
+                  user: {
+                    mobile: {
+                      contains: search,
+                    },
+                  },
+                },
+              ],
+            }
+          : {}),
+      },
+
+      include: vendorInclude,
+
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: vendors.map(serializeVendor),
+    });
+  } catch (error) {
+    console.error("GET /api/vendors failed:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to load vendors.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+
+    const documents = body.documents ?? {};
+
+    const {
+      companyName,
+      ownerName,
+      mobile,
+      email,
+      homeCity,
+      fleetSize,
+      address,
+      city,
+      state,
+      pinCode,
+      bankName,
+      accountNumber,
+      ifscCode,
+      branchName,
+    } = body;
+
+    if (
+      !companyName?.trim() ||
+      !ownerName?.trim() ||
+      !mobile?.trim() ||
+      !email?.trim()
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Company, owner, mobile and email are required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedMobile = mobile.trim();
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: normalizedEmail },
+          { mobile: normalizedMobile },
+        ],
+        deletedAt: null,
+      },
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            existingUser.email === normalizedEmail
+              ? "A user with this email already exists."
+              : "A user with this mobile number already exists.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const temporaryPassword = crypto.randomUUID();
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 12);
+
+    const vendor = await prisma.$transaction(async (tx: any) => {
+      const user = await tx.user.create({
+        data: {
+          name: ownerName.trim(),
+          email: normalizedEmail,
+          mobile: normalizedMobile,
+          password: hashedPassword,
+          role: "VENDOR",
+          isActive: true,
+          isVerified: false,
+        },
+      });
+
+      const createdVendor = await tx.vendor.create({
+        data: {
+          userId: user.id,
+          companyName: companyName.trim(),
+
+          homeCity: homeCity?.trim() || null,
+          fleetSize:
+            fleetSize !== undefined &&
+            fleetSize !== null &&
+            String(fleetSize).trim() !== ""
+              ? Number(fleetSize)
+              : null,
+          address: address?.trim() || null,
+          city: city?.trim() || null,
+          state: state?.trim() || null,
+          pinCode: pinCode?.trim() || null,
+
+          bankName: bankName?.trim() || null,
+          accountNumber: accountNumber?.trim() || null,
+          ifscCode: ifscCode?.trim().toUpperCase() || null,
+          branchName: branchName?.trim() || null,
+
+          isApproved: false,
+        },
+        include: vendorInclude,
+      });
+
+      const documentInputs = [
+        { type: "AADHAAR", file: documents.aadhaarCard },
+        { type: "PAN", file: documents.panCard },
+        { type: "OTHER", file: documents.cancelledCheque },
+      ];
+
+      for (const item of documentInputs) {
+        if (item.file?.fileName && item.file?.fileUrl) {
+          await tx.vendorDocument.create({
+            data: {
+              vendorId: createdVendor.id,
+              documentType: item.type,
+              fileUrl: item.file.fileUrl,
+              status: "PENDING",
+            },
+          });
+        }
+      }
+      return createdVendor;
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Vendor created successfully.",
+        data: serializeVendor(vendor),
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("POST /api/vendors failed:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to create vendor.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+
+    const {
+      id,
+      companyName,
+      ownerName,
+      mobile,
+      email,
+      homeCity,
+      fleetSize,
+      address,
+      city,
+      state,
+      pinCode,
+      bankName,
+      accountNumber,
+      ifscCode,
+      branchName,
+      status,
+    } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor ID is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const vendor = await prisma.vendor.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!vendor || vendor.deletedAt) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const updatedVendor = await prisma.$transaction(async (tx: any) => {
+      const userData: any = {};
+
+      if (ownerName !== undefined) {
+        userData.name = ownerName;
+      }
+
+      if (mobile !== undefined) {
+        userData.mobile = mobile;
+      }
+
+      if (email !== undefined) {
+        userData.email = email.trim().toLowerCase();
+      }
+
+      if (Object.keys(userData).length > 0) {
+        await tx.user.update({
+          where: { id: vendor.userId },
+          data: userData,
+        });
+      }
+
+      const vendorData: any = {};
+
+      if (companyName !== undefined) {
+        vendorData.companyName = companyName;
+      }
+
+      if (homeCity !== undefined) {
+        vendorData.homeCity = homeCity || null;
+      }
+
+      if (fleetSize !== undefined) {
+        vendorData.fleetSize =
+          fleetSize === null ||
+          String(fleetSize).trim() === ""
+            ? null
+            : Number(fleetSize);
+      }
+
+      if (address !== undefined) {
+        vendorData.address = address || null;
+      }
+
+      if (city !== undefined) {
+        vendorData.city = city || null;
+      }
+
+      if (state !== undefined) {
+        vendorData.state = state || null;
+      }
+
+      if (pinCode !== undefined) {
+        vendorData.pinCode = pinCode || null;
+      }
+
+      if (bankName !== undefined) {
+        vendorData.bankName = bankName || null;
+      }
+
+      if (accountNumber !== undefined) {
+        vendorData.accountNumber = accountNumber || null;
+      }
+
+      if (ifscCode !== undefined) {
+        vendorData.ifscCode = ifscCode
+          ? ifscCode.toUpperCase()
+          : null;
+      }
+
+      if (branchName !== undefined) {
+        vendorData.branchName = branchName || null;
+      }
+
+      if (status !== undefined) {
+        vendorData.isApproved = status === "Active";
+      }
+
+      return tx.vendor.update({
+        where: { id },
+        data: vendorData,
+        include: vendorInclude,
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Vendor updated successfully.",
+      data: serializeVendor(updatedVendor),
+    });
+  } catch (error) {
+    console.error("PUT /api/vendors failed:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to update vendor.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const id = req.nextUrl.searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor ID is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const vendor = await prisma.vendor.findUnique({
+      where: { id },
+    });
+
+    if (!vendor || vendor.deletedAt) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    await prisma.vendor.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Vendor deleted successfully.",
+    });
+  } catch (error) {
+    console.error("DELETE /api/vendors failed:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to delete vendor.",
+      },
+      { status: 500 }
+    );
+  }
+}

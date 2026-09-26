@@ -247,6 +247,75 @@ export class AnalyticsService {
     };
   }
 
+  async getMarketplaceAnalytics(
+    filters: AnalyticsFilters = {}
+  ) {
+    const rows =
+      await analyticsRepository.getMarketplaceAnalytics(
+        filters.from,
+        filters.to
+      );
+
+    const totalBookings = rows.reduce(
+      (sum, item) => sum + item._count._all,
+      0
+    );
+
+    const totalRevenue = rows.reduce(
+      (sum, item) =>
+        sum + Number(item._sum.finalFare ?? item._sum.estimatedFare ?? 0),
+      0
+    );
+
+    const totalCommission = rows.reduce(
+      (sum, item) =>
+        sum + Number(item._sum.platformCommission ?? 0),
+      0
+    );
+
+    return {
+      totalBookings,
+      totalRevenue,
+      totalCommission,
+      byStatus: rows,
+    };
+  }
+
+  async getFinanceAnalytics(
+    filters: AnalyticsFilters = {}
+  ) {
+    return analyticsRepository.getFinanceAnalytics(
+      filters.from,
+      filters.to
+    );
+  }
+
+  async getCorporateAnalytics(
+    filters: AnalyticsFilters = {},
+    corporateId?: string
+  ) {
+    return analyticsRepository.getCorporateAnalytics(
+      filters.from,
+      filters.to,
+      corporateId
+    );
+  }
+
+  async getPredictiveInsights(
+    filters: AnalyticsFilters = {}
+  ) {
+    const predictions =
+      await analyticsRepository.getPredictiveInsights(
+        filters.city,
+        filters.from,
+        filters.to
+      );
+
+    return {
+      count: predictions.length,
+      predictions,
+    };
+  }
   private buildCityPerformance(
     events: Array<{
       city: string | null;

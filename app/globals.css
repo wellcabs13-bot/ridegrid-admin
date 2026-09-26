@@ -2,6 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   RideGrid Premium Design System — brand tokens
+   Single source of truth for the red/black/white premium language. New work
+   should read colors from these tokens (or the `rg-*` Tailwind utilities in
+   tailwind.config.ts) instead of hardcoding hex values. Operational surfaces
+   (super admin + corporate admin) consume these via the `.rg-admin` scope in
+   components/admin.css; other surfaces can opt in the same way.
+   ========================================================================== */
+:root {
+  /* Surfaces */
+  --rg-black: #0a0a0c;
+  --rg-surface: #141417;
+  --rg-surface-2: #1c1c21;
+  --rg-surface-3: #26262c;
+  --rg-border: rgba(255, 255, 255, 0.08);
+  --rg-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Brand accent */
+  --rg-red: #dc2626;
+  --rg-red-dark: #b91c1c;
+  --rg-red-light: #ef4444;
+  --rg-ruby: #9f1239;
+  --rg-red-glow: rgba(220, 38, 38, 0.45);
+
+  /* Text hierarchy */
+  --rg-text: #f5f5f7;
+  --rg-text-secondary: #c7c7cf;
+  --rg-text-muted: #9a9aa2;
+  --rg-text-dim: #6b6b74;
+
+  /* Status */
+  --rg-success: #22c55e;
+  --rg-warning: #f59e0b;
+  --rg-danger: #ef4444;
+  --rg-info: #38bdf8;
+
+  /* Depth */
+  --rg-shadow-card: 0 20px 40px -20px rgba(0, 0, 0, 0.6);
+  --rg-shadow-glow: 0 8px 20px -6px var(--rg-red-glow);
+}
+
 html,
 body {
   padding: 0;

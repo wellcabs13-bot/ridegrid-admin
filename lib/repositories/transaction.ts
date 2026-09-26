@@ -35,6 +35,10 @@ export class TransactionRepository {
   async findByBooking(bookingId: string) {
     return prisma.transaction.findMany({
       where: { bookingId },
+      include: {
+        booking: true,
+        vendor: true,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -44,6 +48,10 @@ export class TransactionRepository {
   async findByVendor(vendorId: string) {
     return prisma.transaction.findMany({
       where: { vendorId },
+      include: {
+        booking: true,
+        vendor: true,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -55,6 +63,10 @@ export class TransactionRepository {
       where: {
         paymentStatus: status,
       },
+      include: {
+        booking: true,
+        vendor: true,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -65,6 +77,10 @@ export class TransactionRepository {
     return prisma.transaction.findMany({
       where: {
         transactionType: type,
+      },
+      include: {
+        booking: true,
+        vendor: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -111,6 +127,10 @@ export class TransactionRepository {
             ? new Date()
             : undefined,
       },
+      include: {
+        booking: true,
+        vendor: true,
+      },
     });
   }
 
@@ -120,6 +140,49 @@ export class TransactionRepository {
     return prisma.transaction.count({
       where,
     });
+  }
+
+  async sum(
+    where: Prisma.TransactionWhereInput = {}
+  ) {
+    const result =
+      await prisma.transaction.aggregate({
+        where,
+        _sum: {
+          amount: true,
+        },
+      });
+
+    return Number(result._sum.amount ?? 0);
+  }
+
+  async totalsByType(
+    paymentStatus: PaymentStatus = PaymentStatus.PAID
+  ) {
+    const transactions =
+      await prisma.transaction.findMany({
+        where: {
+          paymentStatus,
+        },
+        select: {
+          transactionType: true,
+          amount: true,
+        },
+      });
+
+    return transactions.reduce(
+      (
+        totals: Record<TransactionType, number>,
+        transaction
+      ) => {
+        totals[transaction.transactionType] =
+          (totals[transaction.transactionType] ?? 0) +
+          Number(transaction.amount);
+
+        return totals;
+      },
+      {} as Record<TransactionType, number>
+    );
   }
 }
 

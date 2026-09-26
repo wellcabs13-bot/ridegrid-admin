@@ -1,0 +1,52 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import HeroSearch from "../../components/website-public/HeroSearch";
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
+it("prefills a route from the live contract and requires the round-trip return date", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: [{ rateId: "r1", service: "ROUNDTRIP", vehicleCategory: "HATCHBACK", packageName: "Pune to Mumbai", fromCity: "pune", toCity: "mumbai" }] }) }));
+  const { container } = render(<HeroSearch context={{ city: "Pune", destination: "Mumbai", service: "ROUNDTRIP" }} />);
+  await waitFor(() => expect(screen.getByLabelText(/Pickup city/)).toHaveValue("pune"));
+  expect(screen.getByLabelText("Destination")).toHaveValue("mumbai");
+  fireEvent.change(screen.getByLabelText(/Pickup date/), { target: { value: "2099-01-01" } });
+  fireEvent.change(screen.getByLabelText("Pickup time"), { target: { value: "10:00" } });
+  fireEvent.submit(container.querySelector("form")!);
+  expect(push).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Return date"), { target: { value: "2099-01-03" } });
+  fireEvent.submit(container.querySelector("form")!);
+  expect(push).toHaveBeenCalledOnce();
+  expect(push.mock.calls[0][0]).toContain("days=3");
+});
+it("searches the intended route without pricing and retains the selected vehicle category", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: [] }) }));
+  const { container } = render(<HeroSearch context={{ city: "Pune", destination: "Shirdi", service: "ONE_WAY", category: "Premium SUV" }} />);
+  await waitFor(() => expect(screen.getByLabelText(/Pickup city/)).toHaveValue("Pune"));
+  expect(screen.getByLabelText("Destination")).toHaveValue("Shirdi");
+  expect(screen.getByLabelText("Vehicle preference")).toHaveValue("SUV");
+  fireEvent.change(screen.getByLabelText(/Pickup date/), { target: { value: "2099-01-01" } });
+  fireEvent.change(screen.getByLabelText("Pickup time"), { target: { value: "10:00" } });
+  fireEvent.submit(container.querySelector("form")!);
+  const url = new URL(push.mock.calls[0][0], "https://www.wellcabs.com");
+  expect(url.searchParams.get("dropCity")).toBe("Shirdi");
+  expect(url.searchParams.get("category")).toBe("SUV");
+  expect(url.searchParams.has("price")).toBe(false);
+  expect(url.searchParams.has("rateId")).toBe(false);
+});
+it("can query current local packages without inventing a package", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: [] }) }));
+  const { container } = render(<HeroSearch context={{ city: "Nashik", service: "LOCAL" }} />);
+  await screen.findByLabelText("Journey package");
+  fireEvent.change(screen.getByLabelText(/Pickup date/), { target: { value: "2099-01-01" } });
+  fireEvent.change(screen.getByLabelText("Pickup time"), { target: { value: "10:00" } });
+  fireEvent.submit(container.querySelector("form")!);
+  expect(push.mock.calls[0][0]).toContain("serviceType=LOCAL");
+  expect(push.mock.calls[0][0]).not.toContain("packageName");
+});
+it("retains page intent and a truthful error when the options request fails", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({ success: false }) }));
+  render(<HeroSearch context={{ city: "Pune", destination: "Shirdi", service: "ONE_WAY" }} />);
+  await screen.findByText('Journey options are temporarily unavailable. Please try again.');
+  expect(screen.getByLabelText(/Pickup city/)).toHaveValue("Pune");
+  expect(screen.getByLabelText("Destination")).toHaveValue("Shirdi");
+});

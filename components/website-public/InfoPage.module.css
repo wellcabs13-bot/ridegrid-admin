@@ -1,0 +1,41 @@
+.container { width: min(1180px, calc(100% - 40px)); margin-inline: auto; }
+.hero { padding: clamp(48px,8vw,100px) 0; background: #101113; color: #fff; }
+.hero h1 { font-size: clamp(2.5rem,6vw,5.5rem); letter-spacing: -.055em; line-height: 1.04; max-width: 950px; margin: 20px 0; font-weight: 800; }
+.hero p { max-width: 720px; color: #c6c6cc; font-size: 1.1rem; line-height: 1.75; margin-bottom: 28px; }
+.hero .eyebrow { color: #ff6676; font-size: .75rem; letter-spacing: .18em; font-weight: 800; }
+.hero a { text-decoration: underline; text-underline-offset: 5px; }
+.layout { display: grid; grid-template-columns: 230px minmax(0,1fr); gap: clamp(30px,6vw,90px); padding-block: 64px 100px; }
+.contents { display: grid; gap: 16px; align-content: start; font-size: .875rem; }
+.contents a { color: #515158; line-height: 1.5; }
+.contents a:hover { color: #bb1028; }
+.body { max-width: 760px; min-width: 0; }
+.body section { scroll-margin-top: 120px; margin-bottom: 40px; }
+.body h2 { font-size: clamp(1.5rem,2.5vw,2rem); line-height: 1.2; letter-spacing: -.035em; font-weight: 750; margin-bottom: 18px; }
+.body p { color: #4c4c54; font-size: 1rem; line-height: 1.85; margin: 14px 0; overflow-wrap: anywhere; }
+.review { padding: 24px; background: #fff5f5; border-left: 3px solid #ca1930; margin-bottom: 40px; border-radius: 0 14px 14px 0; }
+.review strong { color: #9f1525; }
+.actions { display: flex; gap: 20px; flex-wrap: wrap; border-top: 1px solid #ddd; padding-top: 24px; }
+.actions a { color: #aa1024; font-weight: 750; text-decoration: underline; text-underline-offset: 4px; }
+@media(max-width:760px) { .layout { grid-template-columns: minmax(0,1fr); padding-block: 35px 60px; } .contents { border-bottom: 1px solid #ddd; padding-bottom: 24px; } }
+/* Public editorial pages inherit Wellcabs' travel palette. */
+.hero{background:radial-gradient(ellipse at 85% 5%,#28576a,transparent 65%),#0c2635;}
+.hero .eyebrow{color:#ffb89d;}.hero p{color:#bfd1dc;}
+.layout{padding-top:70px;}.contents{position:sticky;top:110px;align-self:start;border:1px solid #dde6e2;background:#fff;padding:24px;border-radius:18px;}
+.contents a{color:#536e7a;min-height:28px;}.contents a:hover,.actions a{color:#a94029;}
+.body section{padding-bottom:28px;border-bottom:1px solid #dfe6e1;}.body h2{color:#173a4a;}.body p{color:#546e79;}
+@media(max-width:760px){.contents{position:static;}.layout{padding-top:30px;}}
+
+/* ---------- RideGrid premium dark reskin ---------- */
+.hero{background:radial-gradient(ellipse at 85% 5%,rgba(220,38,38,.14),transparent 65%),var(--rg-black);}
+.hero .eyebrow{color:var(--rg-red-light);}
+.hero p{color:var(--rg-text-secondary);}
+.contents{border-color:var(--rg-border);background:var(--rg-surface-2);}
+.contents a{color:var(--rg-text-muted);}
+.contents a:hover,.actions a{color:var(--rg-red-light);}
+.body section{border-bottom-color:var(--rg-border);}
+.body h2{color:var(--rg-text);}
+.body p{color:var(--rg-text-muted);}
+.review{background:rgba(220,38,38,.1);border-left-color:var(--rg-red-light);}
+.review strong{color:var(--rg-red-light);}
+.actions{border-top-color:var(--rg-border);}
+.actions a{color:var(--rg-red-light);}

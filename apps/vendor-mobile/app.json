@@ -1,0 +1,1 @@
+{"expo":{"name":"RideGrid Vendor","slug":"ridegrid-vendor","scheme":"ridegrid-vendor","version":"1.0.0","orientation":"portrait","userInterfaceStyle":"dark","ios":{"bundleIdentifier":"com.ridegrid.vendor","supportsTablet":true},"android":{"package":"com.ridegrid.vendor"},"web":{"bundler":"metro","output":"single"},"plugins":["expo-router","expo-secure-store"]}}

@@ -25,7 +25,7 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -62,15 +62,14 @@ export function AuthProvider({
   }
 
   useEffect(() => {
-    refreshUser();
+    void refreshUser();
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refreshUser(); }, 5 * 60 * 1000);
+    const restore = () => { void refreshUser(); };
+    window.addEventListener("focus", restore);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", restore); };
   }, []);
 
   async function login(email: string, password: string) {
-    await AuthService.login({
-      email,
-      password,
-    });
-
     const result = await AuthService.login({
   email,
   password,
@@ -81,6 +80,7 @@ setAuth({
   isAuthenticated: true,
   loading: false,
    });
+    return result.user as User;
   }
 
   async function logout() {

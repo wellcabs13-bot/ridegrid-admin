@@ -298,6 +298,163 @@ export class AnalyticsRepository {
       },
     });
   }
+  async getMarketplaceAnalytics(
+    from?: Date,
+    to?: Date
+  ) {
+    return prisma.booking.groupBy({
+      by: ["status"],
+      where: {
+        ...(from || to
+          ? {
+              pickupDateTime: {
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {}),
+              },
+            }
+          : {}),
+        deletedAt: null,
+      },
+      _count: {
+        _all: true,
+      },
+      _sum: {
+        estimatedFare: true,
+        finalFare: true,
+        platformCommission: true,
+      },
+    });
+  }
+
+  async getFinanceAnalytics(
+    from?: Date,
+    to?: Date
+  ) {
+    const where = {
+      ...(from || to
+        ? {
+            createdAt: {
+              ...(from ? { gte: from } : {}),
+              ...(to ? { lte: to } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [summary, byStatus, byType] =
+      await Promise.all([
+        prisma.transaction.aggregate({
+          where,
+          _count: {
+            _all: true,
+          },
+          _sum: {
+            amount: true,
+            gatewayFee: true,
+            taxAmount: true,
+          },
+        }),
+
+        prisma.transaction.groupBy({
+          by: ["paymentStatus"],
+          where,
+          _count: {
+            _all: true,
+          },
+          _sum: {
+            amount: true,
+          },
+        }),
+
+        prisma.transaction.groupBy({
+          by: ["transactionType"],
+          where,
+          _count: {
+            _all: true,
+          },
+          _sum: {
+            amount: true,
+          },
+        }),
+      ]);
+
+    return {
+      summary,
+      byStatus,
+      byType,
+    };
+  }
+
+  async getCorporateAnalytics(
+    from?: Date,
+    to?: Date,
+    corporateId?: string
+  ) {
+    const where = {
+      ...(corporateId ? { corporateId } : {}),
+      ...(from || to
+        ? {
+            periodStart: {
+              ...(from ? { gte: from } : {}),
+              ...(to ? { lte: to } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [reports, summary] =
+      await Promise.all([
+        prisma.corporateReport.findMany({
+          where,
+          orderBy: {
+            periodStart: "asc",
+          },
+          include: {
+            corporate: true,
+          },
+        }),
+
+        prisma.corporateReport.aggregate({
+          where,
+          _count: {
+            _all: true,
+          },
+          _sum: {
+            totalTrips: true,
+            totalEmployees: true,
+            totalAmount: true,
+          },
+        }),
+      ]);
+
+    return {
+      summary,
+      reports,
+    };
+  }
+
+  async getPredictiveInsights(
+    city?: string,
+    from?: Date,
+    to?: Date
+  ) {
+    return prisma.demandPrediction.findMany({
+      where: {
+        ...(city ? { city } : {}),
+        ...(from || to
+          ? {
+              predictionDate: {
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: {
+        predictionDate: "asc",
+      },
+    });
+  }
 }
 
 export const analyticsRepository =

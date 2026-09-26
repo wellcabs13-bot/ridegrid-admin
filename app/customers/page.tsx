@@ -1,229 +1,261 @@
-'use client';
+﻿"use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
+import DashboardLayout from "@/components/DashboardLayout";
 
-import DashboardLayout from '../../components/DashboardLayout';
-
-import CustomerHeader from '../../components/customers/CustomerHeader';
-import CustomerStats from '../../components/customers/CustomerStats';
-import CustomerFilters from '../../components/customers/CustomerFilters';
-import CustomerTable from '../../components/customers/CustomerTable';
-
-import AddCustomerModal from '../../components/customers/AddCustomerModal';
+import CustomerHeader from "@/components/customers/CustomerHeader";
+import CustomerStats from "@/components/customers/CustomerStats";
+import CustomerFilters from "@/components/customers/CustomerFilters";
+import CustomerTable from "@/components/customers/CustomerTable";
+import AddCustomerModal from "@/components/customers/AddCustomerModal";
 import CustomerForm, {
   CustomerFormData,
-} from '../../components/customers/CustomerForm';
+} from "@/components/customers/CustomerForm";
+import CustomerDetailsDrawer from "@/components/customers/CustomerDetailsDrawer";
 
-import CustomerDetailsDrawer from '../../components/customers/CustomerDetailsDrawer';
-
-import { Customer } from '../../data/customers';
+import { Customer } from "@/types/customer-ui";
 
 export default function CustomersPage() {
-  const [customerList, setCustomerList] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [customers, setCustomers] =
+    useState<Customer[]>([]);
 
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
-  const [city, setCity] = useState('');
+  const [loading, setLoading] =
+    useState(true);
 
-  const [openAddModal, setOpenAddModal] = useState(false);
+  const [search, setSearch] =
+    useState("");
+
+  const [status, setStatus] =
+    useState("");
+
+  const [city, setCity] =
+    useState("");
+
+  const [addOpen, setAddOpen] =
+    useState(false);
 
   const [selectedCustomer, setSelectedCustomer] =
     useState<Customer | null>(null);
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
+  const [drawerOpen, setDrawerOpen] =
+    useState(false);
 
   async function fetchCustomers() {
     try {
       setLoading(true);
 
-      const response = await fetch('/api/customers');
+      const response = await fetch(
+        "/api/customers?page=1&limit=100",
+        {
+          cache: "no-store",
+        }
+      );
+
       const result = await response.json();
 
-      if (result.success) {
-        setCustomerList(result.data);
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            "Failed to load customers."
+        );
       }
+
+      setCustomers(result.data ?? []);
     } catch (error) {
-      console.error(error);
+      console.error(
+        "Customer loading error:",
+        error
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  const filteredCustomers = useMemo(() => {
-    return customerList.filter((customer) => {
-      const matchSearch =
-        customer.name.toLowerCase().includes(search.toLowerCase()) ||
-        customer.mobile.includes(search);
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
 
-      const matchStatus =
-        status === '' || customer.status === status;
+  const filteredCustomers =
+    useMemo(() => {
+      return customers.filter((customer) => {
+        const searchValue =
+          search.toLowerCase().trim();
 
-      const matchCity =
-        city === '' ||
-        customer.city
-          .toLowerCase()
-          .includes(city.toLowerCase());
+        const matchesSearch =
+          !searchValue ||
+          customer.name
+            .toLowerCase()
+            .includes(searchValue) ||
+          customer.email
+            .toLowerCase()
+            .includes(searchValue) ||
+          customer.mobile
+            .toLowerCase()
+            .includes(searchValue);
 
-      return (
-        matchSearch &&
-        matchStatus &&
-        matchCity
-      );
-    });
-  }, [customerList, search, status, city]);
+        const matchesStatus =
+          !status ||
+          customer.status === status;
 
-  const totalCustomers =
-    filteredCustomers.length;
+        const matchesCity =
+          !city ||
+          customer.city
+            .toLowerCase()
+            .includes(
+              city.toLowerCase()
+            );
 
-  const activeCustomers =
+        return (
+          matchesSearch &&
+          matchesStatus &&
+          matchesCity
+        );
+      });
+    }, [
+      customers,
+      search,
+      status,
+      city,
+    ]);
+
+  const active =
     filteredCustomers.filter(
       (customer) =>
-        customer.status === 'Active'
+        customer.status === "Active"
     ).length;
 
-  const inactiveCustomers =
+  const inactive =
     filteredCustomers.filter(
       (customer) =>
-        customer.status === 'Inactive'
+        customer.status === "Inactive"
     ).length;
 
-  const totalRevenue =
+  const revenue =
     filteredCustomers.reduce(
-      (sum, customer) => {
-        const amount = Number(
+      (sum, customer) =>
+        sum +
+        Number(
           customer.totalSpent.replace(
             /[₹,]/g,
-            ''
+            ""
           )
-        );
-
-        return sum + amount;
-      },
+        ),
       0
     );
 
-  function resetFilters() {
-    setSearch('');
-    setStatus('');
-    setCity('');
-  }
-
   async function handleSaveCustomer(
-    customer: CustomerFormData
+    data: CustomerFormData
   ) {
     try {
       const response = await fetch(
-        '/api/customers',
+        "/api/customers",
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type':
-              'application/json',
+            "Content-Type":
+              "application/json",
           },
-          body: JSON.stringify(customer),
+          body: JSON.stringify(data),
         }
       );
 
       const result =
         await response.json();
 
-      if (result.success) {
-        await fetchCustomers();
-        setOpenAddModal(false);
-      } else {
-        alert(result.message);
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            "Failed to create customer."
+        );
       }
+
+      setAddOpen(false);
+
+      await fetchCustomers();
     } catch (error) {
       console.error(error);
+
       alert(
-        'Failed to create customer.'
+        error instanceof Error
+          ? error.message
+          : "Failed to create customer."
       );
     }
   }
 
-  function handleViewCustomer(
-    customer: Customer
-  ) {
-    setSelectedCustomer(customer);
-    setDrawerOpen(true);
-  }
-
   return (
     <DashboardLayout>
-      <CustomerHeader
-        totalCustomers={
-          totalCustomers
-        }
-        onAddCustomer={() =>
-          setOpenAddModal(true)
-        }
-      />
-
-      <CustomerStats
-        total={totalCustomers}
-        active={activeCustomers}
-        inactive={
-          inactiveCustomers
-        }
-        revenue={totalRevenue}
-      />
-
-      <CustomerFilters
-        search={search}
-        status={status}
-        city={city}
-        onSearchChange={setSearch}
-        onStatusChange={setStatus}
-        onCityChange={setCity}
-        onReset={resetFilters}
-      />
-
-      {loading ? (
-        <div className="rounded-xl bg-white p-10 text-center">
-          Loading customers...
-        </div>
-      ) : (
-        <CustomerTable
-          customers={
-            filteredCustomers
+      <div className="space-y-6">
+        <CustomerHeader
+          totalCustomers={
+            filteredCustomers.length
           }
-          onView={
-            handleViewCustomer
+          onAddCustomer={() =>
+            setAddOpen(true)
           }
         />
-      )}
 
-      <CustomerDetailsDrawer
-        open={drawerOpen}
-        customer={
-          selectedCustomer
-        }
-        onClose={() =>
-          setDrawerOpen(false)
-        }
-      />
-
-      <AddCustomerModal
-        isOpen={openAddModal}
-        title="Add New Customer"
-        onClose={() =>
-          setOpenAddModal(false)
-        }
-      >
-        <CustomerForm
-          onSave={
-            handleSaveCustomer
-          }
-          onCancel={() =>
-            setOpenAddModal(false)
-          }
+        <CustomerStats
+          total={filteredCustomers.length}
+          active={active}
+          inactive={inactive}
+          revenue={revenue}
         />
-      </AddCustomerModal>
+
+        <CustomerFilters
+          search={search}
+          status={status}
+          city={city}
+          onSearchChange={setSearch}
+          onStatusChange={setStatus}
+          onCityChange={setCity}
+          onReset={() => {
+            setSearch("");
+            setStatus("");
+            setCity("");
+          }}
+        />
+
+        {loading ? (
+          <div className="rounded-xl border bg-white p-12 text-center text-slate-500">
+            Loading customers...
+          </div>
+        ) : (
+          <CustomerTable
+            customers={filteredCustomers}
+            onView={(customer) => {
+              setSelectedCustomer(
+                customer
+              );
+              setDrawerOpen(true);
+            }}
+          />
+        )}
+
+        <CustomerDetailsDrawer
+          open={drawerOpen}
+          customer={selectedCustomer}
+          onClose={() => {
+            setDrawerOpen(false);
+            setSelectedCustomer(null);
+          }}
+        />
+
+        <AddCustomerModal
+          isOpen={addOpen}
+          title="Add New Customer"
+          onClose={() =>
+            setAddOpen(false)
+          }
+        >
+          <CustomerForm
+            onSave={handleSaveCustomer}
+            onCancel={() =>
+              setAddOpen(false)
+            }
+          />
+        </AddCustomerModal>
+      </div>
     </DashboardLayout>
   );
 }

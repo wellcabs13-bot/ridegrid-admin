@@ -10,6 +10,7 @@
 
 # next.js
 /.next/
+/.next-phase1-qa/
 /out/
 
 # production
@@ -35,3 +36,21 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# test/build output and local debug artifacts (Phase 14/16 cleanup)
+/playwright-report/
+/test-results/
+/backups/
+/_backups/
+apps/*/verification/
+
+# expo prebuild native output (regenerate with `expo prebuild`; no intentional native customizations)
+apps/*/android/
+apps/*/ios/
+
+# live runtime uploads (FileStorageService) - never source, never commit
+/storage/media/
+*.before-*
+*.backup
+*.BACKUP
+*.backup-*

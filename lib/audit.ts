@@ -1,3 +1,5 @@
+﻿import { auditLogger } from "@/lib/security/audit-log";
+
 interface AuditLogData {
   action: string;
   userId?: string;
@@ -7,18 +9,14 @@ interface AuditLogData {
 
 export async function auditLog(data: AuditLogData) {
   try {
-    // Future:
-    // Save into AuditLog table using Prisma.
-    // Send to monitoring service if required.
-
-    console.log("[AUDIT]", {
-      timestamp: new Date().toISOString(),
+    return await auditLogger.log({
+      userId: data.userId,
       action: data.action,
-      userId: data.userId ?? null,
-      description: data.description,
-      metadata: data.metadata ?? {},
+      entityName: data.description,
+      newValue: data.metadata,
     });
   } catch (error) {
     console.error("Audit Log Error:", error);
+    return null;
   }
 }

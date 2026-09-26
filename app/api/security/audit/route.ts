@@ -1,37 +1,24 @@
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
+import { requireAdmin } from "@/lib/admin-access";
+import { NextRequest, NextResponse } from "next/server";
 
-import {
-  auditLogger,
-} from "@/lib/security/audit-log";
+import { auditLogger } from "@/lib/security/audit-log";
 
-export async function GET(
-  request: NextRequest
-) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } =
-      new URL(request.url);
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
+    const { searchParams } = new URL(request.url);
 
-    const userId =
-      searchParams.get("userId");
+    const userId = searchParams.get("userId");
+    const entityModule = searchParams.get("module");
 
-    const entityModule =
-      searchParams.get("module");
-
-    const requestedLimit =
-      Number(
-        searchParams.get("limit") ?? "100"
-      );
+    const requestedLimit = Number(
+      searchParams.get("limit") ?? "100"
+    );
 
     const limit = Math.min(
       Math.max(
-        Number.isFinite(
-          requestedLimit
-        )
-          ? requestedLimit
-          : 100,
+        Number.isFinite(requestedLimit) ? requestedLimit : 100,
         1
       ),
       500
@@ -40,22 +27,11 @@ export async function GET(
     let data;
 
     if (userId) {
-      data =
-        await auditLogger.getByUser(
-          userId,
-          limit
-        );
+      data = await auditLogger.getByUser(userId, limit);
     } else if (entityModule) {
-      data =
-        await auditLogger.getByModule(
-          entityModule,
-          limit
-        );
+      data = await auditLogger.getByModule(entityModule, limit);
     } else {
-      data =
-        await auditLogger.getAll(
-          limit
-        );
+      data = await auditLogger.getAll(limit);
     }
 
     return NextResponse.json({
@@ -64,20 +40,14 @@ export async function GET(
       count: data.length,
     });
   } catch (error) {
-    console.error(
-      "GET /api/security/audit",
-      error
-    );
+    console.error("GET /api/security/audit", error);
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          "Failed to fetch audit logs.",
+        message: "Failed to fetch audit logs.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
