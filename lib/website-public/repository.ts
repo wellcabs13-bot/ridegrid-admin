@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { loadStoredPublicPage } from "../website-seo/publishing/stored-public";
 import { websitePublicNavigationRepository } from "../website-seo/public-navigation/repository";
@@ -11,8 +12,11 @@ import { publicMedia } from "./media";
 import { toPublicPage } from "./page-model";
 import type { PublicChrome } from "./types";
 import { publicImageSlots } from "../website-seo/media/ai-image/public";
+import { phase1PublicPage } from "./phase1";
 
 export const resolvePublicPage = cache(async (pathname: string) => {
+  const phase1 = phase1PublicPage(pathname);
+  if (phase1) return phase1;
   try {
   const stored = await loadStoredPublicPage(pathname);
   if (!stored) return null;
@@ -50,3 +54,5 @@ export const resolveDiscovery = cache(async () => {
   for (const candidate of candidates) checked.push(await resolvePublicPage(candidate.pathname));
   return checked.flatMap(p => p ? [{ label: p.entityName, href: p.pathname, type: p.entityType, description: p.seo.description, image: p.images?.cardImage }] : []);
 });
+// Phase-1 content is local; only shared navigation/media needs a database read.
+export const resolvePhase1Chrome = unstable_cache(() => resolvePublicChrome("GENERATED_PAGES"), ["phase1-public-chrome-v1"], { revalidate: 300 });

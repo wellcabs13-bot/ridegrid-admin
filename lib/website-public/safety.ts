@@ -7,7 +7,7 @@ export function publicHref(value: unknown): string | null {
       const decoded = decodeURIComponent(url.pathname);
       if (/[\\\u0000-\u0020]/.test(decoded) || decoded.startsWith("//")) return null;
       // Public destinations only; dashboard and API paths are never menu targets.
-      if (decoded !== "/" && !INFO_PAGES.some(page => decoded.replace(/\/$/, "") === `/${page.slug}`) && !/^\/(marketplace(?:\/(?:results|booking|payment))?|(?:routes|cities|services|airports|areas|vehicles)\/[^/]+)\/?$/.test(decoded)) return null;
+      if (decoded !== "/" && !INFO_PAGES.some(page => decoded.replace(/\/$/, "") === `/${page.slug}`) && !/^\/(marketplace(?:\/(?:results|booking|payment))?|(?:routes|cities|services|airports|areas|vehicles|tours)\/[a-z0-9-]+|(?:services|vehicles)\/[a-z0-9-]+\/[a-z0-9-]+)\/?$/.test(decoded)) return null;
       return `${url.pathname}${url.search}${url.hash}`;
     } catch { return null; }
   }

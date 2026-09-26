@@ -398,16 +398,16 @@ export default function MarketplaceResultsClient() {
 
         {!loading && !error && sortedListings.length === 0 && (
           <div className="rounded-3xl border border-amber-400/20 bg-amber-400/10 p-14 text-center">
-            <div className="text-xl font-black">No vehicles available</div>
+            <div className="text-xl font-black">No cabs available for this trip right now</div>
             <p className="mx-auto mt-2 max-w-xl text-sm text-slate-300">
-              No eligible vehicle is currently available for this exact saved pricing structure and selected time.
+              Try another date or time, modify your trip, or check again later for a current quote and matching cab.
             </p>
             <button
               type="button"
               onClick={() => router.push("/marketplace")}
               className="mt-6 rounded-xl bg-cyan-400 px-6 py-3 font-black text-slate-950"
             >
-              Modify Search
+              Modify trip or date
             </button>
           </div>
         )}

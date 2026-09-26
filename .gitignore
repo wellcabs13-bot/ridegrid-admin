@@ -10,6 +10,7 @@
 
 # next.js
 /.next/
+/.next-phase1-qa/
 /out/
 
 # production

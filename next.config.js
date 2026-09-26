@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep production QA separate from an independently running development server.
+  distDir: process.env.RIDEGRID_BUILD_DIR || ".next",
+  async redirects() {
+    const aliases = require("./data/seo/phase1-aliases.json");
+    return Object.entries(aliases).map(([source, destination]) => ({ source, destination, permanent: true }));
+  },
   poweredByHeader: false,
   async headers() {
     return [

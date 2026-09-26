@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { publishingIndexingEngine } from "@/lib/website-seo/publishing/engine";
 import { generateSitemapDocuments } from "@/lib/website-seo/publishing/sitemap";
 import { INFO_PAGES } from "@/lib/website-public/info";
+import { phase1Record, phase1SitemapEntries } from "@/lib/website-public/phase1";
 
 export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
@@ -11,7 +12,8 @@ export async function GET(request: NextRequest) {
   const result = generateSitemapDocuments([
     { url: "https://www.wellcabs.com/" },
     ...INFO_PAGES.filter(p => !p.review).map(p => ({ url: `https://www.wellcabs.com/${p.slug}` })),
-    ...entries,
+    ...entries.filter(entry => !phase1Record(new URL(entry.url).pathname)),
+    ...phase1SitemapEntries(),
   ], "https://www.wellcabs.com/sitemap.xml");
   const xml = chunk === null ? result.document : result.chunks[Number(chunk)];
   if (!xml) return new Response("Sitemap chunk not found", { status: 404 });

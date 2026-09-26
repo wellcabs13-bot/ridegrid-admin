@@ -9,6 +9,7 @@ import HeroSearch from "./HeroSearch";
 import HomepageMarketplaceRoutes from "./HomepageMarketplaceRoutes";
 import JourneyVisual from "./JourneyVisual";
 import PublicShell from "./PublicShell";
+import Phase1CityLinks from "./Phase1CityLinks";
 import h from "./HomepagePremium.module.css";
 
 const services = [
@@ -68,5 +69,6 @@ export default function Homepage({page}:{page:Awaited<ReturnType<typeof resolveH
     {ctaSection && <section className={h.ctaSection}>{chrome.images?.featuredImage && <div className={h.ctaBackdrop}><ManagedImage media={chrome.images.featuredImage} cover/></div>}<div className={`${h.container} ${h.cta}`}><div><p className={h.eyebrow}>YOUR NEXT CHAPTER STARTS HERE</p><h2>{ctaSection.heading || "Go somewhere good."}</h2><p>{ctaSection.description || "The everyday. The getaway. Your next journey."}</p></div><Link href="/#ride-search" className={h.primaryButton}>Find your cab <ArrowUpRight size={20}/></Link></div></section>}
     <ContentBlocks blocks={chrome.blocks} placement="AFTER_CTA"/>
     <ContentBlocks blocks={chrome.blocks} placement="AFTER_PRIMARY_CONTENT"/>
+    <Phase1CityLinks />
   </PublicShell>;
 }

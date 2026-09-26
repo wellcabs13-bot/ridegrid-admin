@@ -2,6 +2,8 @@ import type { WebsiteTemplateSectionType } from "../website-seo/templates/types"
 import type { WebsitePublicNavigationLocation } from "../website-seo/public-navigation/types";
 import type { WebsiteContentBlockCategory, WebsiteContentBlockPlacement } from "../website-seo/content-blocks/types";
 import type { SeoSchema } from "../website-seo/seo/types";
+import type { SearchContext } from "./marketplace";
+export interface PublicPage { searchContext?: SearchContext; phase1?: boolean; bookingSupported?: boolean }
 export interface PublicLink { label: string; href: string; newTab?: boolean }
 export interface PublicNavLink extends PublicLink { location: WebsitePublicNavigationLocation }
 export interface PublicMedia { src: string; alt: string; caption: string }

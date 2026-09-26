@@ -56,7 +56,7 @@ describe("public foundation", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
   });
   it("rejects past pickup and sends a valid trip to existing marketplace results", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: [{ id: "route", pricingType: "OUTSTATION", tripType: "ONEWAY", vehicleCategory: "SEDAN", packageName: "Route", fromCity: "Pune", toCity: "Mumbai", city: null }] }) }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, data: [{ rateId: "route", service: "ONE_WAY", vehicleCategory: "SEDAN", packageName: "Route", fromCity: "Pune", toCity: "Mumbai", city: null }] }) }));
     const { container } = render(<HeroSearch />);
     await screen.findByLabelText(/Pickup city/);
     fireEvent.change(screen.getByLabelText(/Pickup city/), { target: { value: "Pune" } });

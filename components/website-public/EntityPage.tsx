@@ -4,10 +4,11 @@ import HeroSearch from "./HeroSearch";
 import { ContentBlocks, CTA, FAQ, Hero, MarketplaceSection, RelatedPages, Schema } from "./Content";
 import s from "./public.module.css";
 import ManagedImage from "./ManagedImage";
-function Section({ section, searchHref }: { section: PublicSection; searchHref: string }) {
+import Link from "next/link";
+function Section({ section, searchHref, page }: { section: PublicSection; searchHref: string; page: PublicPage }) {
   switch (section.type) {
     case "HERO": return null;
-    case "SEARCH": return <HeroSearch heading={section.heading} />;
+    case "SEARCH": return <HeroSearch heading={section.heading} context={page.searchContext} />;
     case "MARKETPLACE": case "VEHICLES": case "PRICING": return <MarketplaceSection heading={section.heading} searchHref={searchHref} />;
     case "FAQ": return <FAQ heading={section.heading} items={section.faqs} />;
     case "REVIEWS": case "TRUST": return null; // Live bindings are unavailable; W8 trust blocks render separately.
@@ -24,11 +25,12 @@ export default function EntityPage({ page, chrome }: { page: PublicPage; chrome:
   const supporting = [page.images?.sectionImage1, page.images?.sectionImage2, page.images?.featuredImage, page.images?.galleryImage1, page.images?.galleryImage2].filter(Boolean);
   return <PublicShell navigation={chrome.navigation}>
     <Schema schema={page.seo.schema} />
-    <Hero title={page.title} eyebrow={`${page.entityType.toLowerCase()} journeys`} description={hero?.paragraphs.join(" ") || page.seo.description} media={media} breadcrumbs={page.breadcrumbs} links={[{ label: "Find your ride", href: searchHref }]} />
+    <Hero compact={page.phase1} title={page.title} eyebrow={`${page.entityType.toLowerCase()} journeys`} description={hero?.paragraphs.join(" ") || page.seo.description} media={page.phase1 ? page.images?.heroImage : media} breadcrumbs={page.breadcrumbs} links={[{ label: page.bookingSupported === false ? "Explore related journeys" : "Search Available Cars", href: page.bookingSupported === false ? "#discover" : searchHref }]} />
     <ContentBlocks blocks={chrome.blocks} placement="BEFORE_PRIMARY_CONTENT" />
     {page.sections.map((section, i) => <div key={section.id} className="contents">
       {i === firstCta && <ContentBlocks blocks={chrome.blocks} placement="BEFORE_CTA" />}
-      <Section section={section} searchHref={searchHref} />
+      {section.type === "RELATED" && page.sections.findIndex(s => s.type === "RELATED") === i && <div id="discover" />}
+      <Section section={section} searchHref={searchHref} page={page} />
       {supporting[i] && <div className={s.container}><ManagedImage media={supporting[i]} /></div>}
       {i === lastCta && <ContentBlocks blocks={chrome.blocks} placement="AFTER_CTA" />}
     </div>)}
@@ -36,5 +38,6 @@ export default function EntityPage({ page, chrome }: { page: PublicPage; chrome:
     <ContentBlocks blocks={chrome.blocks} placement="AFTER_PRIMARY_CONTENT" />
     {firstCta < 0 && <><ContentBlocks blocks={chrome.blocks} placement="BEFORE_CTA" /><ContentBlocks blocks={chrome.blocks} placement="AFTER_CTA" /></>}
     {!page.sections.some(s => s.type === "RELATED") && <RelatedPages links={page.links} />}
+    {page.phase1 && hasSearch && <Link href="#ride-search" className={s.mobileBooking}>Search Available Cars</Link>}
   </PublicShell>;
 }

@@ -1,0 +1,89 @@
+{
+  "checkedAt": "2026-09-25T15:59:50.513Z",
+  "httpStatus": 200,
+  "source": "/api/marketplace/options",
+  "toursConfigured": false,
+  "options": [
+    {
+      "service": "LOCAL",
+      "city": "Pune",
+      "fromCity": "",
+      "toCity": "",
+      "vehicleCategory": "HATCHBACK",
+      "packageName": "8 Hrs / 80 Kms"
+    },
+    {
+      "service": "ONE_WAY",
+      "city": "Pune",
+      "fromCity": "pune",
+      "toCity": "mumbai",
+      "vehicleCategory": "HATCHBACK",
+      "packageName": "Pune to Mumbai"
+    },
+    {
+      "service": "ROUNDTRIP",
+      "city": "Pune",
+      "fromCity": "pune",
+      "toCity": "mumbai",
+      "vehicleCategory": "HATCHBACK",
+      "packageName": "Pune to Mumbai"
+    },
+    {
+      "service": "ROUNDTRIP",
+      "city": "Pune",
+      "fromCity": "Pune",
+      "toCity": "Surat",
+      "vehicleCategory": "HATCHBACK",
+      "packageName": "Pune to Surat"
+    },
+    {
+      "service": "ROUNDTRIP",
+      "city": "Pune",
+      "fromCity": "Pune",
+      "toCity": "Solapur",
+      "vehicleCategory": "HATCHBACK",
+      "packageName": "Pune to Solapur"
+    },
+    {
+      "service": "ROUNDTRIP",
+      "city": "Pune",
+      "fromCity": "Pune",
+      "toCity": "Satara",
+      "vehicleCategory": "HATCHBACK",
+      "packageName": "Pune to Satara"
+    },
+    {
+      "service": "ROUNDTRIP",
+      "city": "Pune",
+      "fromCity": "Pune",
+      "toCity": "Nashik",
+      "vehicleCategory": "HATCHBACK",
+      "packageName": "Pune to Nashik"
+    },
+    {
+      "service": "ROUNDTRIP",
+      "city": "Pune",
+      "fromCity": "Pune",
+      "toCity": "Kolhapur",
+      "vehicleCategory": "HATCHBACK",
+      "packageName": "Pune to Kolhapur"
+    },
+    {
+      "service": "ROUNDTRIP",
+      "city": "Pune",
+      "fromCity": "Pune",
+      "toCity": "Aurangabad",
+      "vehicleCategory": "HATCHBACK",
+      "packageName": "Pune to Aurangabad"
+    },
+    {
+      "service": "ROUNDTRIP",
+      "city": "Pune",
+      "fromCity": "Pune",
+      "toCity": "Ahmednagar",
+      "vehicleCategory": "HATCHBACK",
+      "packageName": "Pune to Ahmednagar"
+    }
+  ],
+  "note": "Read-only observation, not a guarantee of date-specific availability. Search and checkout revalidate centrally."
+}

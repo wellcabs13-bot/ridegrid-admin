@@ -52,7 +52,7 @@ describe("W14 public website", () => {
   it("rejects non-W7 publication ownership", async () => { f.snapshot.metadata.publishing.engine = "MANUAL"; expect(await loadStoredPublicPage("/cities/temporary")).toBeNull(); });
   it("rejects revoked editorial approval and inactive entities", async () => { f.input.editorialApproved = false; expect(await loadStoredPublicPage("/cities/temporary")).toBeNull(); f.input.editorialApproved = true; f.input.entity.status = "INACTIVE"; expect(await loadStoredPublicPage("/cities/temporary")).toBeNull(); });
   it("rejects stored noindex and failed readiness", async () => { f.plan.indexability.indexable = false; expect(await loadStoredPublicPage("/cities/temporary")).toBeNull(); expect(model()).toBeNull(); });
-  it("preserves stored SEO metadata", () => { const p = model()!; const metadata = publicMetadata(p.seo); expect(metadata.title).toBe(f.plan.metadata.title); expect(metadata.description).toBe(f.plan.metadata.description); expect(metadata.alternates).toEqual({ canonical: f.plan.canonical.url }); expect(p.seo.schema).toEqual(f.plan.schema); });
+  it("preserves stored SEO metadata without appending the layout brand twice", () => { const p = model()!; const metadata = publicMetadata(p.seo); expect(metadata.title).toEqual({ absolute: f.plan.metadata.title }); expect(metadata.description).toBe(f.plan.metadata.description); expect(metadata.alternates).toEqual({ canonical: f.plan.canonical.url }); expect(p.seo.schema).toEqual(f.plan.schema); });
   it("does not call generation or persistence in the public adapter", () => {
     for (const file of ["lib/website-seo/publishing/stored-public.ts", "lib/website-public/repository.ts", "lib/website-public/homepage.ts"]) {
       const source = readFileSync(path.join(process.cwd(), file), "utf8");
@@ -86,6 +86,6 @@ describe("W14 public website", () => {
   it("uses the existing results contract with real journey options", () => {
     const o: PricingOption = { id: "real-package", pricingType: "OUTSTATION", tripType: "ROUNDTRIP", vehicleCategory: "SEDAN", packageName: "Saved route", city: null, fromCity: "Pune", toCity: "Nashik", airportName: null, transferDirection: null, includedKm: null };
     expect(journeyOptions([o], 0)).toEqual([]); expect(journeyOptions([o], 1)).toEqual([o]);
-    const url = new URL(marketplaceResultsHref(o, "2026-10-01", "10:30"), "https://example.test"); expect(url.pathname).toBe("/marketplace/results"); expect(url.searchParams.get("pickupCity")).toBe("Pune"); expect(url.searchParams.get("tripType")).toBe("ROUNDTRIP"); expect(url.searchParams.has("price")).toBe(false);
+    const url = new URL(marketplaceResultsHref(o, "2026-10-01", "10:30", "SEDAN", "2026-10-02"), "https://example.test"); expect(url.pathname).toBe("/marketplace/results"); expect(url.searchParams.get("pickupCity")).toBe("Pune"); expect(url.searchParams.get("tripType")).toBe("ROUNDTRIP"); expect(url.searchParams.get("days")).toBe("2"); expect(url.searchParams.has("price")).toBe(false);
   });
 });

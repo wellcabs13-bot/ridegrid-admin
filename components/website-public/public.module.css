@@ -1,4 +1,9 @@
 .site { --red: #e5232e; background: #faf9f6; color: #171717; min-height: 100vh; }
+.compactHero { padding: 32px 0 40px; }
+.compactHero h1 { font-size: clamp(30px, 4vw, 54px); letter-spacing: -1.5px; }
+.compactHero .heroVisual { max-height: 270px; aspect-ratio: 1.8; }
+.compactHero .heroDescription { max-width: 65ch; line-height: 1.65; }
+@media (max-width: 700px) { .compactHero .heroGrid { gap: 20px; } .compactHero .heroVisual { max-height: 130px; aspect-ratio: 2.6; } .compactHero { padding: 22px 0; } }
 .site :global(a:focus-visible), .site :global(button:focus-visible), .site :global(input:focus-visible), .site :global(select:focus-visible), .site :global(summary:focus-visible) { outline: 3px solid #e5232e; outline-offset: 5px; }
 .site :global(button:disabled) { cursor: not-allowed; opacity: .45; transform: none; }
 .container { max-width: 1280px; margin: 0 auto; padding: 0 32px; }
@@ -290,3 +295,12 @@
 .faq[open] summary { color: var(--rg-red-light); }
 .breadcrumbs { color: var(--rg-text-muted); }
 .notice { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.3); color: #fcd34d; }
+.compactHero { padding: 32px 0 40px; }
+.linkList { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px 24px; }
+.linkList a { display: flex; align-items: center; min-height: 44px; padding: 10px 0; line-height: 1.5; text-decoration: underline; text-underline-offset: 4px; }
+.mobileBooking { display: none; }
+@media(max-width:700px) {
+  .compactHero { padding: 22px 0; }
+  .linkList { grid-template-columns: 1fr; }
+  .mobileBooking { position: fixed; bottom: max(12px,env(safe-area-inset-bottom)); left: 16px; right: 16px; z-index: 65; display: flex; justify-content: center; align-items: center; min-height: 48px; padding: 12px 16px; border-radius: 12px; background: #c81e2b; color: #fff; font-weight: 750; box-shadow: 0 3px 18px #0008; }
+}

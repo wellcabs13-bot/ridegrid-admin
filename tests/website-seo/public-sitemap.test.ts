@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { GET } from "../../app/sitemap.xml/route";
+vi.mock("server-only", () => ({}));
 vi.mock("../../lib/website-seo/publishing/engine", () => ({ publishingIndexingEngine: { sitemapEntries: vi.fn(async () => [{ url: "https://www.wellcabs.com/cities/pune" }]) } }));
 describe("public sitemap", () => {
   it("includes the root and only W7 eligible inventory", async () => {
