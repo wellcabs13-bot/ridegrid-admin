@@ -1,5 +1,6 @@
 ﻿import { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { passwordService } from "@/lib/auth/password";
 
 export interface CustomerListParams {
   page?: number;
@@ -299,6 +300,8 @@ export class CustomerRepository {
   }
 
   async create(data: CreateCustomerData) {
+    const hashedPassword = await passwordService.hash(data.password);
+
     return prisma.$transaction(async (tx) => {
       return tx.customer.create({
         data: {
@@ -309,7 +312,7 @@ export class CustomerRepository {
               name: `${data.firstName} ${data.lastName}`.trim(),
               email: data.email.trim().toLowerCase(),
               mobile: data.mobile?.trim() || null,
-              password: data.password,
+              password: hashedPassword,
               role: UserRole.CUSTOMER,
               isActive: true,
               isVerified: false,
