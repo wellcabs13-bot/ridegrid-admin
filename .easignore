@@ -1,0 +1,61 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/.next-phase1-qa/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+/lib/generated/prisma
+
+# test/build output and local debug artifacts (Phase 14/16 cleanup)
+/playwright-report/
+/test-results/
+/backups/
+/_backups/
+apps/*/verification/
+
+# expo prebuild native output (regenerate with `expo prebuild`; no intentional native customizations)
+apps/*/android/
+apps/*/ios/
+
+# live runtime uploads (FileStorageService) - never source, never commit
+/storage/media/
+*.before-*
+*.backup
+*.BACKUP
+*.backup-*
+
+# Local AI/development tooling - never needed by EAS Build
+/.agents/
+/.claude/
+/.codex/
