@@ -18,6 +18,7 @@ import {
   commitMarketplaceBooking,
   loadBookableListing,
 } from "@/lib/services/booking/MarketplaceBookingService";
+import { buildPaymentForm, encodeCheckoutData } from "@/lib/payments/payu";
 import { TripType } from "@prisma/client";
 import { requestUser } from "@/lib/request-access";
 import { createRideGridEvent } from "@/lib/events/event-bus";
@@ -84,6 +85,15 @@ export async function POST(request: NextRequest) {
     if (paymentMethod === PaymentMethod.CORPORATE_CREDIT && !corporateId) {
       return NextResponse.json(
         { success: false, message: "Corporate account is required for Corporate Credit." },
+        { status: 400 }
+      );
+    }
+
+    // Corporate bookings always pay via Corporate Credit - PayU/Cash must never be
+    // reachable for them, even if a client sent a different paymentMethod directly.
+    if (corporateId && paymentMethod !== PaymentMethod.CORPORATE_CREDIT) {
+      return NextResponse.json(
+        { success: false, message: "Corporate accounts must pay with Corporate Credit." },
         { status: 400 }
       );
     }
@@ -432,7 +442,10 @@ export async function POST(request: NextRequest) {
     const finalFare = Number(snapshot.finalPayable);
     if (!Object.values(TripType).includes(tripType as TripType)) return NextResponse.json({ success: false, message: "Invalid trip type." }, { status: 400 });
     if (!Object.values(PaymentMethod).includes(paymentMethod as PaymentMethod)) return NextResponse.json({success:false,message:"Invalid payment method."},{status:400});
-    if (paymentMethod !== PaymentMethod.CASH && paymentMethod !== PaymentMethod.CORPORATE_CREDIT) return NextResponse.json({success:false,message:"Selected payment method is not currently available."},{status:400});
+    const onlineMethods: PaymentMethod[] = [PaymentMethod.UPI, PaymentMethod.CARD, PaymentMethod.NET_BANKING];
+    const onlinePayment = onlineMethods.includes(paymentMethod as PaymentMethod);
+    if (paymentMethod !== PaymentMethod.CASH && paymentMethod !== PaymentMethod.CORPORATE_CREDIT && !onlinePayment) return NextResponse.json({success:false,message:"Selected payment method is not currently available."},{status:400});
+    const platform = text(body?.platform) === "mobile" ? "mobile" : "web";
 
     const usedCoupon = coupon;
     const booking = await commitMarketplaceBooking({
@@ -481,6 +494,23 @@ export async function POST(request: NextRequest) {
     } catch {
       console.error("Marketplace booking saved; booking notification dispatch requires retry.");
     }
+
+    let payuCheckoutUrl: string | undefined;
+    if (onlinePayment) {
+      const origin = new URL(request.url).origin;
+      const payuForm = buildPaymentForm({
+        txnid: `PAYU-${booking.bookingNumber}`,
+        amount: finalFare.toFixed(2),
+        productinfo: `RideGrid Booking ${booking.bookingNumber}`,
+        firstname: firstName,
+        email,
+        surl: `${origin}/api/payments/payu/callback`,
+        furl: `${origin}/api/payments/payu/callback`,
+        udf1: platform,
+      });
+      payuCheckoutUrl = `/api/payments/payu/checkout?data=${encodeCheckoutData(payuForm)}`;
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -491,6 +521,7 @@ export async function POST(request: NextRequest) {
         discountAmount,
         paymentMethod: paymentMethod as PaymentMethod,
         paymentStatus: paymentMethod === PaymentMethod.CORPORATE_CREDIT ? PaymentStatus.PAID : PaymentStatus.PENDING,
+        payuCheckoutUrl,
       },
     });
   } catch (error) {

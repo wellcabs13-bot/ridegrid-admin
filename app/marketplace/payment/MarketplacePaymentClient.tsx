@@ -68,9 +68,15 @@ function title(value?: string) {
 export default function MarketplacePaymentClient() {
   const router = useRouter();
   const [draft, setDraft] = useState<BookingDraft | null>(null);
-  const [method, setMethod] = useState<"CASH" | "ONLINE" | "CORPORATE_CREDIT">("CASH");
+  const [method, setMethod] = useState<"CASH" | "ONLINE" | "CORPORATE_CREDIT">("ONLINE");
   const [corporateAccount, setCorporateAccount] = useState<any>(null);
   const isCorporate = Boolean(draft?.corporateId);
+
+  useEffect(() => {
+    // Bookings placed under a Corporate account always pay via Corporate Credit -
+    // PayU/Cash must never be offered here, per RideGrid's payment policy.
+    if (isCorporate) setMethod("CORPORATE_CREDIT");
+  }, [isCorporate]);
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
   const [message, setMessage] = useState("");
@@ -148,7 +154,7 @@ export default function MarketplacePaymentClient() {
   const discount = Number(draft?.discountAmount || 0);
   const payable = Number(draft?.finalFare ?? Math.max(originalFare - discount, 0));
 
-  async function confirmCashBooking() {
+  async function confirmBooking() {
     if (!draft) return;
 
     const effectiveTime =
@@ -235,8 +241,9 @@ export default function MarketplacePaymentClient() {
             email: draft.customer.email.trim().toLowerCase(),
           },
           couponId: draft.couponId || null,
-          paymentMethod: method,
+          paymentMethod: method === "ONLINE" ? "UPI" : method,
           corporateId: draft.corporateId || null,
+          platform: "web",
         }),
       });
 
@@ -244,7 +251,7 @@ export default function MarketplacePaymentClient() {
 
       if (!response.ok || !result.success) {
         throw new Error(
-          result.message || "Cash booking could not be created."
+          result.message || "Booking could not be created."
         );
       }
 
@@ -254,6 +261,15 @@ export default function MarketplacePaymentClient() {
         throw new Error(
           "Booking was created but confirmation details were not returned."
         );
+      }
+
+      if (method === "ONLINE") {
+        if (!createdBooking.payuCheckoutUrl) {
+          throw new Error("Unable to start online payment. Please try again.");
+        }
+        sessionStorage.removeItem("ridegrid_marketplace_booking_draft");
+        window.location.href = createdBooking.payuCheckoutUrl;
+        return;
       }
 
       const successDraft = {
@@ -292,7 +308,7 @@ export default function MarketplacePaymentClient() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Cash booking failed."
+          : "Booking failed."
       );
     } finally {
       setBooking(false);
@@ -332,50 +348,77 @@ export default function MarketplacePaymentClient() {
             ← Back to Booking
           </button>
           <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-cyan-600">RideGrid Payment</p>
-          <h1 className="mt-1 text-3xl font-black text-slate-900">Choose Payment Method</h1>
-          <p className="mt-1 text-sm text-slate-500">Select how you want to pay for this booking.</p>
+          <h1 className="mt-1 text-3xl font-black text-slate-900">{isCorporate ? "Corporate Credit Account" : "Choose Payment Method"}</h1>
+          <p className="mt-1 text-sm text-slate-500">{isCorporate ? "This booking is billed to your corporate account." : "Select how you want to pay for this booking."}</p>
         </div>
       </header>
 
       <section className="mx-auto max-w-5xl px-6 py-8">
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           <div className="space-y-5">
-            <section className="rounded-3xl border bg-white p-6 shadow-sm">
-              <p className="text-xs font-black uppercase tracking-widest text-blue-600">Payment Method</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-900">How would you like to pay?</h2>
+            {!isCorporate && (
+              <section className="rounded-3xl border bg-white p-6 shadow-sm">
+                <p className="text-xs font-black uppercase tracking-widest text-blue-600">Payment Method</p>
+                <h2 className="mt-1 text-2xl font-black text-slate-900">How would you like to pay?</h2>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => { setMethod("ONLINE"); setMessage(""); }}
+                    className={`rounded-3xl border-2 p-6 text-left transition ${
+                      method === "ONLINE" ? "border-cyan-500 bg-cyan-50" : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="text-3xl">💳</div>
+                    <h3 className="mt-3 text-xl font-black text-slate-900">Pay Online with PayU</h3>
+                    <p className="mt-1 text-sm text-slate-500">Secure online payment · UPI • Cards • Net Banking</p>
+                    {method === "ONLINE" && <p className="mt-4 text-xs font-black text-cyan-700">✓ SELECTED</p>}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setMethod("CASH"); setMessage(""); }}
+                    className={`rounded-3xl border-2 p-6 text-left transition ${
+                      method === "CASH" ? "border-cyan-500 bg-cyan-50" : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="text-3xl">💵</div>
+                    <h3 className="mt-3 text-xl font-black text-slate-900">Cash on Pickup</h3>
+                    <p className="mt-1 text-sm text-slate-500">Pay the final booking amount according to current booking terms.</p>
+                    {method === "CASH" && <p className="mt-4 text-xs font-black text-cyan-700">✓ SELECTED</p>}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {isCorporate ? (
+              <section className="rounded-3xl border border-cyan-200 bg-cyan-50 p-6">
+                <h2 className="text-xl font-black">Corporate Credit Account</h2>
+                <p className="mt-2 text-sm text-slate-600">{draft?.corporateName}</p>
+                {corporateAccount && <div className="mt-4 grid grid-cols-3 gap-3"><CreditStat label="Limit" value={currency(corporateAccount.creditLimit)} /><CreditStat label="Outstanding" value={currency(corporateAccount.outstanding)} /><CreditStat label="Available" value={currency(corporateAccount.availableCredit)} /></div>}
+                {corporateAccount && (!corporateAccount.enabled || Number(corporateAccount.availableCredit || 0) < payable) && (
+                  <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+                    Corporate credit is unavailable or insufficient. Please contact your Corporate Administrator.
+                  </p>
+                )}
+                <button type="button" disabled={booking || !corporateAccount?.enabled || Number(corporateAccount?.availableCredit || 0)<payable} onClick={confirmBooking} className="mt-6 w-full rounded-2xl bg-cyan-500 px-5 py-4 font-black disabled:opacity-50">{booking ? "Confirming..." : `Confirm Corporate Credit • ${currency(payable)}`}</button>
+              </section>
+            ) : method === "ONLINE" ? (
+              <section className="rounded-3xl border border-blue-200 bg-blue-50 p-6">
+                <h2 className="text-xl font-black text-slate-900">Pay Online with PayU</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  You will be redirected to PayU&apos;s secure checkout to complete your payment.
+                </p>
                 <button
                   type="button"
-                  onClick={() => { setMethod("CASH"); setMessage(""); }}
-                  className={`rounded-3xl border-2 p-6 text-left transition ${
-                    method === "CASH" ? "border-cyan-500 bg-cyan-50" : "border-slate-200 bg-white hover:border-slate-300"
-                  }`}
+                  disabled={booking}
+                  onClick={confirmBooking}
+                  className="mt-6 w-full rounded-2xl bg-cyan-500 px-5 py-4 font-black text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <div className="text-3xl">💵</div>
-                  <h3 className="mt-3 text-xl font-black text-slate-900">Cash on Pickup</h3>
-                  <p className="mt-1 text-sm text-slate-500">Pay the applicable booking amount directly as per RideGrid&apos;s cash-payment policy.</p>
-                  {method === "CASH" && <p className="mt-4 text-xs font-black text-cyan-700">✓ SELECTED</p>}
+                  {booking ? "Redirecting to PayU..." : `Pay Online • ${currency(payable)}`}
                 </button>
-
-                {isCorporate && <button type="button" onClick={() => {setMethod("CORPORATE_CREDIT");setMessage("");}} className={`rounded-3xl border-2 p-6 text-left ${method==="CORPORATE_CREDIT"?"border-cyan-500 bg-cyan-50":"border-slate-200 bg-white"}`}><div className="text-3xl">💳</div><h3 className="mt-3 text-xl font-black">Corporate Credit Account</h3><p className="mt-1 text-sm text-slate-500">Charge this booking to {draft?.corporateName || "the corporate account"}.</p></button>}
-
-                <button
-                  type="button"
-                  onClick={() => { setMethod("ONLINE"); setMessage(""); }}
-                  className={`rounded-3xl border-2 p-6 text-left transition ${
-                    method === "ONLINE" ? "border-cyan-500 bg-cyan-50" : "border-slate-200 bg-white hover:border-slate-300"
-                  }`}
-                >
-                  <div className="text-3xl">💳</div>
-                  <h3 className="mt-3 text-xl font-black text-slate-900">Online Payment</h3>
-                  <p className="mt-1 text-sm text-slate-500">Razorpay checkout will be used for secure online payment.</p>
-                  {method === "ONLINE" && <p className="mt-4 text-xs font-black text-cyan-700">✓ SELECTED</p>}
-                </button>
-              </div>
-            </section>
-
-            {method === "CASH" ? (
+              </section>
+            ) : (
               <section className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
                 <h2 className="text-xl font-black text-slate-900">Cash on Pickup</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -385,31 +428,10 @@ export default function MarketplacePaymentClient() {
                 <button
                   type="button"
                   disabled={booking}
-                  onClick={confirmCashBooking}
+                  onClick={confirmBooking}
                   className="mt-6 w-full rounded-2xl bg-cyan-500 px-5 py-4 font-black text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {booking ? "Confirming Booking..." : `Confirm Cash Booking • ${currency(payable)}`}
-                </button>
-              </section>
-            ) : method === "CORPORATE_CREDIT" ? (
-              <section className="rounded-3xl border border-cyan-200 bg-cyan-50 p-6">
-                <h2 className="text-xl font-black">Corporate Credit Account</h2>
-                <p className="mt-2 text-sm text-slate-600">{draft?.corporateName}</p>
-                {corporateAccount && <div className="mt-4 grid grid-cols-3 gap-3"><CreditStat label="Limit" value={currency(corporateAccount.creditLimit)} /><CreditStat label="Outstanding" value={currency(corporateAccount.outstanding)} /><CreditStat label="Available" value={currency(corporateAccount.availableCredit)} /></div>}
-                <button type="button" disabled={booking || !corporateAccount?.enabled || Number(corporateAccount?.availableCredit || 0)<payable} onClick={confirmCashBooking} className="mt-6 w-full rounded-2xl bg-cyan-500 px-5 py-4 font-black disabled:opacity-50">{booking ? "Confirming..." : `Confirm Corporate Credit • ${currency(payable)}`}</button>
-              </section>
-            ) : (
-              <section className="rounded-3xl border border-blue-200 bg-blue-50 p-6">
-                <h2 className="text-xl font-black text-slate-900">Online Payment</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Online checkout is unavailable for new marketplace bookings. The current booking workflow supports Cash on Pickup and eligible Corporate Credit accounts.
-                </p>
-                <button
-                  type="button"
-                  disabled
-                  className="mt-6 w-full rounded-2xl bg-slate-300 px-5 py-4 font-black text-slate-600"
-                >
-                  Online checkout unavailable
                 </button>
               </section>
             )}

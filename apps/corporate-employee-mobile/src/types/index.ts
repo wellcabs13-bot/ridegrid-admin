@@ -74,7 +74,7 @@ export type Home = {
 export type Notice = { id: string; title: string; message: string; readAt: string | null; createdAt: string };
 export type Config = {
   support: { name: string; phoneHref: string; emailHref: string; whatsapp: string };
-  paymentMethod: "CORPORATE_CREDIT" | "CASH"; services: Service[]; profileEdit: boolean; pushRegistration: boolean; rebook: boolean;
+  paymentMethod: "CORPORATE_CREDIT"; paymentAvailable: boolean; services: Service[]; profileEdit: boolean; pushRegistration: boolean; rebook: boolean;
   termsPath: string; privacyPath: string; cancellationPath: string;
 };
 export type TripStatus = {

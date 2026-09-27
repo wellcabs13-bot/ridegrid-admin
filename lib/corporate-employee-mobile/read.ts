@@ -24,11 +24,14 @@ const FILTERS: Record<string, Prisma.BookingWhereInput> = {
   CANCELLED: { status: "CANCELLED" },
 };
 
-// Company pays through its corporate credit account when one is configured;
-// otherwise the existing marketplace cash-on-pickup behaviour applies.
+// Corporate employees pay exclusively through their company's Corporate Credit
+// Account - RideGrid's payment policy forbids ever falling back to Cash/PayU here.
+// `available` reflects whether a credit account is configured at all; the
+// amount-specific check happens atomically at booking time in chargeCorporateCredit.
 export async function paymentMethodFor(corporateId: string) {
   const credit = await getCorporateCreditAccount(corporateId).catch(() => null);
-  return credit?.enabled && credit.creditLimit > 0 ? "CORPORATE_CREDIT" as const : "CASH" as const;
+  const available = Boolean(credit?.enabled && credit.creditLimit > 0);
+  return { method: "CORPORATE_CREDIT" as const, available };
 }
 
 function page(request: NextRequest) {
@@ -140,12 +143,16 @@ async function search(request: NextRequest, a: EmployeeAccess) {
 
 export async function readEmployee(request: NextRequest, section: string, a: EmployeeAccess) {
   const id = request.nextUrl.searchParams.get("id");
-  if (section === "config") return {
-    support: { name: WELLCABS.name, phoneHref: WELLCABS.phoneHref, emailHref: WELLCABS.emailHref, whatsapp: WELLCABS.whatsapp },
-    paymentMethod: await paymentMethodFor(a.employee.corporateId),
-    services: ["ONE_WAY", "ROUNDTRIP", "LOCAL"], profileEdit: false, pushRegistration: false, rebook: true,
-    termsPath: "/terms-and-conditions", privacyPath: "/privacy-policy", cancellationPath: "/cancellation-refund-policy",
-  };
+  if (section === "config") {
+    const payment = await paymentMethodFor(a.employee.corporateId);
+    return {
+      support: { name: WELLCABS.name, phoneHref: WELLCABS.phoneHref, emailHref: WELLCABS.emailHref, whatsapp: WELLCABS.whatsapp },
+      paymentMethod: payment.method,
+      paymentAvailable: payment.available,
+      services: ["ONE_WAY", "ROUNDTRIP", "LOCAL"], profileEdit: false, pushRegistration: false, rebook: true,
+      termsPath: "/terms-and-conditions", privacyPath: "/privacy-policy", cancellationPath: "/cancellation-refund-policy",
+    };
+  }
   if (section === "profile") return profileOf(a);
   if (section === "policy") return policyOf(a);
   if (section === "budget") return budgetOf(a);

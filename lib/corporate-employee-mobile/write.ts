@@ -98,7 +98,10 @@ async function book(a: EmployeeAccess, b: Body) {
   const window = reservationWindowFromPickup(pickup, tripType === TripType.ROUNDTRIP ? tripDaysFromSnapshot(snapshot, 1) : 1);
   const { packageData, vehicle } = await loadBookableListing(listingId, pricingPackageId, window);
   const customerId = await employeeCustomer(a);
-  const paymentMethod = (await paymentMethodFor(a.employee.corporateId)) === "CORPORATE_CREDIT" ? PaymentMethod.CORPORATE_CREDIT : PaymentMethod.CASH;
+  const credit = await paymentMethodFor(a.employee.corporateId);
+  if (!credit.available)
+    throw new CorporateMobileError(409, "Corporate credit is unavailable or insufficient. Please contact your Corporate Administrator.", "CORPORATE_CREDIT_UNAVAILABLE");
+  const paymentMethod = PaymentMethod.CORPORATE_CREDIT;
   const discountAmount = new Prisma.Decimal(snapshot.vendorFundedDiscount).plus(snapshot.rideGridFundedDiscount).toNumber();
   const booking = await commitMarketplaceBooking({
     quoteId, ownerId: a.user.id, snapshot, vehicle, pricingPackageId: packageData.id, customerId,

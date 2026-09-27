@@ -1,0 +1,127 @@
+import crypto from "crypto";
+
+function getPayU() {
+  const key = process.env.PAYU_MERCHANT_KEY;
+  const salt = process.env.PAYU_MERCHANT_SALT;
+  const paymentUrl = process.env.PAYU_PAYMENT_URL;
+  const verifyUrl = process.env.PAYU_VERIFY_URL;
+
+  if (!key || !salt || !paymentUrl || !verifyUrl) {
+    throw new Error(
+      "PayU configuration is missing. Set PAYU_MERCHANT_KEY, PAYU_MERCHANT_SALT, PAYU_PAYMENT_URL and PAYU_VERIFY_URL."
+    );
+  }
+
+  return { key, salt, paymentUrl, verifyUrl };
+}
+
+export function payuConfig() {
+  return getPayU();
+}
+
+function sha512(input: string) {
+  return crypto.createHash("sha512").update(input).digest("hex");
+}
+
+type HashFields = {
+  txnid: string;
+  amount: string;
+  productinfo: string;
+  firstname: string;
+  email: string;
+};
+
+export function buildRequestHash(fields: HashFields) {
+  const { key, salt } = getPayU();
+  const { txnid, amount, productinfo, firstname, email } = fields;
+  // key|txnid|amount|productinfo|firstname|email|udf1..udf10|salt (udf fields unused)
+  const raw = [key, txnid, amount, productinfo, firstname, email, "", "", "", "", "", "", "", "", "", "", salt].join("|");
+  return sha512(raw);
+}
+
+export function verifyResponseHash(fields: HashFields & { status: string; hash: string }) {
+  const { key, salt } = getPayU();
+  const { txnid, amount, productinfo, firstname, email, status, hash } = fields;
+  // salt|status|udf10..udf1|email|firstname|productinfo|amount|txnid|key (udf fields unused)
+  const raw = [salt, status, "", "", "", "", "", "", "", "", "", email, firstname, productinfo, amount, txnid, key].join("|");
+  const expected = sha512(raw);
+  if (expected.length !== hash.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(hash));
+}
+
+export function encodeCheckoutData(form: { action: string; fields: Record<string, string> }) {
+  return Buffer.from(JSON.stringify(form), "utf8").toString("base64url");
+}
+
+export function buildPaymentForm(fields: HashFields & { surl: string; furl: string; udf1?: string }) {
+  const { key, paymentUrl } = getPayU();
+  const hash = buildRequestHash(fields);
+  return {
+    action: paymentUrl,
+    fields: {
+      key,
+      txnid: fields.txnid,
+      amount: fields.amount,
+      productinfo: fields.productinfo,
+      firstname: fields.firstname,
+      email: fields.email,
+      surl: fields.surl,
+      furl: fields.furl,
+      udf1: fields.udf1 || "",
+      hash,
+    },
+  };
+}
+
+export type PayUVerifyResult = {
+  txnid: string;
+  status: string;
+  mihpayid: string | null;
+  amount: string | null;
+  mode: string | null;
+};
+
+export async function verifyPaymentServerSide(txnid: string): Promise<PayUVerifyResult> {
+  const { key, salt, verifyUrl } = getPayU();
+  const hash = sha512(`${key}|verify_payment|${txnid}|${salt}`);
+
+  const body = new URLSearchParams({
+    key,
+    command: "verify_payment",
+    var1: txnid,
+    hash,
+  });
+
+  const response = await fetch(verifyUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`PayU verify_payment request failed with status ${response.status}.`);
+  }
+
+  const payload = await response.json();
+  const detail = payload?.transaction_details?.[txnid];
+
+  if (!detail) {
+    throw new Error("PayU did not return transaction details for this transaction.");
+  }
+
+  return {
+    txnid,
+    status: String(detail.status || "").toLowerCase(),
+    mihpayid: detail.mihpayid || null,
+    amount: detail.amt != null ? String(detail.amt) : null,
+    mode: detail.mode ? String(detail.mode).toUpperCase() : null,
+  };
+}
+
+export function payuInstrumentToPaymentMethod(mode: string | null): "UPI" | "CARD" | "NET_BANKING" | null {
+  if (!mode) return null;
+  if (mode === "UPI") return "UPI";
+  if (mode === "CC" || mode === "DC" || mode === "CARD") return "CARD";
+  if (mode === "NB" || mode === "NET_BANKING") return "NET_BANKING";
+  return null;
+}

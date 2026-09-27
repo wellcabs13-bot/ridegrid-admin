@@ -68,6 +68,34 @@ export type CommitMarketplaceBooking = {
   afterCreate?: (tx: Prisma.TransactionClient, booking: Booking) => Promise<void>;
 };
 
+function transactionPlan(paymentMethod: PaymentMethod, bookingNumber: string) {
+  if (paymentMethod === PaymentMethod.CORPORATE_CREDIT) {
+    return {
+      paymentStatus: PaymentStatus.PAID,
+      referenceNumber: `CORP-${bookingNumber}`,
+      gatewayName: "CORPORATE_CREDIT",
+      remarks: "Corporate Credit Account",
+    };
+  }
+  if (paymentMethod === PaymentMethod.CASH) {
+    return {
+      paymentStatus: PaymentStatus.PENDING,
+      referenceNumber: `CASH-${bookingNumber}`,
+      gatewayName: "CASH",
+      remarks: "Cash on Pickup",
+    };
+  }
+  // UPI / CARD / NET_BANKING / WALLET: retail "Pay Online with PayU". The actual
+  // instrument is confirmed by PayU after checkout; the booking commits immediately
+  // (same reservation-lock semantics as cash) while the transaction awaits payment.
+  return {
+    paymentStatus: PaymentStatus.PENDING,
+    referenceNumber: `PAYU-${bookingNumber}`,
+    gatewayName: "PAYU",
+    remarks: "PayU Online Payment - awaiting confirmation",
+  };
+}
+
 export async function commitMarketplaceBooking(input: CommitMarketplaceBooking) {
   const corporateCredit = input.paymentMethod === PaymentMethod.CORPORATE_CREDIT;
   return prisma.$transaction(async (tx) => {
@@ -115,23 +143,24 @@ export async function commitMarketplaceBooking(input: CommitMarketplaceBooking) 
       },
     });
     if (corporateCredit) await chargeCorporateCredit(tx, input.corporateId || "", input.finalFare, created.id);
+    const plan = transactionPlan(input.paymentMethod, created.bookingNumber);
     await tx.bookingStatusHistory.create({
       data: {
         bookingId: created.id, previousStatus: null, currentStatus: BookingStatus.CONFIRMED, action: BookingStatusAction.CREATED,
         changedBy: input.changedBy ?? null,
-        remarks: corporateCredit ? "Marketplace booking confirmed with Corporate Credit Account." : "Marketplace booking confirmed with Cash on Pickup.",
+        remarks: `Marketplace booking confirmed with ${plan.remarks}.`,
       },
     });
     await tx.transaction.create({
       data: {
         bookingId: created.id, vendorId: input.vehicle.vendorId, transactionType: TransactionType.BOOKING_PAYMENT,
         paymentMethod: input.paymentMethod,
-        paymentStatus: corporateCredit ? PaymentStatus.PAID : PaymentStatus.PENDING,
+        paymentStatus: plan.paymentStatus,
         amount: input.finalFare, currency: "INR",
-        referenceNumber: corporateCredit ? `CORP-${created.bookingNumber}` : `CASH-${created.bookingNumber}`,
-        gatewayName: corporateCredit ? "CORPORATE_CREDIT" : "CASH",
+        referenceNumber: plan.referenceNumber,
+        gatewayName: plan.gatewayName,
         processedAt: corporateCredit ? new Date() : null,
-        remarks: corporateCredit ? "Corporate Credit Account" : "Cash on Pickup",
+        remarks: plan.remarks,
       },
     });
     if (input.afterCreate) await input.afterCreate(tx, created);

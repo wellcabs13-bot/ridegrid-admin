@@ -3,6 +3,7 @@ import { Linking, Text, Switch, View } from "react-native";
 import { router } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
+import * as WebBrowser from "expo-web-browser";
 import { useJourney } from "../src/state/Journey";
 import { useApp } from "../src/state/Providers";
 import { api, post, baseURL } from "../src/services/api";
@@ -26,6 +27,7 @@ export default function Payment() {
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [payingOnline, setPayingOnline] = useState(false);
   const [now, setNow] = useState(Date.now());
   const submitting = useRef(false);
   const [uncertain, setUncertain] = useState(false);
@@ -60,7 +62,7 @@ export default function Payment() {
       setBusy(false);
     }
   }
-  async function confirm() {
+  async function confirm(method: "CASH" | "UPI" = "CASH") {
     if (
       submitting.current ||
       !journey?.quote ||
@@ -70,7 +72,7 @@ export default function Payment() {
     )
       return;
     submitting.current = true;
-    setBusy(true);
+    method === "UPI" ? setPayingOnline(true) : setBusy(true);
     setError("");
     try {
       const p = profile.data;
@@ -86,11 +88,33 @@ export default function Payment() {
         },
         journey.pickupAddress || "",
         journey.dropAddress || "",
+        method,
       );
-      const booking = await post<{ id: string }>(
-        "/api/marketplace/cash-booking",
-        input,
-      );
+      const booking = await post<{
+        id: string;
+        bookingNumber: string;
+        payuCheckoutUrl?: string;
+      }>("/api/marketplace/cash-booking", input);
+
+      if (method === "UPI") {
+        if (!booking.payuCheckoutUrl) throw new Error("Unable to start online payment. Please try again.");
+        setJourney(null);
+        const result = await WebBrowser.openAuthSessionAsync(
+          `${baseURL}${booking.payuCheckoutUrl}`,
+          "ridegrid://payment-return",
+        );
+        await client.invalidateQueries({ queryKey: ["bookings"] });
+        const returnedId =
+          result.type === "success" && result.url
+            ? decodeURIComponent(result.url.match(/bookingId=([^&]+)/)?.[1] || "")
+            : "";
+        router.replace({
+          pathname: "/payment-return",
+          params: { bookingId: returnedId || booking.id, bookingNumber: booking.bookingNumber },
+        });
+        return;
+      }
+
       await client.invalidateQueries({ queryKey: ["bookings"] });
       setJourney(null);
       router.replace({
@@ -104,6 +128,7 @@ export default function Payment() {
         setUncertain(true);
     } finally {
       setBusy(false);
+      setPayingOnline(false);
       submitting.current = false;
     }
   }
@@ -134,14 +159,9 @@ export default function Payment() {
             </Card>
             <Fare value={journey.quote.snapshot} />
             <Card>
-              <Text style={styles.heading}>Cash on pickup</Text>
+              <Text style={styles.heading}>Payment method</Text>
               <Text style={styles.subtitle}>
-                Pay for your confirmed ride using the currently supported
-                marketplace payment method.
-              </Text>
-              <Text style={styles.small}>
-                Online checkout is not currently available for new marketplace
-                bookings.
+                Pay online with PayU, or choose cash on pickup.
               </Text>
               <Text style={styles.small}>
                 Quote valid until{" "}
@@ -194,7 +214,22 @@ export default function Payment() {
                 </>
               )}
               <Button
+                title="Pay Online with PayU"
+                busy={payingOnline}
+                disabled={
+                  !online ||
+                  expired ||
+                  uncertain ||
+                  !accepted ||
+                  !profile.data ||
+                  busy ||
+                  !config.data?.paymentMethods.includes("ONLINE")
+                }
+                onPress={() => void confirm("UPI")}
+              />
+              <Button
                 title="Confirm cash booking"
+                secondary
                 busy={busy}
                 disabled={
                   !online ||
@@ -202,9 +237,10 @@ export default function Payment() {
                   uncertain ||
                   !accepted ||
                   !profile.data ||
+                  payingOnline ||
                   !config.data?.paymentMethods.includes("CASH")
                 }
-                onPress={() => void confirm()}
+                onPress={() => void confirm("CASH")}
               />
               <Button
                 title="Return to search"

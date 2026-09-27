@@ -96,7 +96,9 @@ export default function Ride() {
   } catch {
     ready = false;
   }
-  const payment = config.data?.paymentMethod === "CORPORATE_CREDIT" ? "Billed to your company's corporate credit account." : "Pay the driver at pickup (cash). Your company has no corporate credit account configured.";
+  const payment = config.data?.paymentAvailable
+    ? "Billed to your company's corporate credit account."
+    : "Corporate credit is unavailable. Contact your Corporate Administrator.";
   return (
     <Screen title={`${listing.vehicle.make} ${listing.vehicle.model}`} subtitle={`${label(listing.vehicle.category)} · ${listing.vendor?.companyName || "Vendor"}`}>
       <Card>
@@ -133,14 +135,17 @@ export default function Ride() {
           <Field label="Pickup address" value={pickupAddress} onChangeText={setPickup} placeholder="Building, street, landmark" />
           <Field label="Drop address" value={dropAddress} onChangeText={setDrop} placeholder="Building, street, landmark" />
           {decision === "APPROVAL_REQUIRED" && <Field label="Note for your approver (optional)" value={note} onChangeText={setNote} multiline />}
-          <KeyValue k="Payment" v={config.data ? (config.data.paymentMethod === "CORPORATE_CREDIT" ? "Corporate credit" : "Cash at pickup") : "Checking..."} />
+          <KeyValue k="Payment" v={config.data ? (config.data.paymentAvailable ? "Corporate credit" : "Unavailable") : "Checking..."} />
           <T muted size={12}>{config.data ? payment : ""}</T>
+          {config.data && !config.data.paymentAvailable && decision === "ALLOWED" && (
+            <Message tone={colors.red} text="Corporate credit is unavailable or insufficient. Please contact your Corporate Administrator." />
+          )}
           <Message text={error} />
           {interrupted && <Message tone={colors.amber} text="The response was interrupted. Your request may already be saved. Check again safely with the same quote before starting a new one." />}
           <Button
             title={decision === "ALLOWED" ? "Confirm ride" : "Submit for approval"}
             icon={decision === "ALLOWED" ? "checkmark-circle-outline" : "send-outline"}
-            disabled={!online || !ready || !config.data}
+            disabled={!online || !ready || !config.data || (decision === "ALLOWED" && !config.data.paymentAvailable)}
             busy={busy === "submit"}
             onPress={() => (interrupted ? void submit() : setConfirming(true))}
           />
