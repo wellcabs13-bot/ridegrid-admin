@@ -1,7 +1,8 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { RefreshCw, RotateCcw } from "lucide-react";
+import { Plus, RefreshCw, RotateCcw } from "lucide-react";
 import { BookingTable } from "@/components/corporate-admin/tables";
 import { Booking, Paged } from "@/components/corporate-admin/types";
 import { API, DataState, PageHeader, Pagination, Panel, qs, useAdminData, useDebounced } from "@/components/corporate-admin/ui";
@@ -27,6 +28,7 @@ function Bookings() {
     <select aria-label={label} className="rg-input" value={f[k]} onChange={set(k)}><option value="">{label}: all</option>{values.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select>;
   return <>
     <PageHeader title="Company bookings" description="Every RideGrid booking made for your company, read from the central booking record shared with RideGrid operations, vendors and drivers.">
+      <Link href="/corporate-admin/bookings/new" className="rg-primary"><Plus size={15}/>New booking</Link>
       <button className="rg-secondary" disabled={loading} onClick={reload}><RefreshCw size={15}/>Refresh</button>
     </PageHeader>
     <Panel title="Filters" action={<button className="rg-secondary" onClick={() => { setF({ ...initial, status: "", employeeId: "", when: "" }); setPage(1); }}><RotateCcw size={14}/>Reset</button>}>

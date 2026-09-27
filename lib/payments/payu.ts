@@ -29,28 +29,34 @@ type HashFields = {
   productinfo: string;
   firstname: string;
   email: string;
+  // We only ever populate udf1 (checkout platform: "web" | "mobile"). udf2-5 are
+  // always empty, but PayU still includes their (empty) slots in the hash.
+  udf1?: string;
 };
 
+// Official PayU Hosted Checkout request hash (docs.payu.in/docs/generate-hash-payu-hosted):
+// sha512(key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5|||||SALT)
+// udf1 MUST be the exact value sent in the form - PayU recomputes the hash from what it
+// actually receives, so hashing "" while sending a non-empty udf1 makes every online
+// payment fail with an invalid-hash error.
 export function buildRequestHash(fields: HashFields) {
   const { key, salt } = getPayU();
-  const { txnid, amount, productinfo, firstname, email } = fields;
-  // key|txnid|amount|productinfo|firstname|email|udf1..udf10|salt (udf fields unused)
-  const raw = [key, txnid, amount, productinfo, firstname, email, "", "", "", "", "", "", "", "", "", "", salt].join("|");
+  const { txnid, amount, productinfo, firstname, email, udf1 = "" } = fields;
+  const raw = [key, txnid, amount, productinfo, firstname, email, udf1, "", "", "", "", "", "", "", "", "", salt].join("|");
   return sha512(raw);
 }
 
+// Official PayU reverse hash (same doc, "Response Hash"):
+// sha512(SALT|status|||||udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key)
+// udf1 here must be the value PayU echoes back in its response, in the slot immediately
+// before email (udf2-5 and the 5 reserved slots stay empty since we never set them).
 export function verifyResponseHash(fields: HashFields & { status: string; hash: string }) {
   const { key, salt } = getPayU();
-  const { txnid, amount, productinfo, firstname, email, status, hash } = fields;
-  // salt|status|udf10..udf1|email|firstname|productinfo|amount|txnid|key (udf fields unused)
-  const raw = [salt, status, "", "", "", "", "", "", "", "", "", email, firstname, productinfo, amount, txnid, key].join("|");
+  const { txnid, amount, productinfo, firstname, email, status, hash, udf1 = "" } = fields;
+  const raw = [salt, status, "", "", "", "", "", "", "", "", udf1, email, firstname, productinfo, amount, txnid, key].join("|");
   const expected = sha512(raw);
   if (expected.length !== hash.length) return false;
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(hash));
-}
-
-export function encodeCheckoutData(form: { action: string; fields: Record<string, string> }) {
-  return Buffer.from(JSON.stringify(form), "utf8").toString("base64url");
 }
 
 export function buildPaymentForm(fields: HashFields & { surl: string; furl: string; udf1?: string }) {

@@ -68,6 +68,14 @@ export type CommitMarketplaceBooking = {
   afterCreate?: (tx: Prisma.TransactionClient, booking: Booking) => Promise<void>;
 };
 
+// A PayU online-payment attempt gets a bounded hold instead of an immediately
+// confirmed, operationally-visible booking: 12 minutes to complete checkout.
+const PAYU_HOLD_MINUTES = 12;
+
+function isOnlinePayment(paymentMethod: PaymentMethod) {
+  return paymentMethod !== PaymentMethod.CASH && paymentMethod !== PaymentMethod.CORPORATE_CREDIT;
+}
+
 function transactionPlan(paymentMethod: PaymentMethod, bookingNumber: string) {
   if (paymentMethod === PaymentMethod.CORPORATE_CREDIT) {
     return {
@@ -98,6 +106,7 @@ function transactionPlan(paymentMethod: PaymentMethod, bookingNumber: string) {
 
 export async function commitMarketplaceBooking(input: CommitMarketplaceBooking) {
   const corporateCredit = input.paymentMethod === PaymentMethod.CORPORATE_CREDIT;
+  const onlinePayment = isOnlinePayment(input.paymentMethod);
   return prisma.$transaction(async (tx) => {
     await consumeQuote(tx, input.quoteId, input.ownerId, input.vehicle.id);
     const currentVehicle = await tx.vehicle.findFirst({
@@ -127,7 +136,8 @@ export async function commitMarketplaceBooking(input: CommitMarketplaceBooking) 
         reservedFrom: input.window.start,
         reservedUntil: input.window.end,
         tripDays: input.window.days,
-        status: BookingStatus.CONFIRMED,
+        status: onlinePayment ? BookingStatus.AWAITING_PAYMENT : BookingStatus.CONFIRMED,
+        holdExpiresAt: onlinePayment ? new Date(Date.now() + PAYU_HOLD_MINUTES * 60_000) : null,
         priceSnapshot: json(s),
         pricingQuoteId: input.quoteId,
         estimatedFare: s.finalPayable,
@@ -146,9 +156,11 @@ export async function commitMarketplaceBooking(input: CommitMarketplaceBooking) 
     const plan = transactionPlan(input.paymentMethod, created.bookingNumber);
     await tx.bookingStatusHistory.create({
       data: {
-        bookingId: created.id, previousStatus: null, currentStatus: BookingStatus.CONFIRMED, action: BookingStatusAction.CREATED,
+        bookingId: created.id, previousStatus: null, currentStatus: created.status, action: BookingStatusAction.CREATED,
         changedBy: input.changedBy ?? null,
-        remarks: `Marketplace booking confirmed with ${plan.remarks}.`,
+        remarks: onlinePayment
+          ? `Payment hold created for ${plan.remarks}. Vehicle/driver reserved for ${PAYU_HOLD_MINUTES} minutes pending verified payment.`
+          : `Marketplace booking confirmed with ${plan.remarks}.`,
       },
     });
     await tx.transaction.create({

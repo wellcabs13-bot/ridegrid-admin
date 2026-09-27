@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UserRole, TransactionType } from "@prisma/client";
+import { BookingStatus, PaymentStatus, UserRole, TransactionType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/auth/middleware";
 import { bookingScope } from "@/lib/request-access";
+import { expireStaleHold } from "@/lib/payments/payuReconcile";
 
 // Single source of truth for "did this booking's online payment go through" -
 // the web status page and the mobile payment-return screen both poll this
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
         id: true,
         bookingNumber: true,
         status: true,
+        holdExpiresAt: true,
         transactions: {
           where: { transactionType: TransactionType.BOOKING_PAYMENT },
           orderBy: { createdAt: "desc" },
@@ -54,14 +56,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Booking not found." }, { status: 404 });
     }
 
-    const transaction = booking.transactions[0] ?? null;
+    let status = booking.status;
+    let transaction = booking.transactions[0] ?? null;
+
+    if (await expireStaleHold(booking)) {
+      status = BookingStatus.CANCELLED;
+      if (transaction?.gatewayName === "PAYU" && transaction.paymentStatus === PaymentStatus.PENDING) {
+        transaction = { ...transaction, paymentStatus: PaymentStatus.FAILED };
+      }
+    }
 
     return NextResponse.json({
       success: true,
       data: {
         bookingId: booking.id,
         bookingNumber: booking.bookingNumber,
-        status: booking.status,
+        status,
         paymentStatus: transaction?.paymentStatus ?? null,
         paymentMethod: transaction?.paymentMethod ?? null,
         gatewayName: transaction?.gatewayName ?? null,

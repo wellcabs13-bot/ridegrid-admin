@@ -18,7 +18,7 @@ import {
   commitMarketplaceBooking,
   loadBookableListing,
 } from "@/lib/services/booking/MarketplaceBookingService";
-import { buildPaymentForm, encodeCheckoutData } from "@/lib/payments/payu";
+import { signCheckoutToken } from "@/lib/payments/checkoutToken";
 import { TripType } from "@prisma/client";
 import { requestUser } from "@/lib/request-access";
 import { createRideGridEvent } from "@/lib/events/event-bus";
@@ -484,31 +484,26 @@ export async function POST(request: NextRequest) {
         : undefined,
     });
     // Booking is already committed. A delivery failure must not invite duplicate booking retries.
-    try {
-      await dispatchRideGridEvent(createRideGridEvent({
-        type: AutomationTrigger.BOOKING_CREATED, module: "BOOKING",
-        bookingId: booking.id, userId: customer.userId, customerId: customer.id,
-        vendorId: vehicle.vendorId, driverId: vehicle.driverId ?? undefined,
-        metadata: { bookingNumber: booking.bookingNumber, source: booking.bookingSource, paymentMethod },
-      }));
-    } catch {
-      console.error("Marketplace booking saved; booking notification dispatch requires retry.");
+    // Online payments are still AWAITING_PAYMENT - vendor/driver only learn about the
+    // booking once PayU's payment is verified (see payuReconcile.ts), not now.
+    if (!onlinePayment) {
+      try {
+        await dispatchRideGridEvent(createRideGridEvent({
+          type: AutomationTrigger.BOOKING_CREATED, module: "BOOKING",
+          bookingId: booking.id, userId: customer.userId, customerId: customer.id,
+          vendorId: vehicle.vendorId, driverId: vehicle.driverId ?? undefined,
+          metadata: { bookingNumber: booking.bookingNumber, source: booking.bookingSource, paymentMethod },
+        }));
+      } catch {
+        console.error("Marketplace booking saved; booking notification dispatch requires retry.");
+      }
     }
 
     let payuCheckoutUrl: string | undefined;
     if (onlinePayment) {
-      const origin = new URL(request.url).origin;
-      const payuForm = buildPaymentForm({
-        txnid: `PAYU-${booking.bookingNumber}`,
-        amount: finalFare.toFixed(2),
-        productinfo: `RideGrid Booking ${booking.bookingNumber}`,
-        firstname: firstName,
-        email,
-        surl: `${origin}/api/payments/payu/callback`,
-        furl: `${origin}/api/payments/payu/callback`,
-        udf1: platform,
-      });
-      payuCheckoutUrl = `/api/payments/payu/checkout?data=${encodeCheckoutData(payuForm)}`;
+      const txnid = `PAYU-${booking.bookingNumber}`;
+      const token = signCheckoutToken(booking.id, txnid);
+      payuCheckoutUrl = `/api/payments/payu/checkout?bookingId=${encodeURIComponent(booking.id)}&token=${encodeURIComponent(token)}&platform=${platform}`;
     }
 
     return NextResponse.json({

@@ -3,10 +3,26 @@ import { prisma } from "@/lib/prisma";
 
 export const BLOCKING_BOOKING_STATUSES: BookingStatus[] = [
   BookingStatus.PENDING,
+  BookingStatus.AWAITING_PAYMENT,
   BookingStatus.CONFIRMED,
   BookingStatus.DRIVER_ASSIGNED,
   BookingStatus.TRIP_STARTED,
 ];
+
+// AWAITING_PAYMENT (a PayU online-payment hold) only blocks the vehicle/driver window
+// while its hold has not expired - an abandoned checkout must stop blocking availability
+// on its own, without needing a cleanup job. Every other blocking status has no expiry.
+function blockingStatusClause(now: Date): Prisma.BookingWhereInput {
+  return {
+    OR: [
+      { status: { in: BLOCKING_BOOKING_STATUSES.filter((s) => s !== BookingStatus.AWAITING_PAYMENT) } },
+      {
+        status: BookingStatus.AWAITING_PAYMENT,
+        OR: [{ holdExpiresAt: null }, { holdExpiresAt: { gt: now } }],
+      },
+    ],
+  };
+}
 
 export type ReservationWindow = {
   start: Date;
@@ -194,9 +210,6 @@ export async function findBookingConflict(
   const candidates = await db.booking.findMany({
     where: {
       deletedAt: null,
-      status: {
-        in: BLOCKING_BOOKING_STATUSES,
-      },
       ...(input.excludeBookingId
         ? {
             id: {
@@ -207,7 +220,7 @@ export async function findBookingConflict(
       pickupDateTime: {
         lt: input.window.end,
       },
-      OR,
+      AND: [blockingStatusClause(new Date()), { OR }],
     },
     select: conflictSelect(),
     orderBy: {
@@ -279,13 +292,10 @@ export async function findUnavailableAssignments(
   const candidates = await db.booking.findMany({
     where: {
       deletedAt: null,
-      status: {
-        in: BLOCKING_BOOKING_STATUSES,
-      },
       pickupDateTime: {
         lt: input.window.end,
       },
-      OR,
+      AND: [blockingStatusClause(new Date()), { OR }],
     },
     select: conflictSelect(),
   });

@@ -3,6 +3,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requestUser } from "@/lib/request-access";
 import { CorporateApprovalError } from "@/lib/services/corporate/CorporateApprovalService";
+import { CorporateMobileError } from "@/lib/corporate-employee-mobile/access";
+import { BookingConflictError, MarketplaceBookingError } from "@/lib/services/booking/MarketplaceBookingService";
+import { PricingError } from "@/lib/services/pricing/engine";
 
 export class CorporateAdminError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -76,8 +79,10 @@ export function auditEntry(
 export const ok = (data: unknown, status = 200) => NextResponse.json({ success: true, data }, { status, headers: { "Cache-Control": "private, no-store" } });
 
 export function failure(e: unknown) {
-  if (e instanceof CorporateAdminError || e instanceof CorporateApprovalError)
+  if (e instanceof CorporateAdminError || e instanceof CorporateApprovalError || e instanceof CorporateMobileError || e instanceof MarketplaceBookingError || e instanceof PricingError)
     return NextResponse.json({ success: false, message: e.message }, { status: e.status });
+  if (e instanceof BookingConflictError)
+    return NextResponse.json({ success: false, message: e.message }, { status: 409 });
   if (e && typeof e === "object" && "code" in e) {
     if (e.code === "P2002") return NextResponse.json({ success: false, message: "A record with these details already exists." }, { status: 409 });
     if (e.code === "P2034") return NextResponse.json({ success: false, message: "This record changed. Refresh and retry." }, { status: 409 });

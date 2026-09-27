@@ -223,6 +223,7 @@ model Booking {
   tripDays            Int                    @default(1)
   tripType            TripType               @default(ONEWAY)
   status              BookingStatus          @default(PENDING)
+  holdExpiresAt       DateTime?
   estimatedFare       Decimal                @db.Decimal(10, 2)
   baseFare            Decimal?               @db.Decimal(10, 2)
   taxAmount           Decimal?               @db.Decimal(10, 2)
@@ -2244,6 +2245,7 @@ enum VehicleStatus {
 
 enum BookingStatus {
   PENDING
+  AWAITING_PAYMENT
   CONFIRMED
   DRIVER_ASSIGNED
   TRIP_STARTED
