@@ -14,7 +14,8 @@
       }
     },
     "android": {
-      "package": "com.ridegrid.customer"
+      "package": "com.ridegrid.customer",
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"]
     },
     "plugins": [
       "expo-router",

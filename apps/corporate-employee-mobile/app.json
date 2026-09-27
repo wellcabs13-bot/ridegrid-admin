@@ -14,7 +14,14 @@
       }
     },
     "android": {
-      "package": "com.ridegrid.corporate"
+      "package": "com.ridegrid.corporate",
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"]
+    },
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0C"
     },
     "web": {
       "bundler": "metro",

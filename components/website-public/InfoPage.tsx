@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { INFO_PAGES } from "@/lib/website-public/info";
+import { WELLCABS } from "@/lib/website-public/brand";
 import { resolvePublicChrome } from "@/lib/website-public/repository";
 import PublicShell from "./PublicShell";
 import s from "./InfoPage.module.css";
@@ -17,7 +18,9 @@ export default async function InfoPage({ slug }: { slug: string }) {
     <div className={`${s.container} ${s.layout}`}><nav aria-label="On this page" className={s.contents}><strong>On this page</strong>{page.sections.map((section, i) => <a href={`#section-${i}`} key={section.heading}>{section.heading}</a>)}</nav>
       <div className={s.body}>{page.review && <aside className={s.review}><strong>Business and legal review pending</strong><p>This page provides information while the business verifies its legal details and final terms. Unconfirmed values are explicitly marked below. It does not claim legal compliance.</p></aside>}
         {page.sections.map((section, i) => <section id={`section-${i}`} key={section.heading}><h2>{section.heading}</h2>{section.paragraphs.map(p => <p key={p}>{p}</p>)}</section>)}
-        <div className={s.actions}><Link href="/#ride-search">Find a ride</Link><Link href="/contact">Contact information</Link></div>
+        <div className={s.actions}><Link href="/#ride-search">Find a ride</Link><Link href="/contact">Contact information</Link>
+          {slug === "account-deletion" && <><a href={WELLCABS.emailHref}>Email {WELLCABS.email}</a><Link href="/privacy-policy">Privacy Policy</Link></>}
+        </div>
       </div>
     </div>
   </article></PublicShell>;

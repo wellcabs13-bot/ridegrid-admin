@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text } from "react-native";
+import { Linking, Text } from "react-native";
 import { post } from "../src/services/api";
 import { useApp } from "../src/state/Providers";
 import {
@@ -52,6 +52,20 @@ export default function Security() {
             busy={busy}
             disabled={!online}
             onPress={() => void reset()}
+          />
+        </Card>
+        <Card>
+          <Text style={styles.heading}>Delete account</Text>
+          <Text style={styles.body}>
+            Request permanent deletion of your RideGrid account and personal
+            data.
+          </Text>
+          <Button
+            title="Delete Account"
+            secondary
+            onPress={() =>
+              void Linking.openURL("https://www.wellcabs.com/account-deletion")
+            }
           />
         </Card>
       </SignedIn>

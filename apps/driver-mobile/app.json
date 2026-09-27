@@ -11,7 +11,14 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.ridegrid.driver"
+      "package": "com.ridegrid.driver",
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"]
+    },
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0C"
     },
     "web": {
       "bundler": "metro",
