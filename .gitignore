@@ -54,3 +54,9 @@ apps/*/ios/
 *.backup
 *.BACKUP
 *.backup-*
+
+# Generated Website & SEO QA artifacts (screenshots, validation output)
+/docs/website-seo/*.png
+/docs/website-seo/*.json
+/docs/website-seo/.build-directory.txt
+/docs/website-seo/phase1-qa/
