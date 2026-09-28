@@ -4,9 +4,10 @@ import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 
 const model = () => ({ findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), count: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn(), createMany: vi.fn() });
-const m = vi.hoisted(() => ({ requestUser: vi.fn(), generateInvoicePdf: vi.fn() }));
+const m = vi.hoisted(() => ({ requestUser: vi.fn(), generateInvoicePdf: vi.fn(), emitRideGridEvent: vi.fn() }));
 const db = vi.hoisted(() => ({} as Record<string, unknown>));
 vi.mock("@/lib/request-access", () => ({ requestUser: m.requestUser }));
+vi.mock("@/lib/events/event-dispatcher", () => ({ emitRideGridEvent: m.emitRideGridEvent, dispatchRideGridEvent: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/lib/services/invoice/InvoicePdfService", () => ({ generateInvoicePdf: m.generateInvoicePdf }));
 
@@ -207,7 +208,8 @@ describe("approval decisions reuse the employee app's request", () => {
     expect(r.status).toBe(200);
     expect((await r.json()).data).toMatchObject({ id: "req-a", status: "APPROVED" });
     expect(p.corporateApprovalStep.updateMany.mock.calls[0][0].data).toMatchObject({ status: "APPROVED", approverId: "admin-a" });
-    expect(p.notification.create.mock.calls[0][0].data).toMatchObject({ userId: "emp-user", title: "Ride request approved" });
+    // The employee notification is the CORPORATE_APPROVED automation rule, emitted after commit.
+    expect(m.emitRideGridEvent).toHaveBeenCalledWith(expect.objectContaining({ type: "CORPORATE_APPROVED", userId: "emp-user", metadata: expect.objectContaining({ approvalId: "req-a", corporateId: "corp-a" }) }));
     expect(p.booking.create).not.toHaveBeenCalled();
     expect(p.auditLog.create.mock.calls[0][0].data).toMatchObject({ entityName: "CorporateApprovalRequest", entityId: "req-a", userId: "admin-a" });
   });

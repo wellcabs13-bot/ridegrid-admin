@@ -1,5 +1,6 @@
 import { quoteService } from "@/lib/services/pricing/QuoteService";
 import { PricingError, SERVICES, decimal } from "@/lib/services/pricing/engine";
+import { publicSnapshot } from "@/lib/services/pricing/publicSnapshot";
 import { Prisma, VehicleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { vehicleRepository } from "@/lib/repositories/vehicle";
@@ -134,7 +135,7 @@ export class MarketplaceListingService {
       if (!v || v.deletedAt || v.status !== VehicleStatus.AVAILABLE || !v.isVerified) return false;
 
       const vendor = v.vendor;
-      if (!vendor || vendor.deletedAt || !vendor.isApproved || !vendor.user || vendor.user.deletedAt || !vendor.user.isActive) return false;
+      if (!vendor || vendor.deletedAt || vendor.suspendedAt || !vendor.isApproved || !vendor.user || vendor.user.deletedAt || !vendor.user.isActive) return false;
 
       const driver = v.driver;
       if (!driver || driver.deletedAt || driver.status !== "ACTIVE" || !driver.user || driver.user.deletedAt || !driver.user.isActive) return false;
@@ -271,7 +272,7 @@ export class MarketplaceListingService {
         },
         location: { city: v.homeCity },
         pricing: {
-          quote: quote.snapshot, finalPayable: Number(quote.snapshot.finalPayable),
+          quote: publicSnapshot(quote.snapshot), finalPayable: Number(quote.snapshot.finalPayable),
           pricingPackageId: pkg.id, pricingRuleId: pkg.pricingRuleId,
           pricingType: pkg.pricingRule.pricingType, tripType: pkg.pricingRule.tripType,
           packageType: pkg.packageType, packageName: pkg.packageName, city: pkg.city,
@@ -312,8 +313,10 @@ export class MarketplaceListingService {
           transferDirection: pkg.transferDirection,
           extraPickupCharge: num(pkg.extraPickupCharge), extraDropCharge: num(pkg.extraDropCharge),
         },
-        vendor: v.vendor ? { id: v.vendor.id, companyName: v.vendor.companyName, approved: v.vendor.isApproved, name: v.vendor.user?.name || "", mobile: v.vendor.user?.mobile || null } : null,
-        driver: v.driver ? { id: v.driver.id, verified: v.driver.user?.isVerified === true, name: v.driver.user?.name || `${v.driver.firstName} ${v.driver.lastName}`.trim(), mobile: v.driver.user?.mobile || null } : null,
+        // Public marketplace fields only. Vendor/driver contact details are shared through
+        // role-scoped booking APIs once a booking and assignment exist.
+        vendor: v.vendor ? { id: v.vendor.id, companyName: v.vendor.companyName, approved: v.vendor.isApproved, verified: Boolean(v.vendor.isApproved && v.vendor.verifiedAt) } : null,
+        driver: v.driver ? { id: v.driver.id, verified: v.driver.user?.isVerified === true, name: v.driver.firstName.trim() || "Assigned driver" } : null,
         marketplace: { rating: v.rating, totalTrips: v.totalTrips, verified: v.isVerified, status: v.status, available: true },
       };
     }))).filter(Boolean) as any[];

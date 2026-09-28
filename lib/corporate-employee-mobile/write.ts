@@ -6,8 +6,7 @@ import { corporateTravelPolicyService, policyServiceType } from "@/lib/services/
 import { ApprovalRequestSnapshot, corporateApprovalService } from "@/lib/services/corporate/CorporateApprovalService";
 import { commitMarketplaceBooking, loadBookableListing } from "@/lib/services/booking/MarketplaceBookingService";
 import { reservationWindowFromPickup, tripDaysFromSnapshot } from "@/lib/services/marketplace/BookingAvailabilityService";
-import { createRideGridEvent } from "@/lib/events/event-bus";
-import { dispatchRideGridEvent } from "@/lib/events/event-dispatcher";
+import { emitRideGridEvent } from "@/lib/events/event-dispatcher";
 import { AutomationTrigger } from "@/types/automation";
 import { assertNoForeignIdentity, CorporateMobileError, EmployeeAccess, required } from "./access";
 import { paymentMethodFor } from "./read";
@@ -108,20 +107,16 @@ async function book(a: EmployeeAccess, b: Body) {
     corporateId: a.employee.corporateId, bookingSource: BookingSource.CORPORATE, tripType,
     pickupAddress, dropAddress, pickupDateTime: pickup, window, discountAmount, finalFare: Number(snapshot.finalPayable),
     paymentMethod, changedBy: a.user.id,
-    afterCreate: async (tx, created) => {
-      if (approvalId) await corporateApprovalService.markBooked(tx, approvalId, a.employee.id, created.id);
-      await tx.notification.create({ data: { userId: a.user.id, notificationType: "PUSH", title: "Ride booked", message: `${created.bookingNumber} is confirmed. Open My Trips for details.` } });
-    },
+    afterCreate: approvalId
+      ? async (tx, created) => { await corporateApprovalService.markBooked(tx, approvalId, a.employee.id, created.id); }
+      : undefined,
   });
-  try {
-    await dispatchRideGridEvent(createRideGridEvent({
-      type: AutomationTrigger.BOOKING_CREATED, module: "BOOKING", bookingId: booking.id, userId: a.user.id, customerId,
-      vendorId: vehicle.vendorId, driverId: vehicle.driverId ?? undefined,
-      metadata: { bookingNumber: booking.bookingNumber, source: booking.bookingSource, paymentMethod, corporateId: a.employee.corporateId },
-    }));
-  } catch {
-    console.error("Corporate booking saved; booking notification dispatch requires retry.");
-  }
+  // Traveller confirmation and vendor/driver alerts are automation rules on BOOKING_CREATED.
+  await emitRideGridEvent({
+    type: AutomationTrigger.BOOKING_CREATED, module: "BOOKING", bookingId: booking.id, userId: a.user.id, customerId,
+    vendorId: vehicle.vendorId, driverId: vehicle.driverId ?? undefined,
+    metadata: { bookingNumber: booking.bookingNumber, source: booking.bookingSource, paymentMethod, corporateId: a.employee.corporateId },
+  });
   return { id: booking.id, bookingNumber: booking.bookingNumber, status: booking.status, paymentMethod };
 }
 

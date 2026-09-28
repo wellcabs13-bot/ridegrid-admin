@@ -1,9 +1,11 @@
-﻿import { NextRequest } from "next/server";
+import { requireAdmin } from "@/lib/admin-access";
+import { NextRequest } from "next/server";
 
 import { success, failure } from "@/lib/api-response";
 import { marketplaceTwinService } from "@/lib/services/marketplace/MarketplaceTwinService";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireAdmin(request); if (denied) return denied;
   try {
     const { searchParams } =
       new URL(request.url);

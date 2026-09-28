@@ -370,26 +370,8 @@ export default function VendorForm({
         </div>
       </section>
 
-      {/* STATUS */}
-      <section className="border-t pt-7">
-        <div className="max-w-md">
-          <label className={labelClass}>Vendor Status</label>
-
-          <select
-            value={form.status}
-            onChange={(e) =>
-              updateField("status", e.target.value as VendorStatus)
-            }
-            disabled={saving}
-            className={`${inputClass} bg-white`}
-          >
-            <option value="Active">Active</option>
-            <option value="Suspended">Suspended</option>
-            <option value="Inactive">Inactive</option>
-            <option value="Pending">Pending</option>
-          </select>
-        </div>
-      </section>
+      {/* Verification and suspension are separate audited actions on the vendor
+          record, not form fields. New vendors start unverified. */}
 
       {/* ACTIONS */}
       <div className="flex justify-end gap-3 border-t pt-6">

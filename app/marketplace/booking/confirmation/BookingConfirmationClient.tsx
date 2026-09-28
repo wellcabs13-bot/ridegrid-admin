@@ -592,7 +592,7 @@ function BookingConfirmationContent() {
                       ?.user?.mobile ||
                     booking.vendor
                       ?.user?.email ||
-                    "Contact details available after confirmation"
+                    "RideGrid trip partner — contact your driver once assigned"
                   }
                 />
 

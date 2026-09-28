@@ -1,3 +1,6 @@
+import { requestUser, staffGuard } from "@/lib/request-access";
+import { deleteVendor } from "@/lib/services/admin/AccountLifecycleService";
+import { Permission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
@@ -66,6 +69,7 @@ const vendorInclude = {
 };
 
 export async function GET(req: NextRequest) {
+  const denied = await staffGuard(req, Permission.VENDOR_VIEW); if (denied) return denied;
   try {
     const searchParams = req.nextUrl.searchParams;
     const search = searchParams.get("search")?.trim() || "";
@@ -145,6 +149,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = await staffGuard(req, Permission.VENDOR_MANAGE); if (denied) return denied;
   try {
     const body = await req.json();
 
@@ -294,6 +299,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const denied = await staffGuard(req, Permission.VENDOR_MANAGE); if (denied) return denied;
   try {
     const body = await req.json();
 
@@ -340,6 +346,19 @@ export async function PUT(req: NextRequest) {
         { status: 404 }
       );
     }
+
+    const nextEmail = typeof email === "string" ? email.trim().toLowerCase() : undefined;
+    const nextMobile = typeof mobile === "string" ? mobile.trim() : undefined;
+    if ((nextEmail && nextEmail !== vendor.user.email) || (nextMobile && nextMobile !== vendor.user.mobile)) {
+      const clash = await prisma.user.findFirst({
+        where: { id: { not: vendor.userId }, OR: [...(nextEmail ? [{ email: nextEmail }] : []), ...(nextMobile ? [{ mobile: nextMobile }] : [])] },
+        select: { email: true },
+      });
+      if (clash) {
+        return NextResponse.json({ success: false, message: clash.email === nextEmail ? "Another account already uses this email." : "Another account already uses this mobile number." }, { status: 409 });
+      }
+    }
+    const actorId = (await requestUser(req))?.id ?? null;
 
     const updatedVendor = await prisma.$transaction(async (tx: any) => {
       const userData: any = {};
@@ -415,9 +434,16 @@ export async function PUT(req: NextRequest) {
         vendorData.branchName = branchName || null;
       }
 
-      if (status !== undefined) {
-        vendorData.isApproved = status === "Active";
-      }
+      // Verification/suspension are dedicated audited actions
+      // (POST /api/admin/vendors/{id}); the edit form never changes them.
+      void status;
+
+      await tx.auditLog.create({
+        data: {
+          userId: actorId, action: "UPDATE", entityName: "Vendor", entityId: id,
+          newValue: { event: "PROFILE_UPDATED", fields: [...Object.keys(userData), ...Object.keys(vendorData)] },
+        },
+      });
 
       return tx.vendor.update({
         where: { id },
@@ -445,6 +471,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = await staffGuard(req, Permission.VENDOR_MANAGE); if (denied) return denied;
   try {
     const id = req.nextUrl.searchParams.get("id");
 
@@ -458,30 +485,17 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const vendor = await prisma.vendor.findUnique({
-      where: { id },
-    });
-
-    if (!vendor || vendor.deletedAt) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Vendor not found.",
-        },
-        { status: 404 }
-      );
-    }
-
-    await prisma.vendor.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    // Safe archival: login disabled, email/mobile released, history preserved.
+    const actorId = (await requestUser(req))!.id;
+    await deleteVendor(id, actorId, req.nextUrl.searchParams.get("reason") || undefined);
 
     return NextResponse.json({
       success: true,
       message: "Vendor deleted successfully.",
     });
   } catch (error) {
+    if (error instanceof Error && "status" in error && typeof (error as { status: unknown }).status === "number")
+      return NextResponse.json({ success: false, message: error.message }, { status: (error as { status: number }).status });
     console.error("DELETE /api/vendors failed:", error);
 
     return NextResponse.json(

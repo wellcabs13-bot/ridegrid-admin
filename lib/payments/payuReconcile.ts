@@ -241,8 +241,8 @@ export async function reconcilePayuTransaction(txnid: string): Promise<Reconcile
 
       await dispatchRideGridEvent(createRideGridEvent({
         type: AutomationTrigger.PAYMENT_RECEIVED, module: "PAYMENT",
-        bookingId: result.bookingId, vendorId: booking.vendorId, customerId: booking.customerId,
-        metadata: { transactionId: result.transactionId, txnid, amount: Number(existing.amount), status: PaymentStatus.PAID },
+        bookingId: result.bookingId, userId: booking.customer.userId, vendorId: booking.vendorId, customerId: booking.customerId,
+        metadata: { bookingNumber: result.bookingNumber, transactionId: result.transactionId, txnid, amount: Number(existing.amount), status: PaymentStatus.PAID },
       }));
     }
   }

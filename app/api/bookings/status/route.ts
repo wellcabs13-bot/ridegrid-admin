@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requestPermission } from "@/lib/request-access";
 import { Permission } from "@/lib/permissions";
+import { BookingAdminError, cancelBooking } from "@/lib/services/admin/BookingAdminService";
+import { emitRideGridEvent } from "@/lib/events/event-dispatcher";
+import { AutomationTrigger } from "@/types/automation";
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   PENDING: ["CONFIRMED", "CANCELLED"],
@@ -103,6 +106,20 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Cancellation must restore credit / record refunds, so it always uses the
+    // central workflow (which also emits BOOKING_CANCELLED).
+    if (requestedStatus === "CANCELLED") {
+      const cancelAccess = await requestPermission(request, Permission.BOOKING_CANCEL);
+      if (cancelAccess.denied) return cancelAccess.denied;
+      const reason = typeof body.reason === "string" ? body.reason : "";
+      try {
+        return NextResponse.json({ success: true, message: "Booking cancelled.", data: await cancelBooking(booking.id, user.id, reason) });
+      } catch (error) {
+        if (error instanceof BookingAdminError) return NextResponse.json({ success: false, message: error.message }, { status: error.status });
+        throw error;
+      }
+    }
+
     const action =
       STATUS_ACTION[requestedStatus] ?? "STATUS_CHANGED";
 
@@ -115,13 +132,8 @@ export async function PATCH(request: NextRequest) {
             },
             data: {
               status: requestedStatus as any,
-              ...(requestedStatus === "CANCELLED"
-                ? {
-                    cancelledBy: user.id,
-                    cancelledAt: new Date(),
-                  }
-                : {}),
             },
+            select: { id: true, bookingNumber: true, status: true, customerId: true, vendorId: true, driverId: true, customer: { select: { userId: true } } },
           });
 
         await tx.bookingStatusHistory.create({
@@ -140,10 +152,17 @@ export async function PATCH(request: NextRequest) {
         return updated;
       });
 
+    if (updatedBooking.status === "TRIP_COMPLETED")
+      await emitRideGridEvent({
+        type: AutomationTrigger.TRIP_COMPLETED, module: "BOOKING", bookingId: updatedBooking.id, userId: updatedBooking.customer.userId,
+        customerId: updatedBooking.customerId, vendorId: updatedBooking.vendorId, driverId: updatedBooking.driverId ?? undefined,
+        metadata: { bookingNumber: updatedBooking.bookingNumber, actorId: user.id },
+      });
+
     return NextResponse.json({
       success: true,
       message: "Booking status updated successfully.",
-      data: updatedBooking,
+      data: { id: updatedBooking.id, bookingNumber: updatedBooking.bookingNumber, status: updatedBooking.status },
     });
   } catch (error) {
     console.error(

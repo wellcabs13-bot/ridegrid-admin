@@ -51,13 +51,12 @@ type Listing = {
   vendor?: {
     id: string;
     companyName: string;
-    name?: string | null;
-    mobile?: string | null;
+    verified?: boolean;
   } | null;
   driver?: {
     id: string;
     name: string;
-    mobile?: string | null;
+    verified?: boolean;
   } | null;
 };
 
@@ -617,7 +616,7 @@ export default function MarketplaceBookingClient() {
                   <div className="rounded-2xl bg-white px-5 py-3 text-center shadow-sm">
                     <p className="text-xs text-slate-400">Vehicle Rating</p>
                     <p className="mt-1 text-lg font-black text-slate-900">
-                      ★ {Number(listing.marketplace?.rating || 0).toFixed(1)}
+                      {Number(listing.marketplace?.rating || 0) > 0 ? `★ ${Number(listing.marketplace?.rating).toFixed(1)}` : "No reviews yet"}
                     </p>
                   </div>
                 </div>
@@ -635,11 +634,9 @@ export default function MarketplaceBookingClient() {
                   <div>
                     <p className="text-xs font-black uppercase tracking-wider text-slate-400">Vendor</p>
                     <p className="mt-1 font-black text-slate-800">
-                      {listing.vendor?.companyName || "RideGrid Partner"} ✓
+                      {listing.vendor?.companyName || "RideGrid Partner"}
+                      {listing.vendor?.verified && <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-black text-emerald-700">✓ Verified vendor</span>}
                     </p>
-                    {listing.vendor?.name && (
-                      <p className="text-sm text-slate-500">{listing.vendor.name}</p>
-                    )}
                   </div>
 
                   <div>
@@ -799,7 +796,8 @@ export default function MarketplaceBookingClient() {
                 )}
               </div>
 
-              {(airport || listing.pricing.airportName || listing.pricing.transferDirection || airportSlab) && (
+              {/* Airport trips only: outstation/local packages can carry a stale transfer direction. */}
+              {(airport || listing.pricing.airportName) && (
                 <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
                   <p className="text-xs font-black uppercase tracking-wider text-blue-600">Airport Details</p>
                   {listing.pricing.airportName && <SummaryRow label="Airport" value={listing.pricing.airportName} />}

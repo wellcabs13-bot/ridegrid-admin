@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import WebsiteSeoCard from "@/components/website-seo/ui/WebsiteSeoCard";
 import { IMAGE_SLOTS, type ImageAssignment, type ImageJob, type ImagePreset, type ImageSlot } from "@/lib/website-seo/media/ai-image/types";
 
@@ -42,6 +43,7 @@ export default function ImageEngineClient() {
     {error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">{error}</p>}
     {notice && <p role="status" className="rounded-lg bg-green-50 p-4 text-green-800">{notice}</p>}
     {!data ? <p>Loading image engine…</p> : <>
+      {!data.environment.configured && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">AI image generation is not configured (no image provider key). No images will be generated. Upload images manually in <Link className="underline" href="/website-seo/website/media">Media</Link>.</p>}
       {data.environment.error && <p role="alert" className="rounded-lg border border-red-200 p-4 text-red-700">{data.environment.error}</p>}
       <p className="text-sm text-zinc-500">{data.environment.model} · {data.environment.size} · Quality: high for homepage/major heroes, medium for page heroes, low for supporting images · {data.jobs.filter(j => j.status === "QUEUED").length} queued · {data.jobs.filter(j => j.status === "GENERATED").length} awaiting review</p>
       <nav aria-label="Image engine sections" className="flex flex-wrap gap-2">{["Generate", "Jobs", "Assignments", "Presets"].map(t => <button key={t} className={`${button} ${tab === t ? "!bg-red-600" : ""}`} onClick={() => setTab(t)}>{t}</button>)}</nav>

@@ -62,7 +62,7 @@ export default function Payment() {
       setBusy(false);
     }
   }
-  async function confirm(method: "CASH" | "UPI" = "CASH") {
+  async function confirm(method: "UPI" = "UPI") {
     if (
       submitting.current ||
       !journey?.quote ||
@@ -161,7 +161,7 @@ export default function Payment() {
             <Card>
               <Text style={styles.heading}>Payment method</Text>
               <Text style={styles.subtitle}>
-                Pay online with PayU, or choose cash on pickup.
+                Pay securely online with PayU (UPI, cards, net banking).
               </Text>
               <Text style={styles.small}>
                 Quote valid until{" "}
@@ -227,21 +227,12 @@ export default function Payment() {
                 }
                 onPress={() => void confirm("UPI")}
               />
-              <Button
-                title="Confirm cash booking"
-                secondary
-                busy={busy}
-                disabled={
-                  !online ||
-                  expired ||
-                  uncertain ||
-                  !accepted ||
-                  !profile.data ||
-                  payingOnline ||
-                  !config.data?.paymentMethods.includes("CASH")
-                }
-                onPress={() => void confirm("CASH")}
-              />
+              {config.data && !config.data.paymentMethods.includes("ONLINE") && (
+                <Text style={styles.small}>
+                  Online payment is temporarily unavailable. Please try again
+                  shortly.
+                </Text>
+              )}
               <Button
                 title="Return to search"
                 secondary

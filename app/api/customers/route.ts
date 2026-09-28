@@ -1,3 +1,5 @@
+import { staffGuard } from "@/lib/request-access";
+import { Permission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { customerRepository } from "@/lib/repositories/customer";
 
@@ -50,6 +52,7 @@ function serializeCustomer(customer: any) {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await staffGuard(request, Permission.CUSTOMER_VIEW); if (denied) return denied;
   try {
     const searchParams = new URL(request.url).searchParams;
 
@@ -107,6 +110,7 @@ export async function GET(request: NextRequest) {
 export async function POST(
   request: NextRequest
 ) {
+  // Public customer self-registration: intentionally unauthenticated.
   try {
     const body = await request.json();
 

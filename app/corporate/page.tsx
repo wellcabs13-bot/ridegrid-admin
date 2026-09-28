@@ -1,1615 +1,182 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
-import CorporateOperations from "@/components/admin/CorporateOperations";
+import { PageHeading } from "@/components/admin/Primitives";
+import { Confirm, Drawer, Empty, Field, Notice, Pager, Pill, Rows, Section, inr, num, send, when, words } from "@/components/admin/kit";
+import { Copy, Plus, RefreshCw } from "lucide-react";
 
-type Status = "ACTIVE" | "INACTIVE" | "SUSPENDED";
-type BillingCycle = "PER_TRIP" | "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
-type ApprovalFlow = "NONE" | "MANAGER" | "MANAGER_FINANCE" | "CUSTOM";
-
-type Corporate = {
-  id: string;
-  companyName: string;
-  legalName?: string | null;
-  gstNumber?: string | null;
-  panNumber?: string | null;
-  email: string;
-  mobile: string;
-  website?: string | null;
-  address?: string | null;
-  city?: string | null;
-  state?: string | null;
-  country?: string | null;
-  pincode?: string | null;
-  status: Status;
-  billingCycle: string;
-  approvalFlow: string;
-  creditLimit?: string | number | null;
-  paymentTermsDays?: number | null;
-  accountManagerName?: string | null;
-  accountManagerEmail?: string | null;
-  accountManagerMobile?: string | null;
-  expectedMonthlyBookings?: number | null;
-  customerTier?: string | null;
-  serviceTypes?: string[] | null;
-  quotationFileUrl?: string | null;
-  quotationFileName?: string | null;
-  agreementFileUrl?: string | null;
-  agreementFileName?: string | null;
-  createdAt: string;
-  branchCount: number;
-  employeeCount: number;
-  departmentCount: number;
-  costCenterCount: number;
-  travelPolicyCount: number;
-  approvalRuleCount: number;
-  contractCount: number;
-  bookingCount: number;
-  monthlyBookingCount: number;
-  previousMonthBookingCount: number;
-  bookingValue: number;
-  monthlyBookingValue: number;
-  previousMonthBookingValue: number;
-  outstandingAmount: number;
-  averageRating: number | null;
+type Row = {
+  id: string; companyName: string; status: string; city: string | null; email: string; mobile: string; createdAt: string; tier: string | null;
+  primaryAdmin: { name: string; email: string; mobile: string } | null; credit: { enabled: boolean; limit: number; outstanding: number; available: number };
+  bookingsThisMonth: number; tripsToday: number; completedThisMonth: number; totalBookings: number; spendThisMonth: number; gstThisMonth: number; spendAllTime: number; gstAllTime: number; pendingApprovals: number; employees: number;
 };
-
-type DashboardResponse = {
-  corporates: Corporate[];
-  totals: {
-    totalCorporates: number;
-    activeCorporates: number;
-    inactiveSuspendedCorporates: number;
-    totalBookings: number;
-    totalBookingValue: number;
-    outstandingAmount: number;
-    averageMonthlyBookings: number;
-    averageCorporateRating: number | null;
-    monthlyBookings: number;
-    previousMonthBookings: number;
-    monthlyBookingValue: number;
-    previousMonthBookingValue: number;
-  };
-};
-
-type CorporateForm = {
-  companyName: string;
-  legalName: string;
-  gstNumber: string;
-  panNumber: string;
-  email: string;
-  mobile: string;
-  website: string;
-  address: string;
-  city: string;
-  state: string;
-  country: string;
-  pincode: string;
-  status: Status;
-  billingCycle: BillingCycle;
-  approvalFlow: ApprovalFlow;
-  creditLimit: string;
-  paymentTermsDays: string;
-  accountManagerName: string;
-  accountManagerEmail: string;
-  accountManagerMobile: string;
-  expectedMonthlyBookings: string;
-  serviceTypes: string[];
-  quotationFile: File | null;
-  agreementFile: File | null;
-};
-
-type CorporateDetails = Corporate & {
-  branches?: unknown[];
-  employees?: unknown[];
-  corporateDepartments?: unknown[];
-  costCenters?: unknown[];
-  travelPolicies?: unknown[];
-  approvalRules?: unknown[];
-  contracts?: unknown[];
-  invoiceSetting?: unknown;
-  discounts?: unknown[];
-  reports?: unknown[];
-  wallet?: {
-    balance?: string | number | null;
-    creditLimit?: string | number | null;
-  } | null;
-};
-
-const emptyForm: CorporateForm = {
-  companyName: "",
-  legalName: "",
-  gstNumber: "",
-  panNumber: "",
-  email: "",
-  mobile: "",
-  website: "",
-  address: "",
-  city: "",
-  state: "",
-  country: "India",
-  pincode: "",
-  status: "ACTIVE",
-  billingCycle: "MONTHLY",
-  approvalFlow: "MANAGER",
-  creditLimit: "",
-  paymentTermsDays: "30",
-  accountManagerName: "",
-  accountManagerEmail: "",
-  accountManagerMobile: "",
-  expectedMonthlyBookings: "",
-  serviceTypes: [],
-  quotationFile: null,
-  agreementFile: null,
-};
-
-const inputClass =
-  "w-full rounded-[9px] border border-[#d8e0eb] bg-white px-3.5 py-2.5 text-[12px] text-[#334155] outline-none transition placeholder:text-[#8a9ab1] focus:border-[#6366f1] focus:ring-2 focus:ring-[#eef0ff]";
-
-const formatMoney = (value: number) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(value) ? value : 0);
-
-const formatNumber = (value: number) =>
-  new Intl.NumberFormat("en-IN").format(Number.isFinite(value) ? value : 0);
-
-const formatCycle = (value?: string | null) =>
-  value ? value.replaceAll("_", " ") : "—";
-
-const formatPercent = (current: number, previous: number) => {
-  if (previous === 0 && current === 0) return null;
-  if (previous === 0) return null;
-  return Math.round(((current - previous) / previous) * 100);
-};
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "CO";
-
-const SERVICE_TYPES = [
-  { value: "AIRPORT", label: "Airport Transfers" },
-  { value: "LOCAL", label: "Local Travel" },
-  { value: "OUTSTATION", label: "Outstation" },
-  { value: "HOURLY", label: "Hourly / Rental" },
-] as const;
-
-function getCorporateTier(monthlyBookings: number) {
-  if (monthlyBookings <= 0) {
-    return {
-      key: "PROSPECT",
-      label: "Prospect",
-      range: "0 bookings / month",
-      working: "Commercial tier will be classified after expected volume is confirmed.",
-    };
-  }
-  if (monthlyBookings <= 10) {
-    return {
-      key: "STARTER",
-      label: "Starter",
-      range: "1–10 bookings / month",
-      working: "Standard corporate servicing and pricing.",
-    };
-  }
-  if (monthlyBookings <= 30) {
-    return {
-      key: "GROWTH",
-      label: "Growth",
-      range: "11–30 bookings / month",
-      working: "Priority account handling and volume-based commercial review.",
-    };
-  }
-  if (monthlyBookings <= 75) {
-    return {
-      key: "ENTERPRISE",
-      label: "Enterprise",
-      range: "31–75 bookings / month",
-      working: "Dedicated account attention with negotiated enterprise terms.",
-    };
-  }
-  return {
-    key: "STRATEGIC",
-    label: "Strategic",
-    range: "76+ bookings / month",
-    working: "Strategic enterprise account with dedicated commercial review.",
-  };
-}
+type List = { rows: Row[]; total: number; page: number; totalPages: number };
 
 export default function CorporatePage() {
-  const router = useRouter();
-  const [corporates, setCorporates] = useState<Corporate[]>([]);
-  const [totals, setTotals] = useState<DashboardResponse["totals"]>({
-    totalCorporates: 0,
-    activeCorporates: 0,
-    inactiveSuspendedCorporates: 0,
-    totalBookings: 0,
-    totalBookingValue: 0,
-    outstandingAmount: 0,
-    averageMonthlyBookings: 0,
-    averageCorporateRating: null,
-    monthlyBookings: 0,
-    previousMonthBookings: 0,
-    monthlyBookingValue: 0,
-    previousMonthBookingValue: 0,
-  });
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
-  const [city, setCity] = useState("");
-  const [accountManager, setAccountManager] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selected, setSelected] = useState<Corporate | null>(null);
-  const [viewing, setViewing] = useState<CorporateDetails | null>(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [menuId, setMenuId] = useState<string | null>(null);
-  const [form, setForm] = useState<CorporateForm>(emptyForm);
-  const [saving, setSaving] = useState(false);
-  const [documentUploading, setDocumentUploading] = useState(false);
-
-  const fetchDashboard = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await fetch("/api/corporate/dashboard", {
-        cache: "no-store",
-      });
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to load corporate dashboard.");
-      }
-
-      setCorporates(Array.isArray(result.data?.corporates) ? result.data.corporates : []);
-      setTotals(result.data?.totals ?? totals);
-    } catch (err) {
-      console.error("Corporate dashboard loading error:", err);
-      setError(err instanceof Error ? err.message : "Failed to load corporate dashboard.");
-      setCorporates([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchDashboard();
-  }, [fetchDashboard]);
-
-  useEffect(() => {
-    const close = () => setMenuId(null);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, []);
-
-  const cities = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          corporates
-            .map((item) => item.city?.trim())
-            .filter((value): value is string => Boolean(value))
-        )
-      ).sort((a, b) => a.localeCompare(b)),
-    [corporates]
-  );
-
-  const managers = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          corporates
-            .map((item) => item.accountManagerName?.trim())
-            .filter((value): value is string => Boolean(value))
-        )
-      ).sort((a, b) => a.localeCompare(b)),
-    [corporates]
-  );
-
-  const filtered = useMemo(() => {
-    const value = search.toLowerCase().trim();
-
-    return corporates.filter((item) => {
-      const searchable = [
-        item.companyName,
-        item.legalName,
-        item.gstNumber,
-        item.email,
-        item.mobile,
-        item.city,
-        item.state,
-        item.accountManagerName,
-        item.accountManagerEmail,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return (
-        (!value || searchable.includes(value)) &&
-        (!status || item.status === status) &&
-        (!city || item.city === city) &&
-        (!accountManager || item.accountManagerName === accountManager)
-      );
-    });
-  }, [corporates, search, status, city, accountManager]);
-
-  const activePercent =
-    totals.totalCorporates > 0
-      ? Math.round((totals.activeCorporates / totals.totalCorporates) * 100)
-      : 0;
-
-  const inactivePercent =
-    totals.totalCorporates > 0
-      ? Math.round((totals.inactiveSuspendedCorporates / totals.totalCorporates) * 100)
-      : 0;
-
-  const bookingGrowth = formatPercent(
-    totals.monthlyBookings,
-    totals.previousMonthBookings
-  );
-
-  const valueGrowth = formatPercent(
-    totals.monthlyBookingValue,
-    totals.previousMonthBookingValue
-  );
-
-  function resetFilters() {
-    setSearch("");
-    setStatus("");
-    setCity("");
-    setAccountManager("");
-  }
-
-  function openCreate() {
-    setSelected(null);
-    setForm({ ...emptyForm });
-    setModalOpen(true);
-  }
-
-  async function openEdit(item: Corporate) {
-    setSelected(item);
-    setForm({
-      ...emptyForm,
-      companyName: item.companyName,
-      legalName: item.legalName ?? "",
-      gstNumber: item.gstNumber ?? "",
-      panNumber: item.panNumber ?? "",
-      email: item.email,
-      mobile: item.mobile,
-      website: item.website ?? "",
-      address: item.address ?? "",
-      city: item.city ?? "",
-      state: item.state ?? "",
-      country: item.country ?? "India",
-      pincode: item.pincode ?? "",
-      status: item.status,
-      billingCycle: item.billingCycle as BillingCycle,
-      approvalFlow: item.approvalFlow as ApprovalFlow,
-      creditLimit: item.creditLimit == null ? "" : String(item.creditLimit),
-      paymentTermsDays: item.paymentTermsDays == null ? "30" : String(item.paymentTermsDays),
-      accountManagerName: item.accountManagerName ?? "",
-      accountManagerEmail: item.accountManagerEmail ?? "",
-      accountManagerMobile: item.accountManagerMobile ?? "",
-      expectedMonthlyBookings: item.expectedMonthlyBookings == null ? "" : String(item.expectedMonthlyBookings),
-      serviceTypes: Array.isArray(item.serviceTypes) ? item.serviceTypes : [],
-    });
-
-    try {
-      const profileResponse = await fetch(
-        `/api/corporate/profile?corporateId=${encodeURIComponent(item.id)}`,
-        { cache: "no-store" }
-      );
-      const profileResult = await profileResponse.json();
-      if (profileResponse.ok && profileResult.success && profileResult.data) {
-        setForm((previous) => ({
-          ...previous,
-          expectedMonthlyBookings:
-            profileResult.data.expectedMonthlyBookings == null
-              ? previous.expectedMonthlyBookings
-              : String(profileResult.data.expectedMonthlyBookings),
-          serviceTypes: Array.isArray(profileResult.data.serviceTypes)
-            ? profileResult.data.serviceTypes
-            : previous.serviceTypes,
-        }));
-        setSelected((previous) =>
-          previous
-            ? {
-                ...previous,
-                expectedMonthlyBookings:
-                  profileResult.data.expectedMonthlyBookings ?? null,
-                customerTier: profileResult.data.customerTier ?? null,
-                serviceTypes: Array.isArray(profileResult.data.serviceTypes)
-                  ? profileResult.data.serviceTypes
-                  : [],
-                quotationFileUrl: profileResult.data.quotationFileUrl ?? null,
-                quotationFileName: profileResult.data.quotationFileName ?? null,
-                agreementFileUrl: profileResult.data.agreementFileUrl ?? null,
-                agreementFileName: profileResult.data.agreementFileName ?? null,
-              }
-            : previous
-        );
-      }
-    } catch (error) {
-      console.error("Corporate commercial profile loading error:", error);
-    }
-
-    setModalOpen(true);
-    setMenuId(null);
-  }
-
-  async function openView(item: Corporate) {
-    setMenuId(null);
-    setDetailsLoading(true);
-    try {
-      const response = await fetch(`/api/corporate?id=${encodeURIComponent(item.id)}`, {
-        cache: "no-store",
-      });
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to load corporate details.");
-      }
-
-      setViewing({ ...item, ...result.data } as CorporateDetails);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to load corporate details.");
-    } finally {
-      setDetailsLoading(false);
-    }
-  }
-
-  function closeModal() {
-    if (saving) return;
-    setModalOpen(false);
-    setSelected(null);
-    setForm({ ...emptyForm });
-  }
-
-  async function uploadCorporateDocument(
-    file: File,
-    documentLabel: string
-  ) {
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
-    if (!allowedTypes.includes(file.type)) {
-      throw new Error(`${documentLabel} must be a PDF, JPG or PNG file.`);
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      throw new Error(`${documentLabel} must be 10 MB or smaller.`);
-    }
-
-    const uploadData = new FormData();
-    uploadData.append("file", file);
-
-    const uploadResponse = await fetch("/api/files/upload", {
-      method: "POST",
-      body: uploadData,
-    });
-    const uploadResult = await uploadResponse.json();
-
-    if (!uploadResponse.ok || !uploadResult.success) {
-      throw new Error(
-        uploadResult.message || `Failed to upload ${documentLabel}.`
-      );
-    }
-
-    return uploadResult.data as {
-      fileUrl: string;
-      storageKey?: string;
-      name: string;
-      mimeType: string;
-      size: number;
-    };
-  }
-
-  async function saveCommercialProfile(corporateId: string) {
-    const expected = form.expectedMonthlyBookings
-      ? Number(form.expectedMonthlyBookings)
-      : null;
-
-    if (
-      expected !== null &&
-      (!Number.isInteger(expected) || expected < 0)
-    ) {
-      throw new Error("Expected monthly bookings must be a whole number of 0 or more.");
-    }
-
-    const tier = getCorporateTier(expected ?? 0);
-
-    let quotation:
-      | Awaited<ReturnType<typeof uploadCorporateDocument>>
-      | null = null;
-    let agreement:
-      | Awaited<ReturnType<typeof uploadCorporateDocument>>
-      | null = null;
-
-    const quotationFile = form.quotationFile;
-    const agreementFile = form.agreementFile;
-
-    if (quotationFile) {
-      quotation = await uploadCorporateDocument(
-        quotationFile,
-        "Quotation"
-      );
-    }
-
-    if (agreementFile) {
-      agreement = await uploadCorporateDocument(
-        agreementFile,
-        "Corporate Agreement"
-      );
-    }
-
-    const response = await fetch("/api/corporate/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        corporateId,
-        expectedMonthlyBookings: expected,
-        customerTier: tier.key,
-        serviceTypes: form.serviceTypes,
-        ...(quotation
-          ? {
-              quotationFileUrl: quotation.fileUrl,
-              quotationFileName: quotationFile!.name,
-            }
-          : {}),
-        ...(agreement
-          ? {
-              agreementFileUrl: agreement.fileUrl,
-              agreementFileName: agreementFile!.name,
-            }
-          : {}),
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      throw new Error(
-        result.message || "Failed to save corporate commercial profile."
-      );
-    }
-  }
-
-  async function saveCorporate(event: React.FormEvent) {
-    event.preventDefault();
-    if (saving) return;
-
-    try {
-      setSaving(true);
-
-      const { expectedMonthlyBookings, serviceTypes, quotationFile, agreementFile, ...baseForm } = form;
-      const expected = expectedMonthlyBookings === "" ? null : Number(expectedMonthlyBookings);
-      if (expected !== null && (!Number.isInteger(expected) || expected < 0)) {
-        throw new Error("Expected monthly bookings must be a whole number of 0 or more.");
-      }
-      const payload = {
-        ...baseForm,
-        creditLimit: form.creditLimit ? Number(form.creditLimit) : null,
-        paymentTermsDays: Number(form.paymentTermsDays || 30),
-        accountManagerName: form.accountManagerName || null,
-        accountManagerEmail: form.accountManagerEmail || null,
-        accountManagerMobile: form.accountManagerMobile || null,
-      };
-
-      const response = await fetch("/api/corporate", {
-        method: selected ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(selected ? { id: selected.id, ...payload } : payload),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to save corporate account.");
-      }
-
-      const savedCorporateId = selected?.id || result.data?.id;
-      if (!savedCorporateId) {
-        throw new Error("Corporate was saved but no corporate ID was returned.");
-      }
-
-      // Keep the saved ID if a subsequent upload/profile save fails, so retry updates.
-      if (!selected) setSelected({ ...result.data, id: savedCorporateId } as Corporate);
-
-      setDocumentUploading(true);
-      await saveCommercialProfile(savedCorporateId);
-
-      setModalOpen(false);
-      setSelected(null);
-      setForm({ ...emptyForm });
-      await fetchDashboard();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to save corporate account.");
-    } finally {
-      setDocumentUploading(false);
-      setSaving(false);
-    }
-  }
-
-  async function archiveCorporate(id: string) {
-    setMenuId(null);
-
-    if (!window.confirm("Archive this corporate account?")) return;
-
-    try {
-      const response = await fetch(`/api/corporate?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Failed to archive corporate account.");
-      }
-
-      await fetchDashboard();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to archive corporate account.");
-    }
-  }
-
-  function updateField<K extends keyof CorporateForm>(key: K, value: CorporateForm[K]) {
-    setForm((previous) => ({ ...previous, [key]: value }));
-  }
-
-  function startCorporateBooking(item: Corporate) {
-    if (item.status !== "ACTIVE") {
-      alert("Only active corporate accounts can create bookings.");
-      return;
-    }
-
-    const params = new URLSearchParams({
-      corporateId: item.id,
-      corporateName: item.companyName,
-    });
-
-    window.location.href = `/marketplace?${params.toString()}`;
-  }
-  function exportCsv() {
-    const headers = [
-      "Company",
-      "GST",
-      "Contact Email",
-      "Mobile",
-      "City",
-      "State",
-      "Billing",
-      "Approval",
-      "Bookings",
-      "Booking Value",
-      "Outstanding",
-      "Status",
-      "Account Manager",
-    ];
-
-    const rows = filtered.map((item) => [
-      item.companyName,
-      item.gstNumber ?? "",
-      item.email,
-      item.mobile,
-      item.city ?? "",
-      item.state ?? "",
-      formatCycle(item.billingCycle),
-      formatCycle(item.approvalFlow),
-      item.bookingCount,
-      item.bookingValue,
-      item.outstandingAmount,
-      item.status,
-      item.accountManagerName ?? "",
-    ]);
-
-    const csv = [headers, ...rows]
-      .map((row) =>
-        row
-          .map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`)
-          .join(",")
-      )
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `ridegrid-corporates-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <DashboardLayout>
-      <div className="min-h-full space-y-4 bg-[#f3f6fa] pb-10">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <p className="text-[11px] font-bold tracking-wide text-[#4b46e8]">
-              CORPORATE MANAGEMENT
-            </p>
-            <h1 className="mt-1 text-[24px] font-bold leading-tight tracking-tight text-[#111827]">
-              Corporate Accounts
-            </h1>
-            <p className="mt-1 text-[11px] text-[#64748b]">
-              Manage enterprise clients, billing and travel controls.
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={exportCsv}
-              className="inline-flex items-center gap-2 rounded-lg border border-[#dbe3ef] bg-white px-4 py-2 text-[12px] font-semibold text-[#334155] shadow-sm hover:bg-[#f8fafc]"
-            >
-              <span>⇩</span>
-              Export
-            </button>
-            <button
-              type="button"
-              onClick={openCreate}
-              className="rounded-lg bg-[#4f46e5] px-5 py-2 text-[12px] font-semibold text-white shadow-sm hover:bg-[#4338ca]"
-            >
-              + Add Corporate
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="grid gap-3 xl:grid-cols-4 md:grid-cols-2">
-          <KpiCard
-            title="Total Corporates"
-            value={formatNumber(totals.totalCorporates)}
-            icon="▥"
-            tone="indigo"
-            footer={totals.totalCorporates ? "All active records in database" : "No corporate records"}
-          />
-          <KpiCard
-            title="Active Corporates"
-            value={formatNumber(totals.activeCorporates)}
-            icon="♧"
-            tone="green"
-            footer={`${activePercent}% of total`}
-          />
-          <KpiCard
-            title="Inactive / Suspended"
-            value={formatNumber(totals.inactiveSuspendedCorporates)}
-            icon="Ⅱ"
-            tone="amber"
-            footer={`${inactivePercent}% of total`}
-          />
-          <KpiCard
-            title="Total Bookings (Corporate)"
-            value={formatNumber(totals.totalBookings)}
-            icon="□"
-            tone="blue"
-            footer={
-              bookingGrowth === null
-                ? "No monthly booking activity"
-                : bookingGrowth >= 0
-                  ? `↑ ${bookingGrowth}% this month`
-                  : `↓ ${Math.abs(bookingGrowth)}% this month`
-            }
-            positive={bookingGrowth === null ? undefined : bookingGrowth >= 0}
-          />
-
-          <KpiCard
-            title="Total Booking Value"
-            value={formatMoney(totals.totalBookingValue)}
-            icon="₹"
-            tone="violet"
-            footer={
-              valueGrowth === null
-                ? "No monthly booking activity"
-                : valueGrowth >= 0
-                  ? `↑ ${valueGrowth}% this month`
-                  : `↓ ${Math.abs(valueGrowth)}% this month`
-            }
-            positive={valueGrowth === null ? undefined : valueGrowth >= 0}
-          />
-          <KpiCard
-            title="Outstanding Amount"
-            value={formatMoney(totals.outstandingAmount)}
-            icon="¤"
-            tone="blue"
-            footer="Unpaid corporate-linked invoices"
-            positive={false}
-          />
-          <KpiCard
-            title="Avg. Monthly Bookings"
-            value={formatNumber(totals.averageMonthlyBookings)}
-            icon="×"
-            tone="rose"
-            footer="Based on available corporate booking history"
-          />
-          <KpiCard
-            title="Avg. Corporate Rating"
-            value={totals.averageCorporateRating == null ? "—" : totals.averageCorporateRating.toFixed(1)}
-            icon="⌁"
-            tone="green"
-            footer={
-              totals.averageCorporateRating == null
-                ? "No corporate-linked published ratings"
-                : "From published booking reviews"
-            }
-          />
-        </div>
-
-        <div className="rounded-[9px] border border-[#dfe5ee] bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
-          <div className="grid gap-3 xl:grid-cols-[1.55fr_0.7fr_0.8fr_0.9fr_0.65fr] md:grid-cols-2">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search company name, contact, email or mobile..."
-              className={inputClass}
-            />
-
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-              className={inputClass}
-            >
-              <option value="">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-              <option value="SUSPENDED">Suspended</option>
-            </select>
-
-            <select
-              value={city}
-              onChange={(event) => setCity(event.target.value)}
-              className={inputClass}
-            >
-              <option value="">All Cities</option>
-              {cities.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={accountManager}
-              onChange={(event) => setAccountManager(event.target.value)}
-              className={inputClass}
-            >
-              <option value="">All Account Managers</option>
-              {managers.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-[#f8fafc]"
-            >
-              Reset Filters
-            </button>
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-[10px] border border-[#dfe5ee] bg-white shadow-[0_1px_4px_rgba(15,23,42,0.06)]">
-          <div className="flex items-center justify-between border-b border-[#edf1f6] px-4 py-3">
-            <div>
-              <h2 className="text-[11px] font-bold text-[#16325c]">Corporate Directory</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {loading ? "Loading..." : `${formatNumber(filtered.length)} records shown`}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => void fetchDashboard()}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-[#f8fafc]"
-            >
-              Refresh
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-[1200px] w-full">
-              <thead className="bg-[#f8fafc]">
-                <tr>
-                  {[
-                    "#",
-                    "COMPANY",
-                    "CONTACT PERSON",
-                    "LOCATION",
-                    "BILLING",
-                    "BOOKINGS",
-                    "AMOUNT (THIS MONTH)",
-                    "STATUS",
-                    "ACTIONS",
-                  ].map((heading) => (
-                    <th
-                      key={heading}
-                      className="px-4 py-3 text-left text-[9px] font-bold tracking-wide text-[#64748b]"
-                    >
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={9} className="px-5 py-14 text-center text-sm text-slate-500">
-                      Loading corporate accounts from database...
-                    </td>
-                  </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="px-5 py-14 text-center text-sm text-slate-500">
-                      No corporate accounts match the selected filters.
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-[#f8fafc]/80">
-                      <td className="px-4 py-3 text-xs text-slate-500">{index + 1}</td>
-
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] bg-[#e9e7ff] text-[11px] font-bold text-[#4f46e5]">
-                            {initials(item.companyName)}
-                          </div>
-                          <div>
-                            <div className="text-[11px] font-bold text-[#16325c]">
-                              {item.companyName}
-                            </div>
-                            <div className="mt-0.5 text-[9px] text-[#8090a7]">
-                              GST: {item.gstNumber || "Not provided"}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="text-[10px] font-semibold text-[#243b5a]">
-                          {item.accountManagerName || "—"}
-                        </div>
-                        <div className="mt-0.5 text-[9px] text-[#64748b]">
-                          {item.accountManagerMobile || item.mobile}
-                        </div>
-                        <div className="text-[9px] text-[#8a9ab1]">
-                          {item.accountManagerEmail || item.email}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="text-[10px] font-medium text-[#334155]">
-                          {item.city || "—"}
-                        </div>
-                        <div className="text-[9px] text-[#8a9ab1]">
-                          {item.state || item.country || "—"}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="text-xs font-semibold text-slate-700">
-                          {formatCycle(item.billingCycle)}
-                        </div>
-                        <div className="text-[9px] text-[#8a9ab1]">
-                          {item.creditLimit == null
-                            ? "No credit limit"
-                            : `Credit: ${formatMoney(Number(item.creditLimit))}`}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="text-[10px] font-bold text-[#243b5a]">
-                          {formatNumber(item.monthlyBookingCount)}
-                        </div>
-                        <div
-                          className={
-                            item.monthlyBookingCount >= item.previousMonthBookingCount
-                              ? "text-[10px] font-semibold text-emerald-600"
-                              : "text-[10px] font-semibold text-red-500"
-                          }
-                        >
-                          {item.previousMonthBookingCount === 0
-                            ? item.monthlyBookingCount > 0
-                              ? "↑ New this month"
-                              : "No activity"
-                            : item.monthlyBookingCount >= item.previousMonthBookingCount
-                              ? `↑ ${Math.round(((item.monthlyBookingCount - item.previousMonthBookingCount) / item.previousMonthBookingCount) * 100)}%`
-                              : `↓ ${Math.abs(Math.round(((item.monthlyBookingCount - item.previousMonthBookingCount) / item.previousMonthBookingCount) * 100))}%`}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="text-[10px] font-bold text-[#243b5a]">
-                          {formatMoney(item.monthlyBookingValue)}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <StatusBadge status={item.status} />
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="relative flex items-center gap-2">
-                          <button
-                            type="button"
-                            title="Book"
-                            onClick={() => startCorporateBooking(item)}
-                            disabled={item.status !== "ACTIVE"}
-                            className="flex h-8 items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            <span>🚗</span>
-                            Book
-                          </button>
-                          <button
-                            type="button"
-                            title="View"
-                            onClick={() => void openView(item)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-[#f8fafc]"
-                          >
-                            ◉
-                          </button>
-                          <button
-                            type="button"
-                            title="Edit"
-                            onClick={() => openEdit(item)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-[#f8fafc]"
-                          >
-                            ✎
-                          </button>
-                          <button
-                            type="button"
-                            title="More"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setMenuId((current) => (current === item.id ? null : item.id));
-                            }}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-[#f8fafc]"
-                          >
-                            ⋯
-                          </button>
-
-                          {menuId === item.id && (
-                            <div
-                              className="absolute right-0 top-10 z-30 w-40 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => void openView(item)}
-                                className="w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-[#f8fafc]"
-                              >
-                                View Details
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openEdit(item)}
-                                className="w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-[#f8fafc]"
-                              >
-                                Edit Corporate
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void archiveCorporate(item.id)}
-                                className="w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50"
-                              >
-                                Archive
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {detailsLoading && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/40 p-4">
-            <div className="rounded-2xl bg-white px-6 py-5 text-sm font-semibold text-slate-700 shadow-2xl">
-              Loading corporate details...
-            </div>
-          </div>
-        )}
-
-        {viewing && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-            <div className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-[12px] bg-white shadow-2xl">
-              <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-[9px] bg-[#e9e7ff] font-bold text-[#4f46e5]">
-                    {initials(viewing.companyName)}
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900">{viewing.companyName}</h2>
-                    <p className="text-sm text-slate-500">
-                      {viewing.legalName || viewing.companyName}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setViewing(null)}
-                  className="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="grid gap-4 p-6 md:grid-cols-4">
-                <DetailStat title="Branches" value={viewing.branches?.length ?? viewing.branchCount} />
-                <DetailStat title="Employees" value={viewing.employees?.length ?? viewing.employeeCount} />
-                <DetailStat title="Departments" value={viewing.corporateDepartments?.length ?? viewing.departmentCount} />
-                <DetailStat title="Cost Centers" value={viewing.costCenters?.length ?? viewing.costCenterCount} />
-                <DetailStat title="Travel Policies" value={viewing.travelPolicies?.length ?? viewing.travelPolicyCount} />
-                <DetailStat title="Approval Rules" value={viewing.approvalRules?.length ?? viewing.approvalRuleCount} />
-                <DetailStat title="Contracts" value={viewing.contracts?.length ?? viewing.contractCount} />
-                <DetailStat title="Corporate Bookings" value={viewing.bookingCount} />
-              </div>
-
-              <div className="grid gap-6 border-t border-slate-100 p-6 lg:grid-cols-2">
-                <InfoBlock title="Company & Contact">
-                  <InfoRow label="GST" value={viewing.gstNumber || "Not provided"} />
-                  <InfoRow label="PAN" value={viewing.panNumber || "Not provided"} />
-                  <InfoRow label="Email" value={viewing.email} />
-                  <InfoRow label="Mobile" value={viewing.mobile} />
-                  <InfoRow label="Website" value={viewing.website || "Not provided"} />
-                </InfoBlock>
-
-                <InfoBlock title="Address">
-                  <InfoRow label="Address" value={viewing.address || "Not provided"} />
-                  <InfoRow label="City" value={viewing.city || "—"} />
-                  <InfoRow label="State" value={viewing.state || "—"} />
-                  <InfoRow label="Country" value={viewing.country || "India"} />
-                  <InfoRow label="Pincode" value={viewing.pincode || "—"} />
-                </InfoBlock>
-
-                <InfoBlock title="Commercial Controls">
-                  <InfoRow label="Billing" value={formatCycle(viewing.billingCycle)} />
-                  <InfoRow label="Approval" value={formatCycle(viewing.approvalFlow)} />
-                  <InfoRow label="Credit Limit" value={viewing.creditLimit == null ? "Not set" : formatMoney(Number(viewing.creditLimit))} />
-                  <InfoRow label="Payment Terms" value={`${viewing.paymentTermsDays ?? 30} days`} />
-                  <InfoRow label="Status" value={viewing.status} />
-                </InfoBlock>
-
-                <InfoBlock title="Account Manager">
-                  <InfoRow label="Name" value={viewing.accountManagerName || "Not assigned"} />
-                  <InfoRow label="Email" value={viewing.accountManagerEmail || "—"} />
-                  <InfoRow label="Mobile" value={viewing.accountManagerMobile || "—"} />
-                  <InfoRow label="Outstanding" value={formatMoney(viewing.outstandingAmount)} />
-                  <InfoRow label="Rating" value={viewing.averageRating == null ? "No rating" : viewing.averageRating.toFixed(1)} />
-                </InfoBlock>
-              </div>
-
-              <div className="px-6 pb-6"><CorporateOperations corporateId={viewing.id}/></div>
-              <div className="flex justify-end border-t border-slate-100 px-6 py-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewing(null);
-                    openEdit(viewing);
-                  }}
-                  className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-                >
-                  Edit Corporate
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {modalOpen && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) closeModal();
-            }}
-          >
-            <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[12px] bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">
-                    {selected ? "Edit Corporate" : "Add Corporate"}
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    Enterprise account information
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  disabled={saving || documentUploading}
-                  className="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <form onSubmit={saveCorporate} className="space-y-6 p-6">
-                <Section title="Company Information">
-                  <Field label="Company Name" required>
-                    <input required value={form.companyName} onChange={(e) => updateField("companyName", e.target.value)} className={inputClass} />
-                  </Field>
-                  <Field label="Legal Name">
-                    <input value={form.legalName} onChange={(e) => updateField("legalName", e.target.value)} className={inputClass} />
-                  </Field>
-                  <Field label="GST Number">
-                    <input value={form.gstNumber} onChange={(e) => updateField("gstNumber", e.target.value)} className={inputClass} />
-                  </Field>
-                  <Field label="PAN Number">
-                    <input value={form.panNumber} onChange={(e) => updateField("panNumber", e.target.value)} className={inputClass} />
-                  </Field>
-                </Section>
-
-                <Section title="Primary Contact">
-                  <Field label="Email" required>
-                    <input required type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} className={inputClass} />
-                  </Field>
-                  <Field label="Mobile" required>
-                    <input required value={form.mobile} onChange={(e) => updateField("mobile", e.target.value)} className={inputClass} />
-                  </Field>
-                  <Field label="Website">
-                    <input type="url" value={form.website} onChange={(e) => updateField("website", e.target.value)} className={inputClass} placeholder="https://example.com" />
-                  </Field>
-                  <Field label="Pincode" required>
-                    <input required value={form.pincode} onChange={(e) => updateField("pincode", e.target.value)} className={inputClass} />
-                  </Field>
-                </Section>
-
-                <Section title="Address">
-                  <div className="md:col-span-2">
-                    <Field label="Address" required>
-                      <textarea required rows={3} value={form.address} onChange={(e) => updateField("address", e.target.value)} className={inputClass} />
-                    </Field>
-                  </div>
-                  <Field label="City" required>
-                    <input required value={form.city} onChange={(e) => updateField("city", e.target.value)} className={inputClass} />
-                  </Field>
-                  <Field label="State" required>
-                    <input required value={form.state} onChange={(e) => updateField("state", e.target.value)} className={inputClass} />
-                  </Field>
-                  <Field label="Country">
-                    <input value={form.country} onChange={(e) => updateField("country", e.target.value)} className={inputClass} />
-                  </Field>
-                </Section>
-
-                <Section title="Commercial Controls">
-                  <Field label="Status">
-                    <select value={form.status} onChange={(e) => updateField("status", e.target.value as Status)} className={inputClass}>
-                      <option value="ACTIVE">Active</option>
-                      <option value="INACTIVE">Inactive</option>
-                      <option value="SUSPENDED">Suspended</option>
-                    </select>
-                  </Field>
-                  <Field label="Billing Cycle">
-                    <select value={form.billingCycle} onChange={(e) => updateField("billingCycle", e.target.value as BillingCycle)} className={inputClass}>
-                      <option value="PER_TRIP">Per Trip</option>
-                      <option value="WEEKLY">Weekly</option>
-                      <option value="FORTNIGHTLY">Fortnightly</option>
-                      <option value="MONTHLY">Monthly</option>
-                    </select>
-                  </Field>
-                  <Field label="Approval Flow">
-                    <select value={form.approvalFlow} onChange={(e) => updateField("approvalFlow", e.target.value as ApprovalFlow)} className={inputClass}>
-                      <option value="NONE">None</option>
-                      <option value="MANAGER">Manager</option>
-                      <option value="MANAGER_FINANCE">Manager + Finance</option>
-                      <option value="CUSTOM">Custom</option>
-                    </select>
-                  </Field>
-                  <Field label="Credit Limit">
-                    <input type="number" min="0" value={form.creditLimit} onChange={(e) => updateField("creditLimit", e.target.value)} className={inputClass} />
-                  </Field>
-                  <Field label="Payment Terms (Days)">
-                    <input type="number" min="0" value={form.paymentTermsDays} onChange={(e) => updateField("paymentTermsDays", e.target.value)} className={inputClass} />
-                  </Field>
-                </Section>
-
-                <Section title="Expected Volume & Account Tier">
-                  <div className="md:col-span-2 -mb-1">
-                    <p className="text-[10px] leading-4 text-slate-500">
-                      Enter the tentative monthly booking volume agreed during onboarding.
-                      RideGrid automatically classifies the account into a fixed service tier.
-                    </p>
-                  </div>
-                  <Field label="Expected Monthly Bookings" required>
-                    <input
-                      required
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={form.expectedMonthlyBookings}
-                      onChange={(e) =>
-                        updateField("expectedMonthlyBookings", e.target.value)
-                      }
-                      className={inputClass}
-                      placeholder="e.g. 25"
-                    />
-                  </Field>
-
-                  <Field label="RideGrid Account Tier">
-                    <div className="rounded-[9px] border border-indigo-100 bg-indigo-50 px-4 py-3">
-                      {(() => {
-                        const tier = getCorporateTier(
-                          Number(form.expectedMonthlyBookings || 0)
-                        );
-                        return (
-                          <>
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-sm font-bold text-indigo-700">
-                                {tier.label}
-                              </span>
-                              <span className="text-[10px] font-semibold text-indigo-500">
-                                {tier.range}
-                              </span>
-                            </div>
-                            <p className="mt-1 text-[10px] leading-4 text-slate-600">
-                              {tier.working}
-                            </p>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </Field>
-
-                  <div className="md:col-span-2">
-                    <Field label="Preferred Service Types">
-                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                        {SERVICE_TYPES.map((service) => {
-                          const checked = form.serviceTypes.includes(service.value);
-                          return (
-                            <label
-                              key={service.value}
-                              className={`flex cursor-pointer items-center gap-2 rounded-[9px] border px-3 py-2.5 text-[11px] font-semibold transition ${
-                                checked
-                                  ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={(e) => {
-                                  const next = e.target.checked
-                                    ? [...form.serviceTypes, service.value]
-                                    : form.serviceTypes.filter(
-                                        (value) => value !== service.value
-                                      );
-                                  updateField("serviceTypes", next);
-                                }}
-                                className="h-4 w-4 accent-indigo-600"
-                              />
-                              {service.label}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </Field>
-                  </div>
-                </Section>
-
-                <Section title="Corporate Documents">
-                  <Field label="Quotation Copy">
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                      onChange={(e) =>
-                        updateField("quotationFile", e.target.files?.[0] ?? null)
-                      }
-                      className={inputClass}
-                    />
-                    <DocumentHint
-                      fileName={selected?.quotationFileName}
-                      fileUrl={selected?.quotationFileUrl}
-                    />
-                  </Field>
-
-                  <Field label="Corporate Agreement Copy">
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                      onChange={(e) =>
-                        updateField("agreementFile", e.target.files?.[0] ?? null)
-                      }
-                      className={inputClass}
-                    />
-                    <DocumentHint
-                      fileName={selected?.agreementFileName}
-                      fileUrl={selected?.agreementFileUrl}
-                    />
-                  </Field>
-                </Section>
-
-                <Section title="RideGrid Account Manager">
-                  <Field label="Name">
-                    <input value={form.accountManagerName} onChange={(e) => updateField("accountManagerName", e.target.value)} className={inputClass} />
-                  </Field>
-                  <Field label="Email">
-                    <input type="email" value={form.accountManagerEmail} onChange={(e) => updateField("accountManagerEmail", e.target.value)} className={inputClass} />
-                  </Field>
-                  <Field label="Mobile">
-                    <input value={form.accountManagerMobile} onChange={(e) => updateField("accountManagerMobile", e.target.value)} className={inputClass} />
-                  </Field>
-                </Section>
-
-                <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
-                  <button type="button" onClick={closeModal} disabled={saving || documentUploading} className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-50">
-                    Cancel
-                  </button>
-                  <button disabled={saving} type="submit" className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
-                    {documentUploading ? "Uploading documents..." : saving ? "Saving..." : selected ? "Update Corporate" : "Create Corporate"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
-    </DashboardLayout>
-  );
+  const [q, setQ] = useState(""); const [status, setStatus] = useState(""); const [applied, setApplied] = useState({ q: "", status: "" });
+  const [page, setPage] = useState(1); const [data, setData] = useState<List | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
+  const [open, setOpen] = useState<string | null>(null); const [creating, setCreating] = useState(false); const [notice, setNotice] = useState("");
+  const [credential, setCredential] = useState<{ title: string; email: string; password: string } | null>(null);
+
+  useEffect(() => { const id = new URLSearchParams(window.location.search).get("open"); if (id) setOpen(id); }, []);
+  const query = useMemo(() => new URLSearchParams({ ...(applied.q ? { q: applied.q } : {}), ...(applied.status ? { status: applied.status } : {}), page: String(page) }).toString(), [applied, page]);
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try { setData(await send<List>(`/api/admin/corporates?${query}`, "GET")); } catch (e) { setError(e instanceof Error ? e.message : "Unable to load companies."); } finally { setLoading(false); }
+  }, [query]);
+  useEffect(() => { void load(); }, [load]);
+
+  return <DashboardLayout><div className="mx-auto max-w-[1600px] space-y-5">
+    <PageHeading title="Corporate accounts" description="Companies, their Corporate Credit, travellers, approvals and spend — the same records the Corporate Portal and Employee App use.">
+      <button className="rg-secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={15} className={loading ? "animate-spin" : ""} />Refresh</button>
+      <button className="rg-primary" onClick={() => setCreating(true)}><Plus size={15} />Add company</button>
+    </PageHeading>
+    {notice && <Notice tone="success" onClose={() => setNotice("")}>{notice}</Notice>}
+    {credential && <CredentialNotice {...credential} onClose={() => setCredential(null)} />}
+    <section className="rg-card p-4"><form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={e => { e.preventDefault(); setPage(1); setApplied({ q: q.trim(), status }); }}>
+      <Field label="Search"><input className="rg-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Company, email, GSTIN, city" /></Field>
+      <Field label="Status"><select className="rg-input" value={status} onChange={e => setStatus(e.target.value)}><option value="">All</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="SUSPENDED">Suspended</option></select></Field>
+      <div className="flex items-end"><button className="rg-primary" type="submit">Apply</button></div>
+    </form></section>
+    {error ? <Notice tone="error">{error}</Notice> : <section className="rg-card">
+      {loading && !data ? <p className="p-10 text-center text-sm text-neutral-500">Loading…</p> : !data?.rows.length ? <Empty title="No corporate accounts" text="Add a company to create its Corporate Admin login and Corporate Credit account." /> :
+        <div className="overflow-x-auto"><table className="rg-table min-w-[1500px]"><thead><tr><th>Company</th><th>Primary admin</th><th>Status</th><th className="text-right">Credit limit · available</th><th className="text-right">Outstanding</th><th className="text-right">Bookings (month · total)</th><th className="text-right">Trips today · done (month)</th><th className="text-right">Spend month (GST)</th><th className="text-right">Spend all-time</th><th className="text-right">Approvals</th><th className="text-right">Travellers</th></tr></thead>
+          <tbody>{data.rows.map(c => <tr key={c.id} className="cursor-pointer" onClick={() => setOpen(c.id)}>
+            <td><button className="font-semibold text-red-700 hover:underline">{c.companyName}</button><p className="text-xs text-neutral-500">{c.city ?? "—"}{c.tier ? ` · ${words(c.tier)}` : ""}</p></td>
+            <td>{c.primaryAdmin ? <><p>{c.primaryAdmin.name}</p><p className="text-xs text-neutral-500">{c.primaryAdmin.email}</p></> : <span className="text-xs text-amber-700">No admin</span>}</td>
+            <td><Pill value={c.status} />{!c.credit.enabled && <p className="mt-1 text-[11px] text-amber-700">Credit not active</p>}</td>
+            <td className="text-right">{inr(c.credit.limit)} · {inr(c.credit.available)}</td><td className="text-right font-semibold">{inr(c.credit.outstanding)}</td>
+            <td className="text-right">{num(c.bookingsThisMonth)} · {num(c.totalBookings)}</td><td className="text-right">{num(c.tripsToday)} · {num(c.completedThisMonth)}</td>
+            <td className="text-right">{inr(c.spendThisMonth)} <span className="text-xs text-neutral-500">({inr(c.gstThisMonth)})</span></td><td className="text-right">{inr(c.spendAllTime)}</td>
+            <td className="text-right">{c.pendingApprovals ? <span className="font-semibold text-amber-700">{c.pendingApprovals}</span> : 0}</td><td className="text-right">{num(c.employees)}</td>
+          </tr>)}</tbody></table></div>}
+      {data && data.rows.length > 0 && <Pager page={data.page} totalPages={data.totalPages} total={data.total} onPage={setPage} />}
+    </section>}
+    <CreateCorporate open={creating} onClose={() => setCreating(false)} onCreated={(r, name) => { setCreating(false); setCredential({ title: `${name} created. Share the Corporate Admin's temporary password securely — it is shown only once.`, email: r.adminEmail, password: r.temporaryPassword }); void load(); setOpen(r.corporateId); }} />
+    <CorporateDrawer id={open} onClose={() => setOpen(null)} onChanged={m => { setNotice(m); void load(); }} onCredential={setCredential} />
+  </div></DashboardLayout>;
 }
 
-function KpiCard({
-  title,
-  value,
-  icon,
-  tone,
-  footer,
-  positive,
-}: {
-  title: string;
-  value: string;
-  icon: string;
-  tone: "indigo" | "green" | "amber" | "blue" | "violet" | "rose";
-  footer: string;
-  positive?: boolean;
-}) {
-  const tones = {
-    indigo: "bg-[#e8e6ff] text-[#4f46e5]",
-    green: "bg-[#d9f5df] text-[#16a34a]",
-    amber: "bg-[#fff0d6] text-[#d97706]",
-    blue: "bg-[#e2efff] text-[#2563eb]",
-    violet: "bg-[#eee9ff] text-[#7c3aed]",
-    rose: "bg-[#ffe3e6] text-[#e11d48]",
+function CredentialNotice({ title, email, password, onClose }: { title: string; email: string; password: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  return <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800" role="status">
+    <p className="font-semibold">{title}</p>
+    <div className="mt-2 flex flex-wrap items-center gap-3"><span>Login: <strong>{email}</strong></span><span>Temporary password: <code className="rounded bg-white px-2 py-0.5 font-mono">{password}</code></span>
+      <button className="rg-secondary" onClick={() => { void navigator.clipboard?.writeText(`${email} / ${password}`); setCopied(true); }}><Copy size={14} />{copied ? "Copied" : "Copy"}</button>
+      <button className="text-xs underline" onClick={onClose}>I have shared it — hide</button></div>
+    <p className="mt-2 text-xs">Ask the user to change it after first sign-in using “Forgot password”. RideGrid stores only a hash.</p>
+  </div>;
+}
+
+const EMPTY_FORM = { companyName: "", legalName: "", gstNumber: "", email: "", mobile: "", address: "", city: "", state: "", pincode: "", billingCycle: "MONTHLY", creditLimit: "", paymentTermsDays: "30", requireApproval: false, adminName: "", adminEmail: "", adminMobile: "", adminDesignation: "" };
+
+function CreateCorporate({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (r: { corporateId: string; adminEmail: string; temporaryPassword: string }, name: string) => void }) {
+  const [f, setF] = useState(EMPTY_FORM); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  useEffect(() => { if (open) { setF(EMPTY_FORM); setError(""); } }, [open]);
+  const set = (k: keyof typeof EMPTY_FORM, v: string | boolean) => setF(x => ({ ...x, [k]: v }));
+  const submit = async () => {
+    setBusy(true); setError("");
+    try {
+      const r = await send<{ corporateId: string; adminEmail: string; temporaryPassword: string }>("/api/admin/corporates", "POST", { ...f, admin: { name: f.adminName, email: f.adminEmail, mobile: f.adminMobile, designation: f.adminDesignation } });
+      onCreated(r, f.companyName);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to create company."); } finally { setBusy(false); }
+  };
+  const input = (k: keyof typeof EMPTY_FORM, label: string, props: Record<string, string> = {}) => <Field label={label}><input className="rg-input" value={String(f[k])} onChange={e => set(k, e.target.value)} {...props} /></Field>;
+  return <Drawer open={open} onClose={onClose} title="Add corporate account" subtitle="Creates the company, its primary Corporate Admin login and its Corporate Credit account." footer={<><button className="rg-secondary" onClick={onClose} disabled={busy}>Cancel</button><button className="rg-primary" disabled={busy} onClick={() => void submit()}>{busy ? "Creating…" : "Create company"}</button></>}>
+    {error && <Notice tone="error">{error}</Notice>}
+    <Section title="Company"><div className="grid gap-3 p-5 sm:grid-cols-2">
+      {input("companyName", "Company name *")}{input("legalName", "Legal name")}{input("gstNumber", "GSTIN", { placeholder: "15 characters" })}{input("email", "Company email *", { type: "email" })}{input("mobile", "Company phone *")}
+      <div className="sm:col-span-2">{input("address", "Registered address *")}</div>{input("city", "City *")}{input("state", "State *")}{input("pincode", "PIN code *")}
+    </div></Section>
+    <Section title="Primary Corporate Admin" description="This person signs in to the Corporate Portal and manages employees, policies and approvals."><div className="grid gap-3 p-5 sm:grid-cols-2">
+      {input("adminName", "Full name *")}{input("adminDesignation", "Designation", { placeholder: "e.g. Travel Manager" })}{input("adminEmail", "Work email (login) *", { type: "email" })}{input("adminMobile", "Mobile *")}
+    </div></Section>
+    <Section title="Corporate Credit & billing"><div className="grid gap-3 p-5 sm:grid-cols-3">
+      {input("creditLimit", "Credit limit (₹)", { inputMode: "numeric", placeholder: "0 = not yet enabled" })}
+      <Field label="Billing cycle"><select className="rg-input" value={f.billingCycle} onChange={e => set("billingCycle", e.target.value)}><option value="MONTHLY">Monthly</option><option value="WEEKLY">Weekly</option><option value="FORTNIGHTLY">Fortnightly</option><option value="PER_TRIP">Per trip</option></select></Field>
+      {input("paymentTermsDays", "Payment terms (days)", { inputMode: "numeric" })}
+      <label className="flex items-center gap-2 text-sm sm:col-span-3"><input type="checkbox" checked={f.requireApproval} onChange={e => set("requireApproval", e.target.checked)} />Require approval for every trip (creates a default travel policy the company can change)</label>
+    </div></Section>
+  </Drawer>;
+}
+
+type Detail = {
+  id: string; companyName: string; legalName: string | null; gstNumber: string | null; panNumber: string | null; email: string; mobile: string; address: string; city: string | null; state: string; pincode: string;
+  status: string; billingCycle: string; approvalFlow: string; creditLimit: number | null; paymentTermsDays: number | null; accountManagerName: string | null; createdAt: string;
+  wallet: { balance: number; creditLimit: number | null; transactions: { id: string; transactionType: string; amount: number; balanceAfter: number | null; description: string | null; createdAt: string }[] } | null;
+  commercialProfile: { customerTier: string; expectedMonthlyBookings: number | null; agreementFileName: string | null } | null;
+  branches: { id: string; branchName: string; city: string | null; isHeadOffice: boolean }[]; corporateDepartments: { id: string; departmentName: string }[];
+  travelPolicies: { id: string; policyName: string; maxTripAmount: number | null; approvalRequired: boolean; isActive: boolean; outstationAllowed: boolean; nightTravelAllowed: boolean }[];
+  employees: { id: string; name: string; code: string; email: string; mobile: string; designation: string; department: string | null; branch: string | null; isApprover: boolean; active: boolean; role: string | null; hasLogin: boolean; loginActive: boolean }[];
+  credit: { enabled: boolean; limit: number; outstanding: number; available: number };
+  finance: { month: { bookings: number; bookingValue: number; gst: number }; allTime: { bookings: number; bookingValue: number; gst: number; taxableValue: number }; payments: { collectedCorporateCredit: number; refunded: number } };
+  counts: { budgets: number; contracts: number };
+  approvals: { id: string; status: string; amount: number | null; bookingId: string | null; currentStage: string; createdAt: string; employee: string }[];
+  bookings: { id: string; bookingNumber: string; status: string; pickupDateTime: string; total: number; gst: number; archived: boolean; traveller: string; vendor: string }[];
+  history: { id: string; action: string; entityName: string; newValue: Record<string, unknown> | null; createdAt: string; user: { name: string } | null }[];
+};
+
+function CorporateDrawer({ id, onClose, onChanged, onCredential }: { id: string | null; onClose: () => void; onChanged: (m: string) => void; onCredential: (c: { title: string; email: string; password: string }) => void }) {
+  const [d, setD] = useState<Detail | null>(null); const [error, setError] = useState(""); const [tab, setTab] = useState("overview");
+  const [edit, setEdit] = useState<{ creditLimit: string; billingCycle: string; paymentTermsDays: string } | null>(null);
+  const [confirm, setConfirm] = useState<{ status: string } | { employeeId: string; name: string } | null>(null);
+  const [busy, setBusy] = useState(false); const [actionError, setActionError] = useState("");
+  useEffect(() => { if (!id) return; setD(null); setError(""); setTab("overview"); setEdit(null); send<Detail>(`/api/admin/corporates/${id}`, "GET").then(setD).catch(e => setError(e.message)); }, [id]);
+
+  const patch = async (body: Record<string, unknown>, message: string) => {
+    if (!d) return;
+    setBusy(true); setActionError("");
+    try { setD(await send<Detail>(`/api/admin/corporates/${d.id}`, "PATCH", body)); setEdit(null); setConfirm(null); onChanged(message); } catch (e) { setActionError(e instanceof Error ? e.message : "Update failed."); } finally { setBusy(false); }
+  };
+  const provision = async (employeeId: string) => {
+    if (!d) return;
+    setBusy(true); setActionError("");
+    try {
+      const r = await send<{ email: string; temporaryPassword: string }>(`/api/admin/corporates/${d.id}`, "POST", { action: "provision-login", employeeId });
+      setConfirm(null); onCredential({ title: "Employee App login created. Share the temporary password securely — it is shown only once.", email: r.email, password: r.temporaryPassword });
+      setD(await send<Detail>(`/api/admin/corporates/${d.id}`, "GET"));
+    } catch (e) { setActionError(e instanceof Error ? e.message : "Unable to create login."); } finally { setBusy(false); }
   };
 
-  return (
-    <div className="rounded-[9px] border border-[#dfe5ee] bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
-      <div className="flex items-start gap-3">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] text-[18px] font-bold ${tones[tone]}`}>
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium text-[#64748b]">{title}</p>
-          <p className="mt-1 truncate text-[22px] font-bold leading-none tracking-tight text-[#111827]">{value}</p>
-          <p className={`mt-1 text-[10px] font-semibold ${positive === false ? "text-red-500" : positive === true ? "text-emerald-600" : "text-slate-400"}`}>
-            {footer}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
+  const tabs = ["overview", "travellers", "approvals", "bookings", "credit", "setup", "activity"];
+  const footer = d ? edit ? <><button className="rg-secondary" onClick={() => setEdit(null)}>Back</button><button className="rg-primary" disabled={busy} onClick={() => void patch({ creditLimit: edit.creditLimit, billingCycle: edit.billingCycle, paymentTermsDays: edit.paymentTermsDays }, "Commercial terms updated.")}>{busy ? "Saving…" : "Save"}</button></> : <>
+    <button className="rg-secondary" onClick={() => { setActionError(""); setEdit({ creditLimit: String(d.credit.limit), billingCycle: d.billingCycle, paymentTermsDays: String(d.paymentTermsDays ?? 30) }); }}>Edit credit & billing</button>
+    {d.status === "ACTIVE" ? <button className="rg-secondary" onClick={() => { setActionError(""); setConfirm({ status: "SUSPENDED" }); }}>Suspend company</button> : <button className="rg-secondary" onClick={() => { setActionError(""); setConfirm({ status: "ACTIVE" }); }}>Reactivate company</button>}
+  </> : null;
+
+  return <Drawer open={!!id} onClose={onClose} title={d?.companyName ?? "Company"} subtitle={d && <span className="flex flex-wrap items-center gap-2"><Pill value={d.status} /><span>Credit {inr(d.credit.available)} available of {inr(d.credit.limit)}</span></span>} footer={footer}>
+    {error && <Notice tone="error">{error}</Notice>}
+    {!d && !error && <p className="text-sm text-neutral-500">Loading…</p>}
+    {actionError && !confirm && <Notice tone="error">{actionError}</Notice>}
+    {d && edit && <Section title="Credit & billing" description="The credit limit cannot go below the current outstanding."><div className="grid gap-3 p-5 sm:grid-cols-3">
+      <Field label="Credit limit (₹)"><input className="rg-input" inputMode="numeric" value={edit.creditLimit} onChange={e => setEdit({ ...edit, creditLimit: e.target.value })} /></Field>
+      <Field label="Billing cycle"><select className="rg-input" value={edit.billingCycle} onChange={e => setEdit({ ...edit, billingCycle: e.target.value })}><option value="MONTHLY">Monthly</option><option value="WEEKLY">Weekly</option><option value="FORTNIGHTLY">Fortnightly</option><option value="PER_TRIP">Per trip</option></select></Field>
+      <Field label="Payment terms (days)"><input className="rg-input" inputMode="numeric" value={edit.paymentTermsDays} onChange={e => setEdit({ ...edit, paymentTermsDays: e.target.value })} /></Field>
+    </div></Section>}
+    {d && !edit && <>
+      <div className="flex flex-wrap gap-2" role="tablist">{tabs.map(t => <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? "rg-primary" : "rg-secondary"} onClick={() => setTab(t)}>{words(t)}</button>)}</div>
+      {tab === "overview" && <div className="grid gap-4 md:grid-cols-2">
+        <Section title="Company"><div className="px-5 py-3"><Rows items={[["Legal name", d.legalName ?? "—"], ["GSTIN", d.gstNumber ?? "—"], ["Email", d.email], ["Phone", d.mobile], ["Address", `${d.address}, ${d.city ?? ""} ${d.state} ${d.pincode}`], ["Tier", d.commercialProfile ? words(d.commercialProfile.customerTier) : "—"], ["Since", when(d.createdAt, false)]]} /></div></Section>
+        <Section title="Spend" description="Confirmed-or-later bookings, incl. GST"><div className="px-5 py-3"><Rows items={[["Bookings this month", num(d.finance.month.bookings)], ["Spend this month", inr(d.finance.month.bookingValue)], ["GST this month", inr(d.finance.month.gst)], ["Bookings all-time", num(d.finance.allTime.bookings)], ["Spend all-time", inr(d.finance.allTime.bookingValue)], ["GST all-time", inr(d.finance.allTime.gst)], ["Taxable value all-time", inr(d.finance.allTime.taxableValue)]]} /></div></Section>
+        <Section title="Corporate Credit"><div className="px-5 py-3"><Rows items={[["Status", d.credit.enabled ? "Active" : d.credit.limit > 0 ? "Company not active" : "No credit limit set"], ["Limit", inr(d.credit.limit)], ["Outstanding (receivable)", inr(d.credit.outstanding)], ["Available", inr(d.credit.available)], ["Billing", `${words(d.billingCycle)} · ${d.paymentTermsDays ?? 30} days`]]} /></div></Section>
+        <Section title="Primary admin & setup"><div className="px-5 py-3"><Rows items={[["Admins", d.employees.filter(e => e.role === "CORPORATE_ADMIN").map(e => e.name).join(", ") || "None"], ["Travellers", num(d.employees.length)], ["Branches / departments", `${d.branches.length} / ${d.corporateDepartments.length}`], ["Active policies", num(d.travelPolicies.filter(p => p.isActive).length)], ["Budgets / contracts", `${d.counts.budgets} / ${d.counts.contracts}`]]} /></div></Section>
+      </div>}
+      {tab === "travellers" && <Section title="Travellers" description="Employees are added by the company in the Corporate Portal. RideGrid creates their app login.">{d.employees.length ? <div className="overflow-x-auto"><table className="rg-table"><thead><tr><th>Name</th><th>Contact</th><th>Dept · branch</th><th>Access</th><th>Login</th></tr></thead><tbody>{d.employees.map(e => <tr key={e.id}><td>{e.name}<p className="text-xs text-neutral-500">{e.code} · {e.role === "CORPORATE_ADMIN" ? "Corporate Admin" : e.designation}{e.isApprover ? " · approver" : ""}</p></td><td className="text-xs">{e.email}<br />{e.mobile}</td><td className="text-xs">{e.department ?? "—"} · {e.branch ?? "—"}</td><td><Pill value={e.active ? "ACTIVE" : "SUSPENDED"} /></td><td>{e.hasLogin ? <Pill value={e.loginActive ? "ACTIVE" : "INACTIVE"} label={e.loginActive ? "Has login" : "Login disabled"} /> : e.active && d.status === "ACTIVE" ? <button className="rg-secondary" onClick={() => { setActionError(""); setConfirm({ employeeId: e.id, name: e.name }); }}>Create app login</button> : <span className="text-xs text-neutral-500">No login</span>}</td></tr>)}</tbody></table></div> : <Empty title="No travellers yet" text="The Corporate Admin adds employees in the Corporate Portal." />}</Section>}
+      {tab === "approvals" && <Section title="Approval requests" description="Decided by the company's approvers. An approval is not a booking until the traveller confirms it.">{d.approvals.length ? <ul className="divide-y divide-slate-200 text-sm">{d.approvals.map(a => <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-2"><span>{when(a.createdAt)} · {a.employee} · {inr(a.amount)}</span><span className="flex items-center gap-2"><Pill value={a.status} />{a.bookingId && <span className="text-xs text-neutral-500">booked</span>}</span></li>)}</ul> : <Empty title="No approval requests" />}</Section>}
+      {tab === "bookings" && <Section title="Bookings" actions={<Link className="text-xs font-semibold text-red-700" href={`/bookings?corporateId=${d.id}`}>All company bookings</Link>}>{d.bookings.length ? <div className="overflow-x-auto"><table className="rg-table"><thead><tr><th>Booking</th><th>Traveller</th><th>Vendor</th><th>Pickup</th><th>Status</th><th className="text-right">Total (GST)</th></tr></thead><tbody>{d.bookings.map(b => <tr key={b.id}><td><Link className="font-semibold text-red-700" href={`/bookings?q=${b.bookingNumber}${b.archived ? "&archived=1" : ""}`}>{b.bookingNumber}</Link></td><td className="text-xs">{b.traveller}</td><td className="text-xs">{b.vendor}</td><td className="text-xs">{when(b.pickupDateTime)}</td><td><Pill value={b.status} /></td><td className="text-right">{inr(b.total)} <span className="text-xs text-neutral-500">({inr(b.gst)})</span></td></tr>)}</tbody></table></div> : <Empty title="No bookings yet" />}</Section>}
+      {tab === "credit" && <Section title="Corporate Credit ledger" description="Every debit (booking) and credit (cancellation restore) on the company's credit account">{d.wallet?.transactions.length ? <ul className="divide-y divide-slate-200 text-sm">{d.wallet.transactions.map(t => <li key={t.id} className="flex flex-wrap justify-between gap-2 px-5 py-2"><span>{when(t.createdAt)} · {t.description ?? words(t.transactionType)}</span><span>{t.transactionType === "DEBIT" ? "−" : "+"}{inr(t.amount)} <span className="text-xs text-neutral-500">→ outstanding {inr(t.balanceAfter)}</span></span></li>)}</ul> : <Empty title="No credit movements yet" />}</Section>}
+      {tab === "setup" && <div className="grid gap-4 md:grid-cols-2">
+        <Section title="Travel policies">{d.travelPolicies.length ? <ul className="space-y-1 px-5 py-3 text-sm">{d.travelPolicies.map(p => <li key={p.id} className="flex justify-between gap-2"><span>{p.policyName}{p.maxTripAmount ? ` · max ${inr(p.maxTripAmount)}` : ""}{p.approvalRequired ? " · approval required" : ""}</span><Pill value={p.isActive ? "ACTIVE" : "INACTIVE"} /></li>)}</ul> : <Empty title="No policy" text="Without a policy, trips within employee limits are allowed without approval." />}</Section>
+        <Section title="Branches & departments"><div className="px-5 py-3 text-sm"><p className="text-xs text-neutral-500">Branches</p><p>{d.branches.map(b => `${b.branchName}${b.isHeadOffice ? " (HQ)" : ""}`).join(", ") || "—"}</p><p className="mt-2 text-xs text-neutral-500">Departments</p><p>{d.corporateDepartments.map(x => x.departmentName).join(", ") || "—"}</p></div></Section>
+      </div>}
+      {tab === "activity" && <Section title="Activity">{d.history.length ? <ul className="space-y-1 px-5 py-3 text-xs">{d.history.map(h => <li key={h.id}>{when(h.createdAt)} · {h.user?.name ?? "System"} · {words(String(h.newValue?.event ?? `${h.action} ${h.entityName}`))}{h.newValue?.reason ? ` — ${String(h.newValue.reason)}` : ""}</li>)}</ul> : <Empty title="No activity recorded" />}</Section>}
+    </>}
+    <Confirm open={!!confirm && "status" in confirm} title={confirm && "status" in confirm && confirm.status === "ACTIVE" ? "Reactivate company?" : "Suspend company?"} danger={!!confirm && "status" in confirm && confirm.status !== "ACTIVE"} requireReason={!!confirm && "status" in confirm && confirm.status !== "ACTIVE"} busy={busy} error={actionError}
+      message={confirm && "status" in confirm && confirm.status !== "ACTIVE" ? "Corporate Credit stops and travellers can no longer book. The Corporate Portal becomes read-only. Existing bookings are unaffected." : "Booking and Corporate Credit resume."}
+      confirmLabel={confirm && "status" in confirm && confirm.status === "ACTIVE" ? "Reactivate" : "Suspend"} onCancel={() => setConfirm(null)} onConfirm={r => confirm && "status" in confirm && void patch({ status: confirm.status, reason: r }, confirm.status === "ACTIVE" ? "Company reactivated." : "Company suspended.")} />
+    <Confirm open={!!confirm && "employeeId" in confirm} title="Create Employee App login?" busy={busy} error={actionError} confirmLabel="Create login"
+      message={<>A login is created for {confirm && "employeeId" in confirm ? confirm.name : ""} using their official email, with a temporary password shown once.</>} onCancel={() => setConfirm(null)} onConfirm={() => confirm && "employeeId" in confirm && void provision(confirm.employeeId)} />
+  </Drawer>;
 }
-
-function StatusBadge({ status }: { status: Status }) {
-  const className =
-    status === "ACTIVE"
-      ? "bg-[#dff6e5] text-[#16803a]"
-      : status === "SUSPENDED"
-        ? "bg-[#fff0d5] text-[#b96800]"
-        : "bg-[#ffe0e3] text-[#c62828]";
-
-  return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-bold ${className}`}>
-      {status}
-    </span>
-  );
-}
-
-function DetailStat({ title, value }: { title: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-[#f8fafc] p-4">
-      <p className="text-xs text-slate-500">{title}</p>
-      <p className="mt-1 text-xl font-bold text-slate-900">{formatNumber(value)}</p>
-    </div>
-  );
-}
-
-function InfoBlock({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h3 className="mb-3 text-[11px] font-bold text-[#16325c]">{title}</h3>
-      <div className="rounded-xl border border-slate-200 p-4">{children}</div>
-    </section>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-4 border-b border-slate-100 py-2.5 last:border-0">
-      <span className="w-28 shrink-0 text-xs font-medium text-slate-400">{label}</span>
-      <span className="min-w-0 break-words text-xs font-semibold text-slate-700">{value}</span>
-    </div>
-  );
-}
-
-function DocumentHint({
-  fileName,
-  fileUrl,
-}: {
-  fileName?: string | null;
-  fileUrl?: string | null;
-}) {
-  if (!fileName && !fileUrl) {
-    return (
-      <p className="mt-1 text-[9px] text-slate-400">
-        Optional · PDF, JPG or PNG · Max 10 MB
-      </p>
-    );
-  }
-
-  return (
-    <p className="mt-1 text-[9px] text-emerald-600">
-      Existing:{" "}
-      {fileUrl ? (
-        <a
-          href={fileUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="font-semibold underline"
-        >
-          {fileName || "View document"}
-        </a>
-      ) : (
-        fileName
-      )}
-      {" · Choose a new file to replace it."}
-    </p>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-500">{title}</h3>
-      <div className="grid gap-4 md:grid-cols-2">{children}</div>
-    </section>
-  );
-}
-
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold text-slate-600">
-        {label}
-        {required ? " *" : ""}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-

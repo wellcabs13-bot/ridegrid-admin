@@ -17,8 +17,10 @@ const m = vi.hoisted(() => ({
   corporate: { findFirst: vi.fn() },
   corporateWallet: { findUnique: vi.fn() },
   $transaction: vi.fn(),
+  emitRideGridEvent: vi.fn(),
 }));
 vi.mock("@/lib/request-access", () => ({ requestUser: m.requestUser }));
+vi.mock("@/lib/events/event-dispatcher", () => ({ emitRideGridEvent: m.emitRideGridEvent, dispatchRideGridEvent: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ prisma: m }));
 
 import { GET, POST } from "@/app/api/mobile/corporate/[section]/route";
@@ -191,10 +193,11 @@ describe("approver decisions", () => {
     m.corporateApprovalRequest.findFirst.mockResolvedValue(request);
     m.corporateApprovalStep.updateMany.mockResolvedValue({ count: 1 }); m.corporateApprovalRequest.updateMany.mockResolvedValue({ count: 1 });
     expect((await (await approve({ id: "req-a", action: "APPROVE" })).json()).data).toMatchObject({ status: "PENDING", currentStage: "FINANCE" });
-    expect(m.notification.create).not.toHaveBeenCalled();
+    expect(m.emitRideGridEvent).not.toHaveBeenCalled();
     m.corporateApprovalRequest.findFirst.mockResolvedValue({ ...request, steps: [{ ...request.steps[0], status: "APPROVED" }, request.steps[1]] });
     expect((await (await approve({ id: "req-a", action: "APPROVE" })).json()).data.status).toBe("APPROVED");
-    expect(m.notification.create.mock.calls[0][0].data.userId).toBe("user-a");
+    expect(m.emitRideGridEvent).toHaveBeenCalledTimes(1);
+    expect(m.emitRideGridEvent.mock.calls[0][0]).toMatchObject({ type: "CORPORATE_APPROVED", userId: "user-a" });
   });
   it("requires a reason to reject", async () => {
     m.requestUser.mockResolvedValue({ id: "ops", name: "O", role: "OPERATIONS" });

@@ -1,5 +1,6 @@
 import { quoteService } from "@/lib/services/pricing/QuoteService";
 import { PricingError, decimal } from "@/lib/services/pricing/engine";
+import { publicSnapshot } from "@/lib/services/pricing/publicSnapshot";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -12,6 +13,8 @@ export async function GET(req: NextRequest) {
 
     const where = {
       status: "PUBLISHED" as const,
+      // Same marketplace gate as regular listings: verified, not suspended, active login.
+      vendor: { deletedAt: null, suspendedAt: null, isApproved: true, user: { isActive: true, deletedAt: null } },
       ...(pickup ? { pickupLocation: { contains: pickup, mode: "insensitive" as const } } : {}),
       ...(drop ? { dropLocation: { contains: drop, mode: "insensitive" as const } } : {}),
     };
@@ -21,7 +24,6 @@ export async function GET(req: NextRequest) {
         where,
         include: {
           vehicle: true,
-          vendor: true,
         },
         orderBy: [
           { publishedAt: "desc" },
@@ -46,7 +48,7 @@ export async function GET(req: NextRequest) {
           pickupLocation: listing.pickupLocation,
           dropLocation: listing.dropLocation,
           fare: Number(quote.snapshot.finalPayable),
-          quote: quote.snapshot,
+          quote: publicSnapshot(quote.snapshot),
           vendorFare: quote.snapshot.vendorFare,
           baseFare: Number(quote.snapshot.normalFare),
           discountPercent: decimal(quote.snapshot.normalFare).isZero() ? 0 : decimal(quote.snapshot.normalFare).minus(quote.snapshot.vendorFare).div(quote.snapshot.normalFare).mul(100).toDecimalPlaces(2).toNumber(),
@@ -61,7 +63,7 @@ export async function GET(req: NextRequest) {
             rating: listing.vehicle.rating,
           },
           vendor: {
-            id: listing.vendor.id,
+            id: listing.vendorId,
           },
         });
         }))).filter(Boolean),

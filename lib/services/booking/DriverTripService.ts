@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { DriverError, required, type DriverAccess } from "@/lib/driver-mobile/access";
+import { emitRideGridEvent } from "@/lib/events/event-dispatcher";
+import { AutomationTrigger } from "@/types/automation";
 
 export async function ownedAssignment(tx: Prisma.TransactionClient, a: DriverAccess, bookingId: string) {
   const b = await tx.booking.findFirst({
@@ -19,7 +21,7 @@ export function nextDriverState(booking: string, trip: string | null, action: st
   throw new DriverError(409, "This action is not available in the current trip state. Refresh and retry.");
 }
 export async function transitionDriverTrip(a: DriverAccess, bookingId: string, action: string) {
-  return prisma.$transaction(async tx => {
+  const result = await prisma.$transaction(async tx => {
     const b = await ownedAssignment(tx, a, bookingId);
     const next = nextDriverState(b.status, b.trip?.status ?? null, action), now = new Date();
     const updated = await tx.booking.updateMany({ where: { id: b.id, driverId: a.driverId, status: b.status, updatedAt: b.updatedAt, deletedAt: null }, data: { status: next.booking, updatedAt: now } });
@@ -32,8 +34,17 @@ export async function transitionDriverTrip(a: DriverAccess, bookingId: string, a
     await tx.auditLog.create({ data: { userId: a.user.id, action: "UPDATE", entityName: "Trip", entityId: trip.id, newValue: { status: next.trip, bookingId: b.id } } });
     // Existing notification records are written atomically with central trip state.
     await tx.notification.createMany({ data: [...new Set([a.user.id, b.customer.userId, b.vendor.userId])].map(userId => ({ userId, notificationType: "PUSH" as const, title: `Trip ${next.trip.replaceAll("_", " ").toLowerCase()}`, message: `${b.bookingNumber}: ${next.trip.replaceAll("_", " ")}`, status: "PENDING" as const })) });
-    return { id: b.id, status: next.booking, trip: { id: trip.id, status: next.trip } };
+    return { id: b.id, status: next.booking, trip: { id: trip.id, status: next.trip }, event: { bookingNumber: b.bookingNumber, customerId: b.customerId, customerUserId: b.customer.userId, vendorId: b.vendorId } };
   }, { isolationLevel: "Serializable" });
+  const { event, ...response } = result;
+  // Completion is a central lifecycle event (booking timeline, automation dashboard).
+  if (response.status === "TRIP_COMPLETED")
+    await emitRideGridEvent({
+      type: AutomationTrigger.TRIP_COMPLETED, module: "BOOKING", bookingId: response.id, userId: event.customerUserId,
+      customerId: event.customerId, vendorId: event.vendorId, driverId: a.driverId,
+      metadata: { bookingNumber: event.bookingNumber, tripId: response.trip.id, actorId: a.user.id },
+    });
+  return response;
 }
 export function coordinates(body: Record<string, unknown>) {
   const number = (key: string, min: number, max: number, optional = false) => {

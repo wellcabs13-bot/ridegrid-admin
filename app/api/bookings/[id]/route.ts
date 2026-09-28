@@ -3,6 +3,7 @@ import { Permission } from "@/lib/permissions";
 import { driverGet } from "@/lib/driver-mobile/route";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { bookingView, bookingViewSelect } from "@/lib/services/booking/BookingContactPolicy";
 
 interface RouteContext {
   params: Promise<{
@@ -19,24 +20,13 @@ export async function GET(
     const { id } = await params;
     if (access.user!.role === "DRIVER") { const url = request.nextUrl.clone(); url.searchParams.set("id", id); return driverGet(new NextRequest(url, { headers: request.headers }), "trips"); }
 
+    // Explicit, role-aware fields (see BookingContactPolicy): no vendor bank data,
+    // driver identity documents, payout splits or gateway payloads.
     const booking = await prisma.booking.findFirst({
       where: {
         id, deletedAt: null, ...bookingScope(access.user!),
       },
-      include: {
-        customer: true,
-        vendor: true,
-        vehicle: true,
-        driver: true,
-        trip: true,
-        transactions: true,
-        reviews: true,
-        statusHistory: {
-          orderBy: {
-            createdAt: "desc",
-          },
-        },
-      },
+      select: bookingViewSelect,
     });
 
     if (!booking) {
@@ -51,7 +41,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: booking,
+      data: bookingView(booking, access.user!),
     });
   } catch (error) {
     console.error(error);

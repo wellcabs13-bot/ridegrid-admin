@@ -77,6 +77,11 @@ const RolePermissions: Record<UserRole, Permission[]> = {
   ],
 };
 
+// Read-only view of the enforced role → permission matrix (for the Security page).
+export function rolePermissionMatrix() {
+  return (Object.keys(RolePermissions) as UserRole[]).map(role => ({ role, permissions: [...RolePermissions[role]] }));
+}
+
 export function hasPermission(
   role: UserRole,
   permission: Permission

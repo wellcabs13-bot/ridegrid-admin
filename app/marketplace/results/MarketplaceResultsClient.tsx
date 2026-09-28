@@ -60,13 +60,12 @@ type Listing = {
   vendor: {
     id: string;
     companyName: string;
-    name?: string;
-    mobile?: string | null;
+    verified?: boolean;
   } | null;
   driver?: {
     id: string;
+    verified?: boolean;
     name: string;
-    mobile?: string | null;
   } | null;
   media?: {
     vehiclePhotos?: string[];
@@ -566,10 +565,10 @@ function MarketplaceListingCard({
             <div className="rounded-xl border border-amber-300/15 bg-amber-300/10 px-4 py-2 text-right">
               <div className="text-[10px] font-black uppercase tracking-wider text-amber-200">Vehicle Rating</div>
               <div className="mt-1 text-lg font-black text-white">
-                ★ {stars(vehicleRating)}
+                {listing.ratings?.vehicle?.count ? `★ ${stars(vehicleRating)}` : "—"}
               </div>
               <div className="text-[11px] text-slate-400">
-                {listing.ratings?.vehicle?.count ?? listing.marketplace.totalTrips} reviews
+                {listing.ratings?.vehicle?.count ? `${listing.ratings.vehicle.count} reviews` : "No reviews yet"}
               </div>
             </div>
           </div>
@@ -591,9 +590,11 @@ function MarketplaceListingCard({
                 </div>
                 <div>
                   <div className="font-black">
-                    {listing.vendor?.companyName || "Verified Vendor"}
-                    <span className="ml-1 text-cyan-300">✓</span>
+                    {listing.vendor?.companyName || "Vendor"}
                   </div>
+                  {listing.vendor?.verified && (
+                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-cyan-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-cyan-200">✓ Verified vendor</div>
+                  )}
                   <div className="mt-0.5 text-xs text-slate-400">
                     ★ {ratingBlock(vendorRating)}
                   </div>
@@ -617,7 +618,7 @@ function MarketplaceListingCard({
                 <div>
                   <div className="font-black">
                     {listing.driver?.name || "Assigned Driver"}
-                    <span className="ml-1 text-cyan-300">✓</span>
+                    {listing.driver?.verified && <span className="ml-1 text-cyan-300" title="Verified driver">✓</span>}
                   </div>
                   <div className="mt-0.5 text-xs text-slate-400">
                     ★ {ratingBlock(driverRating)}
@@ -629,6 +630,7 @@ function MarketplaceListingCard({
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
+            {listing.vendor?.verified && <Badge text="VERIFIED VENDOR" />}
             {listing.marketplace.verified && <Badge text="VERIFIED VEHICLE" />}
             <Badge text="ACTIVE PRICING" />
             {listing.marketplace.available !== false && <Badge text="AVAILABLE" />}

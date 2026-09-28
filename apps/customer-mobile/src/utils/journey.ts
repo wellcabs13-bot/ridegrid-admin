@@ -47,7 +47,7 @@ export function bookingInput(
   },
   pickupAddress: string,
   dropAddress: string,
-  paymentMethod: "CASH" | "UPI" = "CASH",
+  paymentMethod: "UPI" = "UPI",
 ) {
   if (quoteExpired(quote))
     throw new Error("Your quote expired. Refresh your price before booking.");

@@ -35,7 +35,7 @@ export async function loadBookableListing(listingId: string, pricingPackageId: s
     include: { vendor: { include: { user: true } }, driver: { include: { user: true } } },
   });
   if (!vehicle) throw new MarketplaceBookingError(409, "Selected vehicle is no longer available.");
-  if (!vehicle.vendor || vehicle.vendor.deletedAt !== null || !vehicle.vendor.isApproved || !vehicle.vendor.user.isActive || vehicle.vendor.user.deletedAt !== null)
+  if (!vehicle.vendor || vehicle.vendor.deletedAt !== null || vehicle.vendor.suspendedAt !== null || !vehicle.vendor.isApproved || !vehicle.vendor.user.isActive || vehicle.vendor.user.deletedAt !== null)
     throw new MarketplaceBookingError(409, "Selected vendor is not currently available.");
   if (vehicle.driver && (vehicle.driver.deletedAt !== null || vehicle.driver.status !== DriverStatus.ACTIVE || !vehicle.driver.user.isActive || vehicle.driver.user.deletedAt !== null))
     throw new MarketplaceBookingError(409, "Assigned driver is not currently available.");

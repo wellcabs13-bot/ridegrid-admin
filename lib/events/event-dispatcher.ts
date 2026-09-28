@@ -1,30 +1,67 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   RideGridEvent,
+  createRideGridEvent,
   eventBus,
 } from "@/lib/events/event-bus";
+import { automationEngine } from "@/lib/automation/automation-engine";
+import type { AutomationRuleResult } from "@/lib/automation/automation-types";
+import type { AutomationTrigger } from "@/types/automation";
+
+// Central event pipeline: store → in-process subscribers → automation rules → audit.
+// Per-rule automation results are stored on the event under `_automation` so the
+// Automation dashboard can show executions/failures and a retry never repeats a
+// rule that already succeeded.
+
+export const AUTOMATION_KEY = "_automation";
+
+export type StoredAutomation = {
+  completed: string[];
+  failed: { ruleId: string; error: string }[];
+  skipped: string[];
+  at: string;
+};
 
 function jsonValue(value: unknown) {
-  return value as any;
+  return value as Prisma.InputJsonValue;
 }
 
-async function createEventNotification(
-  event: RideGridEvent
-) {
-  if (!event.userId) {
-    return null;
-  }
+function plainMetadata(metadata: unknown): Record<string, unknown> {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return {};
+  const { [AUTOMATION_KEY]: _ignored, ...rest } = metadata as Record<string, unknown>;
+  return rest;
+}
 
-  return prisma.notification.create({
-    data: {
+export function storedAutomation(payload: unknown): StoredAutomation | null {
+  const value = payload && typeof payload === "object" && !Array.isArray(payload) ? (payload as Record<string, unknown>)[AUTOMATION_KEY] : null;
+  return value && typeof value === "object" ? (value as StoredAutomation) : null;
+}
+
+class AutomationFailedError extends Error {}
+
+async function runAutomation(event: RideGridEvent, previous: StoredAutomation | null) {
+  const result = await automationEngine.execute({
+    trigger: String(event.type) as AutomationTrigger,
+    context: {
+      module: event.module,
       userId: event.userId,
-      notificationType: "PUSH",
-      title: `RideGrid ${event.module} event`,
-      message: `Event ${String(event.type)} was processed successfully.`,
-      status: "SENT",
-      sentAt: new Date(),
+      bookingId: event.bookingId,
+      vendorId: event.vendorId,
+      driverId: event.driverId,
+      customerId: event.customerId,
+      metadata: plainMetadata(event.metadata),
     },
+    completedRuleIds: previous?.completed,
   });
+  const byStatus = (s: AutomationRuleResult["status"]) => result.results.filter(r => r.status === s).map(r => r.ruleId);
+  const stored: StoredAutomation = {
+    completed: [...new Set([...(previous?.completed ?? []), ...byStatus("EXECUTED")])],
+    failed: result.results.filter(r => r.status === "FAILED").map(r => ({ ruleId: r.ruleId, error: r.error ?? "Failed" })),
+    skipped: byStatus("SKIPPED_DISABLED"),
+    at: new Date().toISOString(),
+  };
+  return { result, stored };
 }
 
 async function createEventAudit(
@@ -50,6 +87,23 @@ async function createEventAudit(
   });
 }
 
+// Runs subscribers and automation for an already-stored event and records the outcome.
+async function processStoredEvent(event: RideGridEvent, previous: StoredAutomation | null) {
+  const metadata = plainMetadata(event.metadata);
+  // 1. In-process subscribers on the event bus.
+  await eventBus.publish(event);
+  // 2. Automation rules subscribed to this trigger.
+  const { result, stored } = await runAutomation(event, previous);
+  await prisma.rideGridEvent.update({
+    where: { id: event.id },
+    data: { payload: jsonValue({ ...metadata, [AUTOMATION_KEY]: stored }) },
+  });
+  if (!result.success) throw new AutomationFailedError(result.message);
+  // 3. Audit.
+  await createEventAudit(event, "COMPLETED");
+  return stored;
+}
+
 export async function dispatchRideGridEvent(
   event: RideGridEvent
 ) {
@@ -59,51 +113,27 @@ export async function dispatchRideGridEvent(
         id: event.id,
         eventType: String(event.type),
         module: event.module,
-        status: "PENDING",
+        status: "PROCESSING",
         userId: event.userId,
         bookingId: event.bookingId,
         vendorId: event.vendorId,
         driverId: event.driverId,
         customerId: event.customerId,
-        payload: (event.metadata ?? {}) as any,
+        payload: jsonValue(plainMetadata(event.metadata)),
       },
     });
 
   try {
-    await prisma.rideGridEvent.update({
+    await processStoredEvent(event, null);
+
+    return await prisma.rideGridEvent.update({
       where: { id: storedEvent.id },
       data: {
-        status: "PROCESSING",
+        status: "COMPLETED",
+        processedAt: new Date(),
+        errorMessage: null,
       },
     });
-
-    // 1. EVENT BUS
-    await eventBus.publish(event);
-
-    // 2. AUTOMATION
-    await eventBus.publishAutomation(event);
-
-    // 3. NOTIFICATION
-    await createEventNotification(event);
-
-    // 4. AUDIT
-    await createEventAudit(
-      event,
-      "COMPLETED"
-    );
-
-    // 5. COMPLETE EVENT
-    const completed =
-      await prisma.rideGridEvent.update({
-        where: { id: storedEvent.id },
-        data: {
-          status: "COMPLETED",
-          processedAt: new Date(),
-          errorMessage: null,
-        },
-      });
-
-    return completed;
   } catch (error) {
     const message =
       error instanceof Error
@@ -141,6 +171,19 @@ export async function dispatchRideGridEvent(
     }
 
     throw error;
+  }
+}
+
+// For emitters whose own write has already committed: a dispatch failure is stored
+// and queued for retry by dispatchRideGridEvent, so it must not fail the caller.
+export async function emitRideGridEvent(
+  input: Parameters<typeof createRideGridEvent>[0]
+) {
+  try {
+    return await dispatchRideGridEvent(createRideGridEvent(input));
+  } catch (error) {
+    console.error(`[Events] ${input.type} dispatch failed:`, error instanceof Error ? error.message : error);
+    return null;
   }
 }
 
@@ -193,52 +236,27 @@ export async function processRetryQueue() {
       data: {
         status: "PROCESSING",
         lastAttemptAt: new Date(),
+        attemptCount: { increment: 1 },
       },
     });
 
     try {
       const retryEvent: RideGridEvent = {
         id: event.id,
-        type:
-          event.eventType as RideGridEvent["type"],
+        type: event.eventType,
         module: event.module,
         occurredAt: event.createdAt,
-        userId:
-          event.userId ?? undefined,
-        bookingId:
-          event.bookingId ?? undefined,
-        vendorId:
-          event.vendorId ?? undefined,
-        driverId:
-          event.driverId ?? undefined,
-        customerId:
-          event.customerId ?? undefined,
-        metadata:
-          event.payload &&
-          typeof event.payload === "object"
-            ? (event.payload as Record<string, unknown>)
-            : {},      createdAt: new Date(),
-      attempts: 0,
+        userId: event.userId ?? undefined,
+        bookingId: event.bookingId ?? undefined,
+        vendorId: event.vendorId ?? undefined,
+        driverId: event.driverId ?? undefined,
+        customerId: event.customerId ?? undefined,
+        metadata: plainMetadata(event.payload),
+        createdAt: new Date(),
+        attempts: job.attemptCount + 1,
       };
 
-      // EVENT BUS
-      await eventBus.publish(retryEvent);
-
-      // AUTOMATION
-      await eventBus.publishAutomation(
-        retryEvent
-      );
-
-      // NOTIFICATION
-      await createEventNotification(
-        retryEvent
-      );
-
-      // AUDIT
-      await createEventAudit(
-        retryEvent,
-        "COMPLETED"
-      );
+      await processStoredEvent(retryEvent, storedAutomation(event.payload));
 
       await prisma.rideGridEvent.update({
         where: {
@@ -268,26 +286,17 @@ export async function processRetryQueue() {
           ? error.message
           : "Retry processing failed.";
 
-      const remainingAttempts =
-        Math.max(job.maxAttempts - 1, 0);
+      const exhausted = job.attemptCount + 1 >= job.maxAttempts;
 
       await prisma.eventRetryQueue.update({
         where: {
           id: job.id,
         },
         data: {
-          status:
-            remainingAttempts <= 0
-              ? "FAILED"
-              : "PENDING",
-          maxAttempts:
-            remainingAttempts,
-          nextAttemptAt:
-            remainingAttempts <= 0
-              ? null
-              : new Date(
-                  Date.now() + 60 * 1000
-                ),
+          status: exhausted ? "FAILED" : "PENDING",
+          nextAttemptAt: exhausted
+            ? null
+            : new Date(Date.now() + 60 * 1000),
           errorMessage: message,
         },
       });
@@ -297,10 +306,7 @@ export async function processRetryQueue() {
           id: event.id,
         },
         data: {
-          status:
-            remainingAttempts <= 0
-              ? "FAILED"
-              : "PENDING",
+          status: "FAILED",
           errorMessage: message,
         },
       });

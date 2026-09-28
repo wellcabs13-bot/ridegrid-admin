@@ -73,6 +73,9 @@ model Vendor {
   ifscCode            String?
   branchName          String?
   isApproved          Boolean              @default(false)
+  verifiedAt          DateTime?
+  suspendedAt         DateTime?
+  suspensionReason    String?
   deletedAt           DateTime?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
@@ -761,7 +764,8 @@ model Corporate {
   reports              CorporateReport[]
   travelPolicies       CorporateTravelPolicy[]
   wallet               CorporateWallet?
-  leads                Lead[]
+  commercialProfile    CorporateCommercialProfile?
+  leads               Lead[]
   supportTickets       SupportTicket[]
   approvalRequests     CorporateApprovalRequest[]
   budgets              CorporateBudget[]
@@ -871,6 +875,23 @@ model CorporateWallet {
   updatedAt    DateTime                     @updatedAt
   corporate    Corporate                    @relation(fields: [corporateId], references: [id], onDelete: Cascade)
   transactions CorporateWalletTransaction[]
+}
+
+// Mirrors 20260906000000_add_corporate_commercial_profile. Read via raw SQL in
+// lib/corporate-admin/read.ts; declared here so the schema matches the DB.
+model CorporateCommercialProfile {
+  id                      String    @id
+  corporateId             String    @unique
+  expectedMonthlyBookings Int?
+  customerTier            String    @default("PROSPECT")
+  serviceTypes            Json?
+  quotationFileUrl        String?
+  quotationFileName       String?
+  agreementFileUrl        String?
+  agreementFileName       String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @default(now())
+  corporate               Corporate @relation(fields: [corporateId], references: [id], onDelete: Cascade)
 
   @@index([corporateId])
 }

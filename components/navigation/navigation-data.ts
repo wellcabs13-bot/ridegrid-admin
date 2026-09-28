@@ -93,17 +93,17 @@ export const navigation: NavigationGroup[] = [
     ],
   },
   {
-    title: "AI",
+    title: "Automation",
     items: [
-      {
-        title: "AI Center",
-        href: "/ai",
-        icon: NavigationIcons.ai,
-      },
       {
         title: "Automation",
         href: "/automation",
         icon: NavigationIcons.automation,
+      },
+      {
+        title: "AI Services",
+        href: "/ai",
+        icon: NavigationIcons.ai,
       },
     ],
   },
@@ -118,13 +118,9 @@ export const navigation: NavigationGroup[] = [
     ],
   },
   {
-    title: "CRM",
+    // CRM is hidden: it has API stubs but no page or connected workflow yet.
+    title: "Support",
     items: [
-      {
-        title: "CRM",
-        href: "/crm",
-        icon: NavigationIcons.crm,
-      },
       {
         title: "Support",
         href: "/support",

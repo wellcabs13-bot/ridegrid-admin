@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { corporateApprovalRepository } from "@/lib/repositories/corporate/CorporateApprovalRepository";
+import { emitRideGridEvent } from "@/lib/events/event-dispatcher";
+import { AutomationTrigger } from "@/types/automation";
 
 const STAGES: ApprovalStage[] = [
   "MANAGER",
@@ -96,7 +98,7 @@ export class CorporateApprovalService {
   async submit(input: { corporateId: string; employeeId: string; userId: string; amount: Prisma.Decimal; snapshot: ApprovalRequestSnapshot }) {
     const workflow = await this.getWorkflow(input.corporateId, input.amount.toNumber());
     const stages = workflow.stages.length ? workflow.stages : [{ level: 1, stage: "FINAL" as ApprovalStage }];
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.corporateApprovalRequest.findFirst({
         where: { employeeId: input.employeeId, corporateId: input.corporateId, requestSnapshot: { path: ["quoteId"], equals: input.snapshot.quoteId } },
         select: { id: true, status: true },
@@ -110,23 +112,19 @@ export class CorporateApprovalService {
         },
         select: { id: true, status: true },
       });
-      const admins = await tx.user.findMany({
-        where: { role: "CORPORATE_ADMIN", isActive: true, deletedAt: null, corporateEmployee: { corporateId: input.corporateId, isActive: true } },
-        select: { id: true },
-      });
-      const when = new Date(input.snapshot.pickupDateTime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-      await tx.notification.createMany({
-        data: [
-          { userId: input.userId, notificationType: "PUSH", title: "Approval requested", message: `Your ride request for ${when} is awaiting company approval.` },
-          ...admins.map((a) => ({ userId: a.id, notificationType: "PUSH" as const, title: "Travel approval required", message: `A ride request for ${when} is awaiting your decision.` })),
-        ],
-      });
       return { ...created, created: true };
     }, { isolationLevel: "Serializable" });
+    // Employee and approver notifications are automation rules on this event.
+    if (result.created)
+      await emitRideGridEvent({
+        type: AutomationTrigger.CORPORATE_APPROVAL_REQUIRED, module: "CORPORATE", userId: input.userId,
+        metadata: { approvalId: result.id, corporateId: input.corporateId, employeeId: input.employeeId, pickupDateTime: input.snapshot.pickupDateTime },
+      });
+    return result;
   }
 
   async decide(input: { requestId: string; corporateId: string | null; actorUserId: string; action: "APPROVE" | "REJECT"; remarks?: string }) {
-    return prisma.$transaction(async (tx) => {
+    const { notify, ...decision } = await prisma.$transaction(async (tx) => {
       const request = await tx.corporateApprovalRequest.findFirst({
         where: { id: input.requestId, ...(input.corporateId ? { corporateId: input.corporateId } : {}) },
         include: { steps: { orderBy: { level: "asc" } }, employee: { select: { userId: true } } },
@@ -151,19 +149,19 @@ export class CorporateApprovalService {
         data: final ? { status, completedAt: new Date() } : { currentStage: next!.stage },
       });
       if (updated.count !== 1) throw new CorporateApprovalError(409, "This request changed. Refresh and retry.");
-      if (final && request.employee.userId) {
-        await tx.notification.create({
-          data: {
-            userId: request.employee.userId, notificationType: "PUSH",
-            title: status === "APPROVED" ? "Ride request approved" : "Ride request rejected",
-            message: status === "APPROVED"
-              ? "Your ride request was approved. Open Approvals to confirm the booking at a fresh price."
-              : `Your ride request was not approved.${input.remarks ? ` Note: ${input.remarks}` : ""}`,
-          },
-        });
-      }
-      return { id: request.id, status: final ? status : "PENDING", currentStage: final ? request.currentStage : next!.stage };
+      return {
+        id: request.id, status: final ? status : "PENDING", currentStage: final ? request.currentStage : next!.stage,
+        notify: final ? { status, corporateId: request.corporateId, employeeUserId: request.employee.userId ?? undefined } : null,
+      };
     }, { isolationLevel: "Serializable" });
+    // The employee is notified by automation rules once the request is finally decided.
+    if (notify)
+      await emitRideGridEvent({
+        type: notify.status === "APPROVED" ? AutomationTrigger.CORPORATE_APPROVED : AutomationTrigger.CORPORATE_REJECTED,
+        module: "CORPORATE", userId: notify.employeeUserId,
+        metadata: { approvalId: decision.id, corporateId: notify.corporateId, actorId: input.actorUserId, remarks: input.remarks || null },
+      });
+    return decision;
   }
 
   async cancel(requestId: string, employeeId: string) {

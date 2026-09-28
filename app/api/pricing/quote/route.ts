@@ -5,6 +5,7 @@ import { pricingAccess, pricingResponse } from "@/lib/services/pricing/access";
 import { quoteService } from "@/lib/services/pricing/QuoteService";
 import { date, object, text } from "@/lib/services/pricing/config";
 import { PricingError, SERVICES, nonnegative } from "@/lib/services/pricing/engine";
+import { publicSnapshot } from "@/lib/services/pricing/publicSnapshot";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +25,9 @@ export async function POST(request: NextRequest) {
     const user = await requestUser(request);
     const guest = request.cookies.get("ridegrid_quote_session")?.value || randomUUID();
     const ownerId = user?.id || `guest:${guest}`;
-    const data = await quoteService.forPackage(text(b.pricingPackageId,"pricing package"),at,ownerId,true,text(b.idempotencyKey,"idempotency key"),days);
+    const quote = await quoteService.forPackage(text(b.pricingPackageId,"pricing package"),at,ownerId,true,text(b.idempotencyKey,"idempotency key"),days);
+    // Customer/guest quotes never carry the internal payout / revenue split.
+    const data = { ...quote, snapshot: publicSnapshot(quote.snapshot) };
     const response = NextResponse.json({ success:true,data });
     if (!user) response.cookies.set("ridegrid_quote_session",guest,{ httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",path:"/",maxAge:3600 });
     return response;

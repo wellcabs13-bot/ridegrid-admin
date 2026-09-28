@@ -1,70 +1,26 @@
 import {
-  Activity,
-  Bot,
-  BrainCircuit,
-  FileStack,
+  FileText,
   Gauge,
-  Globe2,
+  Home,
+  Image as ImageIcon,
+  Link2,
+  Menu,
   Search,
   Settings2,
   Sparkles,
-  Workflow,
 } from "lucide-react";
 
+// Simplified operator navigation. Technical engines (page factory, automation,
+// AI control, search intelligence, performance, indexing sync) run automatically;
+// their pages remain reachable from Advanced, not the primary menu.
 export const websiteSeoNavigation = [
-  {
-    title: "Command Center",
-    href: "/website-seo",
-    icon: Gauge,
-  },
-  {
-    title: "Website",
-    href: "/website-seo/website",
-    icon: Globe2,
-  },
-  {
-    title: "Page Factory",
-    href: "/website-seo/page-factory",
-    icon: FileStack,
-  },
-  {
-    title: "Search Intelligence",
-    href: "/website-seo/search-intelligence",
-    icon: Search,
-  },
-  {
-    title: "Content",
-    href: "/website-seo/content",
-    icon: BrainCircuit,
-  },
-  {
-    title: "SEO",
-    href: "/website-seo/seo",
-    icon: Sparkles,
-  },
-  {
-    title: "Indexing",
-    href: "/website-seo/indexing",
-    icon: Activity,
-  },
-  {
-    title: "Performance",
-    href: "/website-seo/performance",
-    icon: Activity,
-  },
-  {
-    title: "Automation",
-    href: "/website-seo/automation",
-    icon: Workflow,
-  },
-  {
-    title: "AI Control",
-    href: "/website-seo/ai-control",
-    icon: Bot,
-  },
-  {
-    title: "Settings",
-    href: "/website-seo/settings",
-    icon: Settings2,
-  },
+  { title: "Overview", href: "/website-seo", icon: Gauge },
+  { title: "Homepage", href: "/website-seo/website/homepage", icon: Home },
+  { title: "Pages", href: "/website-seo/website/pages", icon: FileText },
+  { title: "Navigation", href: "/website-seo/website/navigation", icon: Menu },
+  { title: "Media", href: "/website-seo/website/media", icon: ImageIcon },
+  { title: "Page SEO", href: "/website-seo/seo", icon: Sparkles },
+  { title: "Keywords", href: "/website-seo/search-intelligence/keywords", icon: Search },
+  { title: "Redirects", href: "/website-seo/seo/redirects", icon: Link2 },
+  { title: "Advanced", href: "/website-seo/settings", icon: Settings2 },
 ] as const;

@@ -25,7 +25,7 @@ export async function GET(
         deletedAt: null,
       },
       include: {
-        user: true,
+        user: { select: { id: true, name: true, email: true, mobile: true, role: true, isActive: true, isVerified: true, createdAt: true } },
 
         vehicles: {
           where: {

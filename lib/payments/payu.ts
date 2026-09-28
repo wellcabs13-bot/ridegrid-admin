@@ -19,6 +19,12 @@ export function payuConfig() {
   return getPayU();
 }
 
+// Retail checkout is PayU-only. When the merchant credentials are not configured the
+// retail surfaces show "online payment unavailable" - they never fall back to Cash.
+export function payuReady() {
+  return Boolean(process.env.PAYU_MERCHANT_KEY && process.env.PAYU_MERCHANT_SALT && process.env.PAYU_PAYMENT_URL && process.env.PAYU_VERIFY_URL);
+}
+
 function sha512(input: string) {
   return crypto.createHash("sha512").update(input).digest("hex");
 }

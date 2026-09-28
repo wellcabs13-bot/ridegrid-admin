@@ -1,35 +1,18 @@
+import { NextRequest } from "next/server";
 import { requestPermission } from "@/lib/request-access";
 import { Permission } from "@/lib/permissions";
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { fail, ok } from "@/lib/admin-api";
+import { setArchived } from "@/lib/services/admin/BookingAdminService";
 
+// Legacy entry point. "Delete" is a safe archive: only cancelled/completed bookings,
+// financial and audit history preserved, action audited.
 export async function DELETE(req: NextRequest) {
+  const access = await requestPermission(req, Permission.BOOKING_UPDATE);
+  if (access.denied) return access.denied;
   try {
-    const access = await requestPermission(req, Permission.BOOKING_UPDATE); if (access.denied) return access.denied;
-    const { bookingId } = await req.json();
-
-    await prisma.booking.update({
-      where: {
-        id: bookingId,
-      },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: "Booking deleted successfully.",
-    });
+    const { bookingId, reason } = await req.json();
+    return ok(await setArchived(String(bookingId || ""), true, access.user!.id, typeof reason === "string" ? reason : undefined));
   } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to delete booking.",
-      },
-      { status: 500 }
-    );
+    return fail(error, "DELETE /api/bookings/delete");
   }
 }

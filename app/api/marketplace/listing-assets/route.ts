@@ -37,8 +37,12 @@ export async function GET(request: NextRequest) {
         select: { entityId: true, fileUrl: true, createdAt: true },
         orderBy: { createdAt: "asc" },
       }),
+      // Only an explicit public profile photo. Driver identity documents (licence,
+      // Aadhaar, police verification) are also image files keyed by the driver ID
+      // and must never be served here.
       prisma.fileAsset.findMany({
         where: {
+          entityType: "DRIVER_PHOTO",
           entityId: { in: driverIds },
           mimeType: { startsWith: "image/" },
         },

@@ -21,9 +21,9 @@ import {
 import { signCheckoutToken } from "@/lib/payments/checkoutToken";
 import { TripType } from "@prisma/client";
 import { requestUser } from "@/lib/request-access";
-import { createRideGridEvent } from "@/lib/events/event-bus";
-import { dispatchRideGridEvent } from "@/lib/events/event-dispatcher";
-import { AutomationTrigger } from "@/types/automation";
+import { payuReady } from "@/lib/payments/payu";
+import { EmployeeAccess, employeeSelect, failure as employeeFailure } from "@/lib/corporate-employee-mobile/access";
+import { writeEmployee } from "@/lib/corporate-employee-mobile/write";
 import {
   reservationWindowFromPickup,
   tripDaysFromSnapshot,
@@ -56,10 +56,50 @@ function calculateDiscount(
   return Math.max(0, Math.min(discount, subtotal));
 }
 
+// Corporate bookings from the web marketplace use the exact Corporate Employee
+// pipeline: quote -> travel policy -> approval (if required) -> Corporate Credit.
+// An approval request is returned as such; it is never a confirmed booking.
+async function corporateBooking(request: NextRequest, body: Record<string, unknown>, actor: Awaited<ReturnType<typeof requestUser>>) {
+  if (!actor) return NextResponse.json({ success: false, message: "Sign in to use a corporate account." }, { status: 401 });
+  if (!["CORPORATE_ADMIN", "CORPORATE_EMPLOYEE"].includes(actor.role))
+    return NextResponse.json({ success: false, message: "Corporate bookings are made by the company's travellers from the Corporate Portal or Corporate Employee App so travel policy and approvals apply." }, { status: 403 });
+  const corporateId = text(body.corporateId);
+  const employee = await prisma.corporateEmployee.findFirst({ where: { userId: actor.id, corporateId, isActive: true }, select: employeeSelect });
+  if (!employee?.userId) return NextResponse.json({ success: false, message: "This corporate account is not available to you." }, { status: 403 });
+  if (employee.corporate.deletedAt || employee.corporate.status !== "ACTIVE") return NextResponse.json({ success: false, message: "Selected corporate account is not active." }, { status: 409 });
+  const access: EmployeeAccess = { user: { id: actor.id, name: actor.name }, employee: employee as EmployeeAccess["employee"] };
+  const payload = {
+    quoteId: text(body.quoteId), listingId: text(body.listingId), pricingPackageId: text(body.pricingPackageId),
+    pickupDateTime: text(body.pickupDateTime), pickupAddress: text(body.pickupAddress), dropAddress: text(body.dropAddress),
+    approvalId: text(body.approvalId), note: text(body.note),
+  };
+  try {
+    if (body.requestApproval === true) {
+      const approval = await writeEmployee("approvals", payload, access);
+      return NextResponse.json({ success: true, data: { approvalRequested: true, approval } });
+    }
+    const booking = await writeEmployee("book", payload, access) as { id: string; bookingNumber: string; status: string };
+    return NextResponse.json({ success: true, data: { ...booking, paymentMethod: PaymentMethod.CORPORATE_CREDIT, paymentStatus: PaymentStatus.PAID } });
+  } catch (error) {
+    return employeeFailure(error);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const actor = await requestUser(request);
+    if (text(body?.corporateId) || text(body?.paymentMethod) === PaymentMethod.CORPORATE_CREDIT) {
+      if (!text(body?.corporateId)) return NextResponse.json({ success: false, message: "Corporate account is required for Corporate Credit." }, { status: 400 });
+      return corporateBooking(request, body, actor);
+    }
+    // Retail: PayU online payment only. Cash and every other method are refused,
+    // and nothing is reserved when PayU is not configured.
+    const requestedMethod = text(body?.paymentMethod);
+    if (requestedMethod && !["PAYU", "ONLINE", PaymentMethod.UPI].includes(requestedMethod))
+      return NextResponse.json({ success: false, message: "Retail bookings are paid online with PayU." }, { status: 400 });
+    if (!payuReady())
+      return NextResponse.json({ success: false, code: "ONLINE_PAYMENT_UNAVAILABLE", message: "Online payment is temporarily unavailable. Please try again shortly." }, { status: 503 });
     const ownerId = actor?.id || `guest:${request.cookies.get("ridegrid_quote_session")?.value || "missing"}`;
     const quoteId = text(body.quoteId);
     const quoteRecord = quoteId ? await prisma.pricingQuote.findUnique({where:{id:quoteId},include:{booking:{select:{id:true,bookingNumber:true,status:true,finalFare:true}}}}) : null;
@@ -79,44 +119,8 @@ export async function POST(request: NextRequest) {
     const pickupCity = text(body?.pickupCity);
     const pickupDateTimeValue = text(body?.pickupDateTime);
     const couponId = text(body?.couponId);
-    const paymentMethod = text(body?.paymentMethod) || PaymentMethod.CASH;
-    const corporateId = text(body?.corporateId);
-
-    if (paymentMethod === PaymentMethod.CORPORATE_CREDIT && !corporateId) {
-      return NextResponse.json(
-        { success: false, message: "Corporate account is required for Corporate Credit." },
-        { status: 400 }
-      );
-    }
-
-    // Corporate bookings always pay via Corporate Credit - PayU/Cash must never be
-    // reachable for them, even if a client sent a different paymentMethod directly.
-    if (corporateId && paymentMethod !== PaymentMethod.CORPORATE_CREDIT) {
-      return NextResponse.json(
-        { success: false, message: "Corporate accounts must pay with Corporate Credit." },
-        { status: 400 }
-      );
-    }
-
-    if (corporateId) {
-      const actor = await requestUser(request);
-      if (!actor) return NextResponse.json({ success: false, message: "Sign in to use a corporate account." }, { status: 401 });
-      if (!["SUPER_ADMIN", "OPERATIONS"].includes(actor.role)) {
-        const membership = await prisma.corporateEmployee.findFirst({ where: { userId: actor.id, corporateId, isActive: true }, select: { id: true } });
-        if (!membership || !["CORPORATE_ADMIN", "CORPORATE_EMPLOYEE"].includes(actor.role)) return NextResponse.json({ success: false, message: "This corporate account is not available to you." }, { status: 403 });
-      }
-      const corporate = await prisma.corporate.findFirst({
-        where: { id: corporateId, deletedAt: null, status: "ACTIVE" },
-        select: { id: true },
-      });
-
-      if (!corporate) {
-        return NextResponse.json(
-          { success: false, message: "Selected corporate account is not active." },
-          { status: 409 }
-        );
-      }
-    }
+    // PayU confirms the actual instrument after checkout (payuReconcile.ts).
+    const paymentMethod: PaymentMethod = PaymentMethod.UPI;
 
     const firstName = text(body?.customer?.firstName);
     const lastName = text(body?.customer?.lastName);
@@ -336,28 +340,8 @@ export async function POST(request: NextRequest) {
             },
             include: { user: true },
           });
-        } else {
-          await prisma.user.update({
-            where: { id: customer.userId },
-            data: {
-              name: `${firstName} ${lastName}`.trim(),
-              mobile: customer.user.mobile || mobile,
-            },
-          });
-
-          await prisma.customer.update({
-            where: { id: customer.id },
-            data: {
-              firstName,
-              lastName,
-            },
-          });
-
-          customer = await prisma.customer.findUnique({
-            where: { id: customer.id },
-            include: { user: true },
-          });
         }
+        // A guest checkout never rewrites the profile of an existing account.
       } else {
         const temporaryPassword = await passwordService.hash(
           passwordService.generateTemporaryPassword()
@@ -384,7 +368,8 @@ export async function POST(request: NextRequest) {
           include: { user: true },
         });
       }
-    } else {
+    } else if (actor?.role === "CUSTOMER") {
+      // Only the signed-in owner may update their own profile during checkout.
       await prisma.user.update({
         where: { id: customer.userId },
         data: {
@@ -441,10 +426,6 @@ export async function POST(request: NextRequest) {
     discountAmount = decimal(snapshot.vendorFundedDiscount).plus(snapshot.rideGridFundedDiscount).toNumber();
     const finalFare = Number(snapshot.finalPayable);
     if (!Object.values(TripType).includes(tripType as TripType)) return NextResponse.json({ success: false, message: "Invalid trip type." }, { status: 400 });
-    if (!Object.values(PaymentMethod).includes(paymentMethod as PaymentMethod)) return NextResponse.json({success:false,message:"Invalid payment method."},{status:400});
-    const onlineMethods: PaymentMethod[] = [PaymentMethod.UPI, PaymentMethod.CARD, PaymentMethod.NET_BANKING];
-    const onlinePayment = onlineMethods.includes(paymentMethod as PaymentMethod);
-    if (paymentMethod !== PaymentMethod.CASH && paymentMethod !== PaymentMethod.CORPORATE_CREDIT && !onlinePayment) return NextResponse.json({success:false,message:"Selected payment method is not currently available."},{status:400});
     const platform = text(body?.platform) === "mobile" ? "mobile" : "web";
 
     const usedCoupon = coupon;
@@ -455,8 +436,8 @@ export async function POST(request: NextRequest) {
       vehicle,
       pricingPackageId: packageData.id,
       customerId: customer.id,
-      corporateId: corporateId || null,
-      bookingSource: corporateId ? BookingSource.CORPORATE : BookingSource.WEBSITE,
+      corporateId: null,
+      bookingSource: platform === "mobile" ? BookingSource.APP : BookingSource.WEBSITE,
       tripType: tripType as TripType,
       pickupAddress,
       dropAddress,
@@ -464,7 +445,8 @@ export async function POST(request: NextRequest) {
       window: reservationWindow,
       discountAmount,
       finalFare,
-      paymentMethod: paymentMethod as PaymentMethod,
+      paymentMethod,
+      changedBy: actor?.id ?? null,
       afterCreate: usedCoupon
         ? async (tx, created) => {
             await tx.couponUsage.create({
@@ -483,28 +465,11 @@ export async function POST(request: NextRequest) {
           }
         : undefined,
     });
-    // Booking is already committed. A delivery failure must not invite duplicate booking retries.
-    // Online payments are still AWAITING_PAYMENT - vendor/driver only learn about the
-    // booking once PayU's payment is verified (see payuReconcile.ts), not now.
-    if (!onlinePayment) {
-      try {
-        await dispatchRideGridEvent(createRideGridEvent({
-          type: AutomationTrigger.BOOKING_CREATED, module: "BOOKING",
-          bookingId: booking.id, userId: customer.userId, customerId: customer.id,
-          vendorId: vehicle.vendorId, driverId: vehicle.driverId ?? undefined,
-          metadata: { bookingNumber: booking.bookingNumber, source: booking.bookingSource, paymentMethod },
-        }));
-      } catch {
-        console.error("Marketplace booking saved; booking notification dispatch requires retry.");
-      }
-    }
-
-    let payuCheckoutUrl: string | undefined;
-    if (onlinePayment) {
-      const txnid = `PAYU-${booking.bookingNumber}`;
-      const token = signCheckoutToken(booking.id, txnid);
-      payuCheckoutUrl = `/api/payments/payu/checkout?bookingId=${encodeURIComponent(booking.id)}&token=${encodeURIComponent(token)}&platform=${platform}`;
-    }
+    // The booking is an AWAITING_PAYMENT hold. Vendor/driver learn about it and
+    // BOOKING_CREATED fires only once PayU verifies payment (payuReconcile.ts).
+    const txnid = `PAYU-${booking.bookingNumber}`;
+    const token = signCheckoutToken(booking.id, txnid);
+    const payuCheckoutUrl = `/api/payments/payu/checkout?bookingId=${encodeURIComponent(booking.id)}&token=${encodeURIComponent(token)}&platform=${platform}`;
 
     return NextResponse.json({
       success: true,
@@ -514,8 +479,8 @@ export async function POST(request: NextRequest) {
         status: booking.status,
         finalFare,
         discountAmount,
-        paymentMethod: paymentMethod as PaymentMethod,
-        paymentStatus: paymentMethod === PaymentMethod.CORPORATE_CREDIT ? PaymentStatus.PAID : PaymentStatus.PENDING,
+        paymentMethod,
+        paymentStatus: PaymentStatus.PENDING,
         payuCheckoutUrl,
       },
     });
@@ -533,7 +498,7 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-    console.error("MARKETPLACE CASH BOOKING ERROR:", error);
+    console.error("MARKETPLACE BOOKING ERROR:", error);
 
     return NextResponse.json(
       {
@@ -541,7 +506,7 @@ export async function POST(request: NextRequest) {
         message:
           error instanceof Error
             ? error.message
-            : "Unable to create cash booking.",
+            : "Unable to create booking.",
       },
       { status: 500 }
     );

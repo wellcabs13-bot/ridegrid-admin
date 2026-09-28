@@ -27,9 +27,9 @@ export default function WebsiteSeoShell({
               </div>
             </div>
 
-            <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-bold text-zinc-300">
-              Growth Operating System
-            </div>
+            <a href="/sitemap.xml" target="_blank" rel="noreferrer" className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-bold text-zinc-300">
+              View sitemap
+            </a>
           </div>
         </header>
 

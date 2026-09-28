@@ -1,7 +1,10 @@
+import { staffGuard } from "@/lib/request-access";
+import { Permission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
+  const denied = await staffGuard(request, Permission.VENDOR_VIEW); if (denied) return denied;
   try {
     const vendorId = request.nextUrl.searchParams.get("vendorId");
 

@@ -36,3 +36,8 @@ export function bookingScope(user: { id: string; role: UserRole }): Prisma.Booki
   }
   return { id: { in: [] } };
 }
+
+// Route guard for staff-only APIs: returns the 401/403 response, or null when allowed.
+export async function staffGuard(request: NextRequest, permission: Permission) {
+  return (await requestPermission(request, permission)).denied;
+}

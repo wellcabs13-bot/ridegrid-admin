@@ -1,3 +1,5 @@
+import { NextRequest } from "next/server";
+import { requireAdmin } from "@/lib/admin-access";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -9,7 +11,8 @@ function routeFromName(name: string, from: string | null, to: string | null) {
   return { from: m?.[1]?.trim() || "", to: m?.[2]?.trim() || "", source: "packageName" };
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const denied = await requireAdmin(request); if (denied) return denied;
   try {
     const url = new URL(request.url);
     const pickup = url.searchParams.get("pickupCity") || "Pune";
@@ -57,6 +60,7 @@ export async function GET(request: Request) {
         vendorLinked: !!vendor,
         vendorApproved: vendor?.isApproved === true,
         vendorNotDeleted: !vendor?.deletedAt,
+        vendorNotSuspended: !vendor?.suspendedAt,
         vendorUserActive: vendor?.user?.isActive === true,
         vendorUserNotDeleted: !vendor?.user?.deletedAt,
         driverLinked: !!driver,
