@@ -12,7 +12,7 @@ type EmployeeSummary = Prisma.CorporateEmployeeGetPayload<{ select: typeof emplo
 // The central booking row plus the traveller's company-employee identity.
 export const adminBookingSelect = {
   ...bookingSelect,
-  corporateId: true, driverId: true,
+  corporateId: true, driverId: true, taxAmount: true, corporateArchivedAt: true, refundAmount: true,
   vendor: { select: { id: true, companyName: true } },
   customer: { select: { firstName: true, lastName: true, user: { select: { corporateEmployee: { select: employeeSummarySelect } } } } },
 } satisfies Prisma.BookingSelect;
@@ -37,6 +37,14 @@ export function assignmentOf(b: Pick<AdminBookingRow, "status" | "driverId" | "t
   return "DRIVER_ASSIGNED";
 }
 
+// Corporate credit position of one booking, from its central payment transaction.
+export function creditStateOf(status: string, payment: { method: string; status: string } | null, refund: Prisma.Decimal | null) {
+  if (!payment) return "NOT_CHARGED";
+  if (payment.method !== "CORPORATE_CREDIT") return "OTHER_METHOD";
+  if (status === "CANCELLED") return refund && refund.gt(0) ? "CREDIT_RESTORED" : "NOT_CHARGED";
+  return payment.status === "PAID" ? "CHARGED" : payment.status;
+}
+
 export function adminBooking(b: AdminBookingRow, corporateId: string, approval?: { id: string; status: string } | null) {
   const base = safeBooking(b, approval);
   const employee = employeeOf(b.customer.user.corporateEmployee, corporateId);
@@ -47,13 +55,16 @@ export function adminBooking(b: AdminBookingRow, corporateId: string, approval?:
     employee,
     vendor: { id: b.vendor.id, companyName: b.vendor.companyName },
     assignment: assignmentOf(b),
+    gst: b.taxAmount ? b.taxAmount.toFixed(2) : (base.fare?.taxAmount ?? null),
+    archived: !!b.corporateArchivedAt,
+    credit: creditStateOf(b.status, base.payment, b.refundAmount),
   };
 }
 
 export const adminApprovalSelect = {
   ...approvalSelect,
   corporateId: true,
-  steps: { select: { level: true, stage: true, status: true, remarks: true, actedAt: true, approverId: true }, orderBy: { level: "asc" as const } },
+  steps: { select: { level: true, stage: true, status: true, remarks: true, actedAt: true, approverId: true, approverLabel: true, approverType: true, assignedEmployeeId: true }, orderBy: { level: "asc" as const } },
   employee: {
     select: {
       ...employeeSummarySelect, officialEmail: true, monthlyTravelLimit: true, yearlyTravelLimit: true,
@@ -74,6 +85,6 @@ export function adminApproval(r: AdminApprovalRow, approvers: Map<string, string
       yearlyTravelLimit: r.employee.yearlyTravelLimit?.toFixed(2) ?? null,
     },
     // Within the company, administrators may see who decided each step.
-    steps: r.steps.map((s) => ({ level: s.level, stage: s.stage, status: s.status, actedAt: s.actedAt, remarks: s.remarks, approver: s.approverId ? approvers.get(s.approverId) ?? "Company administrator" : null })),
+    steps: r.steps.map((s) => ({ level: s.level, stage: s.stage, status: s.status, actedAt: s.actedAt, remarks: s.remarks, assignedTo: s.approverLabel ?? "Corporate administrator", approverType: s.approverType ?? "CORPORATE_ADMIN", approver: s.approverId ? approvers.get(s.approverId) ?? "Company administrator" : null })),
   };
 }

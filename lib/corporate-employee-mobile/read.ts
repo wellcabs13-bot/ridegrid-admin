@@ -7,7 +7,7 @@ import { corporateTravelPolicyService, policyCategories } from "@/lib/services/c
 import { corporateApprovalService } from "@/lib/services/corporate/CorporateApprovalService";
 import { getCorporateCreditAccount } from "@/lib/services/corporate/CorporateCreditService";
 import { trustedTripLocation } from "@/lib/services/booking/TrustedLocationService";
-import { CorporateMobileError, EmployeeAccess } from "./access";
+import { CorporateMobileError, EmployeeAccess, policySubject } from "./access";
 import { approvalSelect, bookingSelect, safeApproval, safeBooking, safeFare } from "./selects";
 
 export const ownBookings = (a: EmployeeAccess): Prisma.BookingWhereInput => ({
@@ -71,7 +71,7 @@ export async function budgetOf(a: EmployeeAccess) {
 
 export async function policyOf(a: EmployeeAccess) {
   const [policy, workflow] = await Promise.all([
-    corporateTravelPolicyService.getActivePolicy(a.employee.corporateId),
+    corporateTravelPolicyService.resolvePolicy(a.employee.corporateId, a.employee),
     corporateApprovalService.getWorkflow(a.employee.corporateId),
   ]);
   return {
@@ -117,8 +117,8 @@ async function search(request: NextRequest, a: EmployeeAccess) {
   }[];
   // Listing policy status is a server preview. The fresh quote is re-evaluated before booking.
   const evaluation = await corporateTravelPolicyService.evaluateTrip(
-    { corporateId: a.employee.corporateId, userId: a.user.id, monthlyTravelLimit: a.employee.monthlyTravelLimit, yearlyTravelLimit: a.employee.yearlyTravelLimit },
-    listings.map((l) => ({ amount: l.pricing.quote.finalPayable, category: l.vehicle.category, serviceType: serviceType as "LOCAL" | "OUTSTATION", pickupDateTime: pickup })),
+    policySubject(a),
+    listings.map((l) => ({ amount: l.pricing.quote.finalPayable, category: l.vehicle.category, serviceType: serviceType as "LOCAL" | "OUTSTATION", pickupDateTime: pickup, tripType: tripType as "ONEWAY" | "ROUNDTRIP", pickupCity: p.get("pickupCity") || null })),
   );
   return {
     listings: listings.map((l, i) => ({
@@ -204,6 +204,17 @@ export async function readEmployee(request: NextRequest, section: string, a: Emp
     const n = page(request);
     const rows = await prisma.corporateApprovalRequest.findMany({ where: ownApprovals(a), select: approvalSelect, orderBy: [{ submittedAt: "desc" }, { id: "desc" }], skip: (n - 1) * 20, take: 21 });
     return { items: rows.slice(0, 20).map((r) => safeApproval(r)), page: n, hasMore: rows.length > 20 };
+  }
+  // Requests whose current step is assigned to this employee as the approver.
+  if (section === "approver-queue") {
+    const rows = await prisma.corporateApprovalRequest.findMany({
+      where: { corporateId: a.employee.corporateId, status: "PENDING", employeeId: { not: a.employee.id }, steps: { some: { status: "PENDING", assignedEmployeeId: a.employee.id } } },
+      select: { ...approvalSelect, steps: { select: { level: true, stage: true, status: true, remarks: true, actedAt: true, assignedEmployeeId: true }, orderBy: { level: "asc" } }, employee: { select: { employeeName: true, employeeCode: true, department: { select: { departmentName: true } } } } },
+      orderBy: { submittedAt: "asc" }, take: 50,
+    });
+    // Only requests whose first pending step is this employee's are actionable now.
+    const mine = rows.filter((r) => r.steps.find((s) => s.status === "PENDING")?.assignedEmployeeId === a.employee.id);
+    return { items: mine.map((r) => ({ ...safeApproval(r), employee: { name: r.employee.employeeName, code: r.employee.employeeCode, department: r.employee.department?.departmentName ?? null } })) };
   }
   if (section === "notifications") {
     const n = page(request);

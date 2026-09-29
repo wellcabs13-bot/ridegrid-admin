@@ -8,7 +8,7 @@ import Link from "next/link";
 function Section({ section, searchHref, page }: { section: PublicSection; searchHref: string; page: PublicPage }) {
   switch (section.type) {
     case "HERO": return null;
-    case "SEARCH": return <HeroSearch heading={section.heading} context={page.searchContext} />;
+    case "SEARCH": return <div className={`${s.container} ${s.entitySearch}`}><HeroSearch heading={section.heading} context={page.searchContext} /></div>;
     case "MARKETPLACE": case "VEHICLES": case "PRICING": return <MarketplaceSection heading={section.heading} searchHref={searchHref} />;
     case "FAQ": return <FAQ heading={section.heading} items={section.faqs} />;
     case "REVIEWS": case "TRUST": return null; // Live bindings are unavailable; W8 trust blocks render separately.
@@ -19,7 +19,7 @@ function Section({ section, searchHref, page }: { section: PublicSection; search
 }
 export default function EntityPage({ page, chrome }: { page: PublicPage; chrome: PublicChrome }) {
   const hero = page.sections.find(s => s.type === "HERO");
-  const hasSearch = page.sections.some(s => s.type === "SEARCH"), searchHref = hasSearch ? "#ride-search" : "/marketplace";
+  const hasSearch = page.sections.some(s => s.type === "SEARCH"), searchHref = hasSearch ? "#ride-search" : "/#ride-search";
   const media = page.images?.heroImage || chrome.media.find(m => m.category === page.entityType)?.asset || chrome.media.find(m => m.category === "GENERAL")?.asset || chrome.media.find(m => m.category === "HERO")?.asset;
   const firstCta = page.sections.findIndex(s => s.type === "CTA"), lastCta = page.sections.findLastIndex(s => s.type === "CTA");
   const supporting = [page.images?.sectionImage1, page.images?.sectionImage2, page.images?.featuredImage, page.images?.galleryImage1, page.images?.galleryImage2].filter(Boolean);

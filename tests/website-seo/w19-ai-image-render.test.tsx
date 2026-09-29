@@ -30,7 +30,7 @@ describe("W19 public image rendering safety", () => {
     const images = Object.fromEntries(["heroImage", "cardImage", "sectionImage1", "sectionImage2", "featuredImage"].map(s => [s, image(s)]));
     const html = renderToStaticMarkup(<Homepage page={{ ...homepagePresentation(null), chrome: { ...chrome, images }, discovery: [] }} />);
     for (const slot of Object.keys(images)) expect(html).toContain(`/api/files/${slot}`);
-    expect(html).toContain("/#ride-search"); expect(html).toContain("/marketplace");
+    expect(html).toContain("/#ride-search"); expect(html).not.toContain('href="/marketplace"');
   });
   it("keeps the existing global hero fallback when no page assignment exists", () => {
     const html = renderToStaticMarkup(<Homepage page={{ ...homepagePresentation(null), chrome: { ...chrome, media: [{ category: "HERO", asset: image("legacy-hero") }] }, discovery: [] }} />);

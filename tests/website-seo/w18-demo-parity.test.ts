@@ -92,22 +92,35 @@ describe(
     it(
       "uses live marketplace options for route cards",
       () => {
+        // The homepage loads the same central options the options API serves.
         expect(
-          routes,
+          readFileSync("app/(website-public)/page.tsx", "utf8"),
         ).toContain(
-          "/api/marketplace/options",
+          "listMarketplaceOptions",
+        );
+
+        expect(
+          readFileSync("app/api/marketplace/options/route.ts", "utf8"),
+        ).toContain(
+          "listMarketplaceOptions",
         );
 
         expect(
           routes,
         ).toContain(
-          "option.fromCity",
+          "normalizePricingOptions",
         );
 
         expect(
           routes,
         ).toContain(
-          "option.toCity",
+          "o.fromCity",
+        );
+
+        expect(
+          routes,
+        ).toContain(
+          "o.toCity",
         );
       },
     );

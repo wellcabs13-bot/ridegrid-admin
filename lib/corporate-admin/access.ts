@@ -6,6 +6,8 @@ import { CorporateApprovalError } from "@/lib/services/corporate/CorporateApprov
 import { CorporateMobileError } from "@/lib/corporate-employee-mobile/access";
 import { BookingConflictError, MarketplaceBookingError } from "@/lib/services/booking/MarketplaceBookingService";
 import { PricingError } from "@/lib/services/pricing/engine";
+import { BookingAdminError } from "@/lib/services/admin/BookingAdminService";
+import { AccountLifecycleError } from "@/lib/services/admin/AccountLifecycleService";
 
 export class CorporateAdminError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -79,7 +81,7 @@ export function auditEntry(
 export const ok = (data: unknown, status = 200) => NextResponse.json({ success: true, data }, { status, headers: { "Cache-Control": "private, no-store" } });
 
 export function failure(e: unknown) {
-  if (e instanceof CorporateAdminError || e instanceof CorporateApprovalError || e instanceof CorporateMobileError || e instanceof MarketplaceBookingError || e instanceof PricingError)
+  if (e instanceof CorporateAdminError || e instanceof CorporateApprovalError || e instanceof CorporateMobileError || e instanceof MarketplaceBookingError || e instanceof PricingError || e instanceof BookingAdminError || e instanceof AccountLifecycleError)
     return NextResponse.json({ success: false, message: e.message }, { status: e.status });
   if (e instanceof BookingConflictError)
     return NextResponse.json({ success: false, message: e.message }, { status: 409 });

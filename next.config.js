@@ -7,6 +7,8 @@ const nextConfig = {
     return Object.entries(aliases).map(([source, destination]) => ({ source, destination, permanent: true }));
   },
   poweredByHeader: false,
+  // Public pages serve static images through the optimiser in modern formats.
+  images: { formats: ["image/avif", "image/webp"] },
   async headers() {
     return [
       {

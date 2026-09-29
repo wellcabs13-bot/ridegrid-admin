@@ -6,7 +6,8 @@ import { Prisma } from "@prisma/client";
 const m = vi.hoisted(() => ({
   requestUser: vi.fn(),
   corporateEmployee: { findFirst: vi.fn() },
-  corporateTravelPolicy: { findFirst: vi.fn() },
+  corporateTravelPolicy: { findFirst: vi.fn(), findMany: vi.fn() },
+  corporateBudget: { findMany: vi.fn() },
   corporateApprovalRule: { findMany: vi.fn() },
   corporateApprovalRequest: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
   corporateApprovalStep: { updateMany: vi.fn() },
@@ -59,6 +60,9 @@ beforeEach(() => {
   m.requestUser.mockResolvedValue({ id: "user-a", name: "Asha", role: "CORPORATE_EMPLOYEE" });
   m.corporateEmployee.findFirst.mockResolvedValue(employee());
   m.corporateTravelPolicy.findFirst.mockResolvedValue(policy());
+  // The employee's policy is resolved from the company's active policies; tests set it through findFirst.
+  m.corporateTravelPolicy.findMany.mockImplementation(async () => [await m.corporateTravelPolicy.findFirst()].filter(Boolean));
+  m.corporateBudget.findMany.mockResolvedValue([]);
   m.corporateApprovalRule.findMany.mockResolvedValue([]);
   m.booking.aggregate.mockResolvedValue({ _sum: { finalFare: null } });
   m.booking.findMany.mockResolvedValue([]);
@@ -193,11 +197,14 @@ describe("approver decisions", () => {
     m.corporateApprovalRequest.findFirst.mockResolvedValue(request);
     m.corporateApprovalStep.updateMany.mockResolvedValue({ count: 1 }); m.corporateApprovalRequest.updateMany.mockResolvedValue({ count: 1 });
     expect((await (await approve({ id: "req-a", action: "APPROVE" })).json()).data).toMatchObject({ status: "PENDING", currentStage: "FINANCE" });
-    expect(m.emitRideGridEvent).not.toHaveBeenCalled();
+    // Only the next step's approvers are alerted; the event carries no traveller.
+    expect(m.emitRideGridEvent).toHaveBeenCalledTimes(1);
+    expect(m.emitRideGridEvent.mock.calls[0][0]).toMatchObject({ type: "CORPORATE_APPROVAL_REQUIRED", metadata: expect.objectContaining({ approvalId: "req-a", stage: "FINANCE" }) });
+    expect(m.emitRideGridEvent.mock.calls[0][0].userId).toBeUndefined();
     m.corporateApprovalRequest.findFirst.mockResolvedValue({ ...request, steps: [{ ...request.steps[0], status: "APPROVED" }, request.steps[1]] });
     expect((await (await approve({ id: "req-a", action: "APPROVE" })).json()).data.status).toBe("APPROVED");
-    expect(m.emitRideGridEvent).toHaveBeenCalledTimes(1);
-    expect(m.emitRideGridEvent.mock.calls[0][0]).toMatchObject({ type: "CORPORATE_APPROVED", userId: "user-a" });
+    expect(m.emitRideGridEvent).toHaveBeenCalledTimes(2);
+    expect(m.emitRideGridEvent.mock.calls[1][0]).toMatchObject({ type: "CORPORATE_APPROVED", userId: "user-a" });
   });
   it("requires a reason to reject", async () => {
     m.requestUser.mockResolvedValue({ id: "ops", name: "O", role: "OPERATIONS" });

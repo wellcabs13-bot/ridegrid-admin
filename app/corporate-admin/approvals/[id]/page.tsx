@@ -5,7 +5,7 @@ import { Check, X } from "lucide-react";
 import { Approval } from "@/components/corporate-admin/types";
 import { API, DataState, Detail, Field, inr, Modal, Notice, PageHeader, Panel, send, Status, useAdminData, useSubmit, when } from "@/components/corporate-admin/ui";
 
-type Detailed = Approval & { workflow: { level: number; stage: string; approverDesignation: string; maxAmount: number | null }[] };
+type Detailed = Approval & { workflow: { level: number; stage: string; approverDesignation: string }[]; history: { at: string; by: string; detail: Record<string, unknown> | null }[] };
 
 export default function ApprovalDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -54,8 +54,12 @@ export default function ApprovalDetail({ params }: { params: Promise<{ id: strin
               ["Employee note", data.ride.note || "—"],
             ]}/> : <p className="p-5 text-sm text-neutral-500">Ride details were not captured for this request.</p>}
           </Panel>
-          <Panel title="Why approval is required" description="Reasons returned by the company travel policy evaluation.">
-            {data.ride?.policyReasons.length ? <ul className="list-disc space-y-1 px-10 py-4 text-sm">{data.ride.policyReasons.map((r) => <li key={r}>{r}</li>)}</ul> : <p className="p-5 text-sm text-neutral-500">No policy reason was recorded.</p>}
+          <Panel title="Policy and budget result" description="Reasons returned by the travel policy and budget evaluation when the request was submitted.">
+            {data.ride?.policyReasons.length ? <ul className="list-disc space-y-1 px-10 py-4 text-sm">{data.ride.policyReasons.map((r) => <li key={r} className={/budget|limit/i.test(r) ? "text-amber-800" : ""}>{r}</li>)}</ul> : <p className="p-5 text-sm text-neutral-500">No policy reason was recorded.</p>}
+            <p className="border-t border-neutral-100 px-5 py-3 text-xs text-neutral-500">After approval the employee books at a fresh quote; policy, budget and corporate credit are checked again at that moment.</p>
+          </Panel>
+          <Panel title="History" description="Audit trail for this request.">
+            {data.history.length ? <ul className="divide-y divide-neutral-100 text-sm">{data.history.map((h, i) => <li key={i} className="flex flex-wrap justify-between gap-2 px-5 py-3"><span>{h.by}: {String(h.detail?.decision ?? "updated").toLowerCase()}{h.detail?.remarks ? ` — “${String(h.detail.remarks)}”` : ""}</span><span className="text-xs text-neutral-500">{when(h.at)}</span></li>)}</ul> : <p className="p-5 text-sm text-neutral-500">Submitted {when(data.submittedAt)}; no decisions yet.</p>}
           </Panel>
         </div>
         <div className="space-y-6">
@@ -63,8 +67,8 @@ export default function ApprovalDetail({ params }: { params: Promise<{ id: strin
             <Detail items={[["Name", data.employee.name], ["Employee code", data.employee.code], ["Designation", data.employee.designation], ["Branch", data.employee.branch?.name ?? "—"], ["Department", data.employee.department?.name ?? "—"], ["Monthly limit", inr(data.employee.monthlyTravelLimit)]]}/>
             <div className="border-t border-neutral-100 px-5 py-3"><Link className="text-sm font-semibold text-red-700" href={`/corporate-admin/employees/${data.employee.id}`}>Employee profile →</Link></div>
           </Panel>
-          <Panel title="Approval steps" description="Steps are created from your approval workflow when the request is submitted.">
-            <ol className="space-y-4 p-5">{data.steps.map((s) => <li key={s.level} className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-semibold">{s.level}</span><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-medium capitalize">{s.stage.toLowerCase().replaceAll("_", " ")}</span><Status value={s.status}/></div>{s.actedAt && <p className="mt-1 text-xs text-neutral-500">{s.approver ?? "Approver"} · {when(s.actedAt)}</p>}{s.remarks && <p className="mt-1 text-sm text-neutral-700">“{s.remarks}”</p>}</div></li>)}</ol>
+          <Panel title="Approval steps" description="Created from your approval workflow when the request was submitted. Company administrators can decide any step.">
+            <ol className="space-y-4 p-5">{data.steps.map((s) => <li key={s.level} className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-semibold">{s.level}</span><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-medium">{s.assignedTo}</span><Status value={s.status}/></div>{s.actedAt && <p className="mt-1 text-xs text-neutral-500">Decided by {s.approver ?? "approver"} · {when(s.actedAt)}</p>}{s.remarks && <p className="mt-1 text-sm text-neutral-700">“{s.remarks}”</p>}</div></li>)}</ol>
           </Panel>
         </div>
       </div>

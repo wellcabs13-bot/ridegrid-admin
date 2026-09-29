@@ -57,10 +57,13 @@ const STATUS_TONE: Record<string, keyof typeof TONES> = {
   ASSIGNED: "blue", ARRIVED_AT_PICKUP: "blue", STARTED: "blue", PASSENGER_ONBOARD: "blue", COMPLETED: "green",
   ACTIVE: "green", INACTIVE: "gray", SUSPENDED: "red", EXHAUSTED: "red", PAID: "green", PARTIAL: "amber", FAILED: "red", REFUNDED: "gray",
   AWAITING_VENDOR: "amber", VENDOR_CONFIRMED: "blue", DRIVER_ARRIVED: "blue", ALLOWED: "green", APPROVAL_REQUIRED: "amber", NOT_ALLOWED: "red",
+  CHARGED: "blue", CREDIT_RESTORED: "gray", NOT_CHARGED: "gray", NOT_CONFIGURED: "gray", DISABLED: "gray", SUPERSEDED: "gray", UNDER_REVIEW: "amber",
+  OPEN: "amber", IN_PROGRESS: "blue", RESOLVED: "green", CLOSED: "gray", OVERDUE: "red", ARCHIVED: "gray",
 };
 const STATUS_TEXT: Record<string, string> = {
   AWAITING_VENDOR: "Awaiting vendor", VENDOR_CONFIRMED: "Vendor confirmed", DRIVER_ASSIGNED: "Driver assigned", DRIVER_ARRIVED: "Driver arrived",
   TRIP_STARTED: "Trip started", TRIP_COMPLETED: "Trip completed", ARRIVED_AT_PICKUP: "Arrived at pickup", PASSENGER_ONBOARD: "Passenger on board",
+  CHARGED: "Charged to credit", CREDIT_RESTORED: "Credit restored", NOT_CHARGED: "Not charged", NOT_CONFIGURED: "Not configured", PENDING: "Pending",
 };
 
 export function statusText(value: string) { return STATUS_TEXT[value] ?? value.replaceAll("_", " ").toLowerCase().replace(/^./, (c) => c.toUpperCase()); }
@@ -91,6 +94,13 @@ export function Panel({ title, description, action, children, className = "" }: 
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4"><div><h2 className="font-semibold">{title}</h2>{description && <p className="mt-1 text-xs text-neutral-500">{description}</p>}</div>{action}</div>
     {children}
   </section>;
+}
+
+// Accessible tab strip used for list views (status tabs, scopes).
+export function Tabs<T extends string>({ value, onChange, items, label: aria }: { value: T; onChange: (v: T) => void; items: { value: T; label: string; count?: number | null }[]; label: string }) {
+  return <div role="tablist" aria-label={aria} className="flex gap-1 overflow-x-auto border-b border-neutral-100 px-3">
+    {items.map((t) => <button key={t.value} type="button" role="tab" aria-selected={value === t.value} onClick={() => onChange(t.value)} className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm ${value === t.value ? "border-red-600 font-semibold text-red-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>{t.label}{t.count !== undefined && t.count !== null ? <span className="ml-1.5 rounded-full bg-neutral-100 px-1.5 text-xs text-neutral-600">{t.count}</span> : null}</button>)}
+  </div>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {

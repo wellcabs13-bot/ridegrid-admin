@@ -44,10 +44,17 @@ describe(
           "<HeroSearch",
         );
 
+        // Searches go to the current marketplace results, never the retired search page.
+        expect(
+          readFileSync("lib/website-public/marketplace.ts", "utf8"),
+        ).toContain(
+          "/marketplace/results",
+        );
+
         expect(
           homepage,
-        ).toContain(
-          "/marketplace",
+        ).not.toContain(
+          'href="/marketplace"',
         );
       },
     );

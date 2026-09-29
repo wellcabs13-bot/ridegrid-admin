@@ -18,7 +18,7 @@ import { protectDocumentFile } from "@/lib/vendor-mobile/file-access";
 
 type Mock = ReturnType<typeof model>;
 const p = db as unknown as Record<string, Mock> & { $transaction: ReturnType<typeof vi.fn>; $queryRaw: ReturnType<typeof vi.fn> };
-const MODELS = ["corporateEmployee", "corporateApprovalRequest", "corporateApprovalStep", "corporateApprovalRule", "corporateTravelPolicy", "corporateBudget", "corporateBranch", "corporateDepartment", "corporateCostCenter", "corporate", "corporateWallet", "corporateWalletTransaction", "corporateInvoiceSetting", "booking", "invoice", "transaction", "notification", "user", "auditLog", "customer", "vendor", "vehicleDocument", "driverDocument", "vendorDocument", "documentRecord", "tripLocation"];
+const MODELS = ["corporateEmployee", "corporateApprovalRequest", "corporateApprovalStep", "corporateApprovalRule", "corporateTravelPolicy", "corporateBudget", "corporateBranch", "corporateDepartment", "corporateCostCenter", "corporate", "corporateWallet", "corporateWalletTransaction", "corporateInvoiceSetting", "booking", "invoice", "transaction", "notification", "user", "auditLog", "customer", "vendor", "vehicleDocument", "driverDocument", "vendorDocument", "documentRecord", "tripLocation", "fileAsset", "supportTicket", "pricingPackage", "invoiceSetting"];
 
 const base = "https://ridegrid.test/api/corporate-admin/";
 const ctx = (section: string) => ({ params: Promise.resolve({ section }) });
@@ -37,6 +37,13 @@ beforeEach(() => {
   m.requestUser.mockResolvedValue(ADMIN);
   p.corporateEmployee.findFirst.mockImplementation(async (args: { where: { userId?: string } }) => (args.where.userId === "admin-a" ? membership() : null));
   p.auditLog.create.mockResolvedValue({ id: "audit" });
+  // Neutral aggregates for the finance, budget and support reads.
+  const empty = { _sum: {}, _count: { _all: 0 } };
+  p.booking.aggregate.mockResolvedValue(empty); p.booking.groupBy.mockResolvedValue([]); p.booking.findMany.mockResolvedValue([]);
+  p.invoice.aggregate.mockResolvedValue(empty); p.invoice.groupBy.mockResolvedValue([]); p.invoice.findMany.mockResolvedValue([]); p.invoice.findFirst.mockResolvedValue(null);
+  p.corporateBudget.findMany.mockResolvedValue([]); p.corporateApprovalRequest.findMany.mockResolvedValue([]);
+  p.corporateTravelPolicy.findMany.mockResolvedValue([]); p.pricingPackage.findMany.mockResolvedValue([]); p.supportTicket.findMany.mockResolvedValue([]);
+  p.fileAsset.findFirst.mockResolvedValue(null);
 });
 
 describe("authentication and role gate", () => {
@@ -128,7 +135,8 @@ describe("Corporate Admin A cannot reach Corporate B", () => {
     p.corporateApprovalRule.findMany.mockResolvedValue([]);
     const r = await post("policy", { action: "SAVE", policyName: "Standard", maxTripAmount: "5000", allowedCategories: ["SEDAN"], advanceBookingHours: 4, nightTravelAllowed: false, outstationAllowed: true, airportTravelAllowed: true, approvalRequired: false });
     expect(r.status).toBe(200);
-    expect(p.corporateTravelPolicy.findFirst.mock.calls[0][0].where).toEqual({ corporateId: "corp-a", isActive: true });
+    // Without an id the company default (unscoped) policy is edited.
+    expect(p.corporateTravelPolicy.findFirst.mock.calls[0][0].where).toEqual({ corporateId: "corp-a", isActive: true, branchId: null, departmentId: null });
     expect(p.corporateTravelPolicy.updateMany.mock.calls[0][0].where).toEqual({ id: "pol-a", corporateId: "corp-a", isActive: true });
     expect(p.auditLog.create.mock.calls[0][0].data).toMatchObject({ userId: "admin-a", action: "UPDATE", entityName: "CorporateTravelPolicy", entityId: "pol-a" });
   });

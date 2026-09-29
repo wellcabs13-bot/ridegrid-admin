@@ -62,6 +62,7 @@ export async function corporateDetail(id: string) {
     select: {
       id: true, companyName: true, legalName: true, gstNumber: true, panNumber: true, email: true, mobile: true, website: true, address: true, city: true, state: true, pincode: true,
       status: true, billingCycle: true, approvalFlow: true, creditLimit: true, paymentTermsDays: true, accountManagerName: true, accountManagerEmail: true, createdAt: true,
+      billingAddress: true, billingCity: true, billingState: true, billingPincode: true, contactPersonName: true, contactPersonDesignation: true, contactPersonEmail: true, contactPersonMobile: true,
       wallet: { select: { id: true, balance: true, creditLimit: true, updatedAt: true, transactions: { orderBy: { createdAt: "desc" }, take: 20, select: { id: true, transactionType: true, amount: true, balanceAfter: true, referenceType: true, description: true, createdAt: true } } } },
       commercialProfile: { select: { customerTier: true, expectedMonthlyBookings: true, serviceTypes: true, agreementFileName: true, quotationFileName: true } },
       branches: { select: { id: true, branchName: true, city: true, isHeadOffice: true } },

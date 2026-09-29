@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { applicableBudgets } from "./CorporateBudgetService";
 
 export type TravelPolicyInput = {
   corporateId: string;
@@ -20,6 +21,14 @@ type PolicyRecord = {
   outstationAllowed: boolean;
   airportTravelAllowed: boolean;
   approvalRequired: boolean;
+  // Optional so records and callers predating these controls keep their behaviour.
+  localAllowed?: boolean;
+  roundTripAllowed?: boolean;
+  weekendTravelAllowed?: boolean;
+  bookingStartHour?: number | null;
+  bookingEndHour?: number | null;
+  blockAboveAmount?: Prisma.Decimal | null;
+  allowedCities?: Prisma.JsonValue | null;
 };
 
 export function policyServiceType(service: string): TripPolicyInput["serviceType"] {
@@ -32,7 +41,12 @@ export type TripPolicyInput = {
   category: string;
   serviceType: "LOCAL" | "OUTSTATION" | "AIRPORT";
   pickupDateTime: Date;
+  tripType?: "ONEWAY" | "ROUNDTRIP";
+  pickupCity?: string | null;
 };
+
+// Remaining amount of each budget that covers the trip (company, branch, department, employee).
+export type BudgetHeadroom = { name: string; remaining: Prisma.Decimal.Value };
 
 export type EmployeeLimits = {
   monthlyTravelLimit: Prisma.Decimal | null;
@@ -60,6 +74,26 @@ export function policyCategories(policy: Pick<PolicyRecord, "allowedCategories">
   return Array.isArray(policy?.allowedCategories) ? policy!.allowedCategories.map(String).filter(Boolean) : [];
 }
 
+export function policyCities(policy: Pick<PolicyRecord, "allowedCities"> | null) {
+  return Array.isArray(policy?.allowedCities) ? policy!.allowedCities.map((c) => String(c).trim()).filter(Boolean) : [];
+}
+
+const indiaWeekday = (value: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", weekday: "short" }).format(value);
+const cityKey = (value: string) => value.trim().toLowerCase();
+
+// Most specific active policy wins: assigned to the employee, then the employee's
+// department, then branch, then the company default (no branch or department).
+export function choosePolicy<T extends { id: string; branchId?: string | null; departmentId?: string | null; updatedAt?: Date }>(
+  policies: T[],
+  employee: { travelPolicyId?: string | null; departmentId?: string | null; branchId?: string | null } = {},
+): T | null {
+  const newest = (rows: T[]) => [...rows].sort((a, b) => +(b.updatedAt ?? 0) - +(a.updatedAt ?? 0))[0] ?? null;
+  return (employee.travelPolicyId ? policies.find((p) => p.id === employee.travelPolicyId) : undefined)
+    ?? (employee.departmentId ? newest(policies.filter((p) => p.departmentId === employee.departmentId)) : null)
+    ?? (employee.branchId ? newest(policies.filter((p) => p.branchId === employee.branchId && !p.departmentId)) : null)
+    ?? newest(policies.filter((p) => !p.branchId && !p.departmentId));
+}
+
 // Hard prohibitions are NOT_ALLOWED and cannot be approved around. Every other
 // violation follows the existing service semantics: it requires approval.
 export function decideTravelPolicy(
@@ -67,7 +101,8 @@ export function decideTravelPolicy(
   trip: TripPolicyInput,
   limits: EmployeeLimits,
   usage: EmployeeUsage,
-  now = new Date()
+  now = new Date(),
+  budgets: BudgetHeadroom[] = []
 ): { decision: TravelDecision; reasons: string[]; blocked: string[] } {
   const amount = new Prisma.Decimal(trip.amount);
   const blocked: string[] = [];
@@ -77,6 +112,12 @@ export function decideTravelPolicy(
       blocked.push("Outstation travel is not permitted by your company travel policy.");
     if (trip.serviceType === "AIRPORT" && !policy.airportTravelAllowed)
       blocked.push("Airport travel is not permitted by your company travel policy.");
+    if (trip.serviceType === "LOCAL" && policy.localAllowed === false)
+      blocked.push("Local rentals are not permitted by your company travel policy.");
+    if (trip.tripType === "ROUNDTRIP" && policy.roundTripAllowed === false)
+      blocked.push("Round trips are not permitted by your company travel policy.");
+    if (policy.blockAboveAmount != null && amount.gt(policy.blockAboveAmount))
+      blocked.push("This trip is above the maximum amount your company travel policy allows.");
     if (policy.advanceBookingHours && trip.pickupDateTime.getTime() - now.getTime() < policy.advanceBookingHours * 3600000)
       blocked.push(`Trips must be booked at least ${policy.advanceBookingHours} hour(s) before pickup.`);
     if (policy.maxTripAmount !== null && amount.gt(policy.maxTripAmount))
@@ -88,7 +129,19 @@ export function decideTravelPolicy(
       const hour = indiaHour(trip.pickupDateTime);
       if (hour >= 22 || hour < 6) reasons.push("Night travel is not allowed by corporate policy.");
     }
+    if (policy.weekendTravelAllowed === false && ["Sat", "Sun"].includes(indiaWeekday(trip.pickupDateTime)))
+      reasons.push("Weekend travel needs approval under corporate policy.");
+    if (policy.bookingStartHour != null && policy.bookingEndHour != null && policy.bookingStartHour !== policy.bookingEndHour) {
+      const hour = indiaHour(trip.pickupDateTime), start = policy.bookingStartHour, end = policy.bookingEndHour;
+      const inside = start < end ? hour >= start && hour < end : hour >= start || hour < end;
+      if (!inside) reasons.push("Pickup time is outside the travel hours allowed by corporate policy.");
+    }
+    const cities = policyCities(policy);
+    if (cities.length && trip.pickupCity && !cities.some((c) => cityKey(c) === cityKey(trip.pickupCity!)))
+      reasons.push("Pickup city is outside the cities allowed by corporate policy.");
   }
+  for (const b of budgets)
+    if (amount.gt(b.remaining)) reasons.push(`This trip exceeds the remaining ${b.name} budget.`);
   if (limits.monthlyTravelLimit !== null && amount.plus(usage.monthUsed).gt(limits.monthlyTravelLimit))
     reasons.push("This trip exceeds your monthly travel limit.");
   if (limits.yearlyTravelLimit !== null && amount.plus(usage.yearUsed).gt(limits.yearlyTravelLimit))
@@ -99,16 +152,25 @@ export function decideTravelPolicy(
 }
 
 export class CorporateTravelPolicyService {
+  // The company default policy (not scoped to a branch or department).
   async getActivePolicy(corporateId: string) {
     return prisma.corporateTravelPolicy.findFirst({
       where: {
         corporateId,
         isActive: true,
+        branchId: null,
+        departmentId: null,
       },
       orderBy: {
         updatedAt: "desc",
       },
     });
+  }
+
+  // The policy that applies to one employee (see choosePolicy).
+  async resolvePolicy(corporateId: string, employee: { travelPolicyId?: string | null; departmentId?: string | null; branchId?: string | null } = {}) {
+    const policies = await prisma.corporateTravelPolicy.findMany({ where: { corporateId, isActive: true }, orderBy: { updatedAt: "desc" }, take: 200 });
+    return choosePolicy(policies, employee);
   }
 
   async validate(input: TravelPolicyInput) {
@@ -185,16 +247,25 @@ export class CorporateTravelPolicyService {
     return { monthUsed: month._sum.finalFare ?? new Prisma.Decimal(0), yearUsed: year._sum.finalFare ?? new Prisma.Decimal(0), periods: p };
   }
 
+  // Evaluates trips for one employee against the applicable policy, personal limits
+  // and, when the employee record is given, every company budget covering the trip.
   async evaluateTrip(
-    employee: { corporateId: string; userId: string } & EmployeeLimits,
+    employee: { corporateId: string; userId: string; id?: string; travelPolicyId?: string | null; branchId?: string | null; departmentId?: string | null } & EmployeeLimits,
     trips: TripPolicyInput[],
     now = new Date()
   ) {
     const [policy, usage] = await Promise.all([
-      this.getActivePolicy(employee.corporateId),
+      employee.id ? this.resolvePolicy(employee.corporateId, employee) : this.getActivePolicy(employee.corporateId),
       this.employeeUsage(employee.corporateId, employee.userId, now),
     ]);
-    return { policy, usage, results: trips.map((trip) => decideTravelPolicy(policy, trip, employee, usage, now)) };
+    const results = await Promise.all(trips.map(async (trip) => {
+      const budgets = employee.id
+        ? (await applicableBudgets(employee.corporateId, { id: employee.id, userId: employee.userId, branchId: employee.branchId ?? null, departmentId: employee.departmentId ?? null }, trip.pickupDateTime))
+          .map((b) => ({ name: b.scope === "COMPANY" ? `company "${b.name}"` : `${b.scope.toLowerCase()} "${b.name}"`, remaining: b.remaining }))
+        : [];
+      return decideTravelPolicy(policy, trip, employee, usage, now, budgets);
+    }));
+    return { policy, usage, results };
   }
 }
 

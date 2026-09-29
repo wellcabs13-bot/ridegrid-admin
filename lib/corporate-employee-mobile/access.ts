@@ -11,7 +11,7 @@ export class CorporateMobileError extends Error {
 }
 
 export const employeeSelect = {
-  id: true, corporateId: true, userId: true, isActive: true, employeeName: true, employeeCode: true, officialEmail: true,
+  id: true, corporateId: true, userId: true, isActive: true, canBook: true, branchId: true, departmentId: true, travelPolicyId: true, employeeName: true, employeeCode: true, officialEmail: true,
   mobile: true, designation: true, employeeGrade: true, managerName: true, isApprover: true,
   monthlyTravelLimit: true, yearlyTravelLimit: true, defaultPickupAddress: true,
   branch: { select: { branchName: true, city: true } },
@@ -54,6 +54,12 @@ export async function corporateEmployeeAccess(request: NextRequest): Promise<Emp
   const a = { user: { id: user.id, name: user.name }, employee: employee as EmployeeAccess["employee"] };
   assertNoForeignIdentity(Object.fromEntries(request.nextUrl.searchParams.entries()), a);
   return a;
+}
+
+// The employee context every travel-policy and budget evaluation uses.
+export function policySubject(a: EmployeeAccess) {
+  const e = a.employee;
+  return { id: e.id, corporateId: e.corporateId, userId: a.user.id, travelPolicyId: e.travelPolicyId, branchId: e.branchId, departmentId: e.departmentId, monthlyTravelLimit: e.monthlyTravelLimit, yearlyTravelLimit: e.yearlyTravelLimit };
 }
 
 export const ok = (data: unknown) => NextResponse.json({ success: true, data }, { headers: { "Cache-Control": "private, no-store" } });

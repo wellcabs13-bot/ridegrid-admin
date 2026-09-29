@@ -9,3 +9,8 @@ export const WELLCABS = {
   address: "L-307, 2nd floor, Mega Center, Pune - Solapur Rd, Magarpatta, North Hadapsar, Hadapsar, Pune, Maharashtra 411028",
   mapHref: "https://www.google.com/maps/search/?api=1&query=L-307%2C%202nd%20floor%2C%20Mega%20Center%2C%20Hadapsar%2C%20Pune%2C%20Maharashtra%20411028",
 } as const;
+
+// WhatsApp chat link to the same support number with a prefilled message.
+export function whatsappLink(message: string) {
+  return `https://wa.me/91${WELLCABS.phone}?text=${encodeURIComponent(message.slice(0, 500))}`;
+}

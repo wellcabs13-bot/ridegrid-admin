@@ -243,6 +243,8 @@ model Booking {
   cancellationCharge  Decimal?               @db.Decimal(10, 2)
   refundAmount        Decimal?               @db.Decimal(10, 2)
   deletedAt           DateTime?
+  // Hidden from the Corporate Portal's active view only; never a deletion.
+  corporateArchivedAt DateTime?
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
   customer            Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -750,6 +752,16 @@ model Corporate {
   accountManagerName   String?
   accountManagerEmail  String?
   accountManagerMobile String?
+  // Billing address when it differs from the registered address above.
+  billingAddress           String?
+  billingCity              String?
+  billingState             String?
+  billingPincode           String?
+  // The company's own primary travel contact (not the RideGrid account manager).
+  contactPersonName        String?
+  contactPersonDesignation String?
+  contactPersonEmail       String?
+  contactPersonMobile      String?
   deletedAt            DateTime?
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
@@ -784,11 +796,18 @@ model CorporateBranch {
   latitude     Decimal?              @db.Decimal(10, 7)
   longitude    Decimal?              @db.Decimal(10, 7)
   isHeadOffice Boolean               @default(false)
+  contactName  String?
+  contactPhone String?
+  contactEmail String?
+  gstNumber    String?
+  isActive     Boolean               @default(true)
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
   corporate    Corporate             @relation(fields: [corporateId], references: [id], onDelete: Cascade)
   departments  CorporateDepartment[]
   employees    CorporateEmployee[]
+  policies     CorporateTravelPolicy[]
+  budgets      CorporateBudget[]
 }
 
 model CorporateDepartment {
@@ -797,11 +816,21 @@ model CorporateDepartment {
   branchId       String?
   departmentName String
   departmentCode String?
+  headEmployeeId     String?
+  approverEmployeeId String?
+  isActive       Boolean             @default(true)
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
   branch         CorporateBranch?    @relation(fields: [branchId], references: [id])
   corporate      Corporate           @relation(fields: [corporateId], references: [id], onDelete: Cascade)
   employees      CorporateEmployee[]
+  head           CorporateEmployee?  @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
+  approver       CorporateEmployee?  @relation("DepartmentApprover", fields: [approverEmployeeId], references: [id], onDelete: SetNull)
+  policies       CorporateTravelPolicy[]
+  budgets        CorporateBudget[]
+
+  @@index([headEmployeeId])
+  @@index([approverEmployeeId])
 }
 
 model CorporateCostCenter {
@@ -838,6 +867,11 @@ model CorporateEmployee {
   defaultPickupAddress   String?
   emergencyContactName   String?
   emergencyContactMobile String?
+  reportingManagerId     String?
+  approvalManagerId      String?
+  travelPolicyId         String?
+  // Booking permission; an employee without it can still hold an approver role.
+  canBook                Boolean                    @default(true)
   isActive               Boolean                    @default(true)
   createdAt              DateTime                   @default(now())
   updatedAt              DateTime                   @updatedAt
@@ -847,6 +881,18 @@ model CorporateEmployee {
   department             CorporateDepartment?       @relation(fields: [departmentId], references: [id])
   user                   User?                      @relation(fields: [userId], references: [id])
   approvalRequests       CorporateApprovalRequest[]
+  reportingManager       CorporateEmployee?         @relation("ReportingManager", fields: [reportingManagerId], references: [id], onDelete: SetNull)
+  reports                CorporateEmployee[]        @relation("ReportingManager")
+  approvalManager        CorporateEmployee?         @relation("ApprovalManager", fields: [approvalManagerId], references: [id], onDelete: SetNull)
+  approvalReports        CorporateEmployee[]        @relation("ApprovalManager")
+  travelPolicy           CorporateTravelPolicy?     @relation("AssignedTravelPolicy", fields: [travelPolicyId], references: [id], onDelete: SetNull)
+  headOfDepartments      CorporateDepartment[]      @relation("DepartmentHead")
+  approverOfDepartments  CorporateDepartment[]      @relation("DepartmentApprover")
+  budgets                CorporateBudget[]
+
+  @@index([reportingManagerId])
+  @@index([approvalManagerId])
+  @@index([travelPolicyId])
 }
 
 model CorporateTravelPolicy {
@@ -860,10 +906,32 @@ model CorporateTravelPolicy {
   airportTravelAllowed Boolean   @default(true)
   outstationAllowed    Boolean   @default(true)
   approvalRequired     Boolean   @default(true)
+  // Scope: no branch/department = the company default policy. Employees may also
+  // be assigned a policy directly (CorporateEmployee.travelPolicyId).
+  branchId             String?
+  departmentId         String?
+  description          String?
+  localAllowed         Boolean   @default(true)
+  roundTripAllowed     Boolean   @default(true)
+  weekendTravelAllowed Boolean   @default(true)
+  // Allowed pickup hours in India time, [start, end). Null = any hour.
+  bookingStartHour     Int?
+  bookingEndHour       Int?
+  // Trips above this amount are not allowed at all (maxTripAmount only needs approval).
+  blockAboveAmount     Decimal?  @db.Decimal(12, 2)
+  // Pickup cities employees may travel from; empty/null = any city.
+  allowedCities        Json?
   isActive             Boolean   @default(true)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
   corporate            Corporate @relation(fields: [corporateId], references: [id], onDelete: Cascade)
+  branch               CorporateBranch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  department           CorporateDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  assignedEmployees    CorporateEmployee[]  @relation("AssignedTravelPolicy")
+
+  @@index([corporateId, isActive])
+  @@index([branchId])
+  @@index([departmentId])
 }
 
 model CorporateWallet {
@@ -923,6 +991,16 @@ model CorporateApprovalRule {
   level               Int
   approverDesignation String
   maxAmount           Decimal?  @db.Decimal(12, 2)
+  // Who decides: CORPORATE_ADMIN | DEPARTMENT_HEAD | DEPARTMENT_APPROVER |
+  // REPORTING_MANAGER | APPROVAL_MANAGER | SPECIFIC_EMPLOYEE.
+  approverType        String    @default("CORPORATE_ADMIN")
+  approverEmployeeId  String?
+  // Who needs this step: every request unless narrowed to a branch, department,
+  // employee or a minimum trip amount.
+  scopeBranchId       String?
+  scopeDepartmentId   String?
+  scopeEmployeeId     String?
+  minAmount           Decimal?  @db.Decimal(12, 2)
   isActive            Boolean   @default(true)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -3039,6 +3117,11 @@ model CorporateApprovalStep {
   approverId String?
   remarks    String?
   actedAt    DateTime?
+  // Resolved when the request is submitted; company administrators may always decide.
+  approverType       String?
+  assignedEmployeeId String?
+  assignedUserId     String?
+  approverLabel      String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -3081,12 +3164,23 @@ model CorporateBudget {
   alertThreshold  Decimal?              @db.Decimal(5, 2)
   startDate       DateTime
   endDate         DateTime
+  // Scope: none = company budget; otherwise exactly one of branch/department/employee.
+  branchId        String?
+  departmentId    String?
+  employeeId      String?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
   corporate   Corporate                   @relation(fields: [corporateId], references: [id], onDelete: Cascade)
+  branch      CorporateBranch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  department  CorporateDepartment?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employee    CorporateEmployee?          @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   allocations CorporateBudgetAllocation[]
   alerts      CorporateBudgetAlert[]
+
+  @@index([branchId])
+  @@index([departmentId])
+  @@index([employeeId])
 
   @@index([corporateId])
   @@index([status])
@@ -3158,6 +3252,11 @@ model DocumentRecord {
   remarks        String?
   verifiedBy     String?
   verifiedAt     DateTime?
+  // Portal grouping (RIDEGRID / CLIENT / COMMERCIAL), a readable title and
+  // replacement history: a replaced document keeps its record with supersededAt set.
+  category       String?
+  title          String?
+  supersededAt   DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   file           FileAsset      @relation(fields: [fileId], references: [id], onDelete: Cascade)

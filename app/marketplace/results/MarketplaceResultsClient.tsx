@@ -194,6 +194,10 @@ export default function MarketplaceResultsClient() {
   const category = searchParams.get("category") || "";
   const days = searchParams.get("days") || "";
   const endDate = searchParams.get("endDate") || "";
+  // Party size from the public search: only cars with enough seats are shown.
+  const passengers = Math.max(0, Math.min(20, Number(searchParams.get("passengers")) || 0));
+  // Public searches start on the homepage search; operator/corporate flows on /marketplace.
+  const searchHome = corporateId ? "/marketplace" : "/#ride-search";
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,7 +270,7 @@ export default function MarketplaceResultsClient() {
   }, [serviceType, tripType, pickupCity, dropCity, city, packageName, airport, airportDirection, airportSlab, date, time, category, days, endDate]);
 
   const sortedListings = useMemo(() => {
-    const items = [...listings];
+    const items = listings.filter((l) => passengers <= 1 || l.vehicle.seatingCapacity >= passengers);
     if (sortBy === "price_low") return items.sort((a, b) => a.pricing.finalPayable - b.pricing.finalPayable);
     if (sortBy === "price_high") return items.sort((a, b) => b.pricing.finalPayable - a.pricing.finalPayable);
     if (sortBy === "rating") return items.sort((a, b) => (b.ratings?.vehicle?.average ?? b.marketplace.rating ?? 0) - (a.ratings?.vehicle?.average ?? a.marketplace.rating ?? 0));
@@ -277,7 +281,7 @@ export default function MarketplaceResultsClient() {
       if (rb !== ra) return rb - ra;
       return b.marketplace.totalTrips - a.marketplace.totalTrips;
     });
-  }, [listings, sortBy]);
+  }, [listings, sortBy, passengers]);
 
   function handleBook(listing: Listing) {
     setSelectedListingId(listing.id);
@@ -332,6 +336,7 @@ export default function MarketplaceResultsClient() {
                 {date && <InfoPill label="Date" value={dateLabel(date)} />}
                 {time && <InfoPill label="Time" value={time} />}
                 {category && <InfoPill label="Category" value={title(category)} />}
+                {passengers > 1 && <InfoPill label="Passengers" value={String(passengers)} />}
                 {tripType === "ROUNDTRIP" && days && (
                   <InfoPill
                     label="Trip Duration"
@@ -346,7 +351,7 @@ export default function MarketplaceResultsClient() {
 
             <button
               type="button"
-              onClick={() => router.push("/marketplace")}
+              onClick={() => router.push(searchHome)}
               className="rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-bold text-white hover:bg-white/10"
             >
               Change Search
@@ -399,11 +404,13 @@ export default function MarketplaceResultsClient() {
           <div className="rounded-3xl border border-amber-400/20 bg-amber-400/10 p-14 text-center">
             <div className="text-xl font-black">No cabs available for this trip right now</div>
             <p className="mx-auto mt-2 max-w-xl text-sm text-slate-300">
-              Try another date or time, modify your trip, or check again later for a current quote and matching cab.
+              {passengers > 1 && listings.length > 0
+                ? `${listings.length} car${listings.length === 1 ? " is" : "s are"} available, but none seat ${passengers} passengers. Try fewer passengers or another date.`
+                : "Try another date or time, modify your trip, or check again later for a current quote and matching cab."}
             </p>
             <button
               type="button"
-              onClick={() => router.push("/marketplace")}
+              onClick={() => router.push(searchHome)}
               className="mt-6 rounded-xl bg-cyan-400 px-6 py-3 font-black text-slate-950"
             >
               Modify trip or date

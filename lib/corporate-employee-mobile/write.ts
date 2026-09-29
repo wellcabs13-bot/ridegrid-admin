@@ -8,7 +8,7 @@ import { commitMarketplaceBooking, loadBookableListing } from "@/lib/services/bo
 import { reservationWindowFromPickup, tripDaysFromSnapshot } from "@/lib/services/marketplace/BookingAvailabilityService";
 import { emitRideGridEvent } from "@/lib/events/event-dispatcher";
 import { AutomationTrigger } from "@/types/automation";
-import { assertNoForeignIdentity, CorporateMobileError, EmployeeAccess, required } from "./access";
+import { assertNoForeignIdentity, CorporateMobileError, EmployeeAccess, policySubject, required } from "./access";
 import { paymentMethodFor } from "./read";
 import { safeFare } from "./selects";
 
@@ -22,8 +22,8 @@ function optional(value: unknown, name: string, max = 300) {
 
 async function evaluate(a: EmployeeAccess, snapshot: Snapshot) {
   const { results } = await corporateTravelPolicyService.evaluateTrip(
-    { corporateId: a.employee.corporateId, userId: a.user.id, monthlyTravelLimit: a.employee.monthlyTravelLimit, yearlyTravelLimit: a.employee.yearlyTravelLimit },
-    [{ amount: snapshot.finalPayable, category: snapshot.vehicleCategoryId, serviceType: policyServiceType(snapshot.service), pickupDateTime: new Date(snapshot.tripDateTime) }],
+    policySubject(a),
+    [{ amount: snapshot.finalPayable, category: snapshot.vehicleCategoryId, serviceType: policyServiceType(snapshot.service), pickupDateTime: new Date(snapshot.tripDateTime), tripType: snapshot.service === "OUTSTATION_ROUND_TRIP" ? "ROUNDTRIP" : "ONEWAY", pickupCity: snapshot.route?.origin || snapshot.route?.city || null }],
   );
   return results[0];
 }
@@ -142,16 +142,30 @@ async function requestApproval(a: EmployeeAccess, b: Body) {
     fare: { vendorFare: fare.vendorFare, platformFee: fare.platformFee, taxAmount: fare.taxAmount, finalPayable: fare.finalPayable },
     policyReasons: policy.reasons, note: optional(b.note, "note", 500),
   };
-  return corporateApprovalService.submit({ corporateId: a.employee.corporateId, employeeId: a.employee.id, userId: a.user.id, amount: new Prisma.Decimal(snapshot.finalPayable), snapshot: request });
+  return corporateApprovalService.submit({ corporateId: a.employee.corporateId, employeeId: a.employee.id, userId: a.user.id, amount: new Prisma.Decimal(snapshot.finalPayable), snapshot: request, subject: { id: a.employee.id, branchId: a.employee.branchId, departmentId: a.employee.departmentId } });
+}
+
+// Employees without booking permission may still approve or read their records.
+function assertCanBook(a: EmployeeAccess) {
+  if (a.employee.canBook === false) throw new CorporateMobileError(403, "Your company has not enabled booking for your profile. Contact your travel administrator.", "BOOKING_NOT_PERMITTED");
 }
 
 export async function writeEmployee(section: string, b: Body, a: EmployeeAccess) {
   assertNoForeignIdentity(b, a);
+  if (["quote", "book"].includes(section) || (section === "approvals" && b.action !== "CANCEL")) assertCanBook(a);
   if (section === "quote") return quote(a, b);
   if (section === "book") return book(a, b);
   if (section === "approvals") {
     if (b.action === "CANCEL") return corporateApprovalService.cancel(required(b.id, "request"), a.employee.id);
     return requestApproval(a, b);
+  }
+  // A designated approver's decision on the step assigned to them.
+  if (section === "approver-decision") {
+    const action = b.action;
+    if (action !== "APPROVE" && action !== "REJECT") throw new CorporateMobileError(400, "Choose a decision.");
+    const remarks = optional(b.remarks, "remarks", 500);
+    if (action === "REJECT" && !remarks) throw new CorporateMobileError(400, "Add a reason for rejecting this request.");
+    return corporateApprovalService.decide({ requestId: required(b.id, "request"), corporateId: a.employee.corporateId, actorUserId: a.user.id, actorEmployeeId: a.employee.id, action, remarks });
   }
   if (section === "notifications") {
     const result = await prisma.notification.updateMany({ where: { id: required(b.id, "notification"), userId: a.user.id, readAt: null }, data: { readAt: new Date() } });

@@ -173,7 +173,12 @@ export class AutomationEngine {
           where: { role: UserRole.CORPORATE_ADMIN, isActive: true, deletedAt: null, corporateEmployee: { corporateId, isActive: true } },
           select: { id: true },
         });
-        return admins.map(a => a.id);
+        // The step's assigned approver, only when they belong to the same company.
+        const assigned = Array.isArray(metadata.approverUserIds) ? metadata.approverUserIds.filter((v): v is string => typeof v === "string").slice(0, 10) : [];
+        const approvers = assigned.length
+          ? await prisma.user.findMany({ where: { id: { in: assigned }, isActive: true, deletedAt: null, corporateEmployee: { corporateId, isActive: true } }, select: { id: true } })
+          : [];
+        return [...new Set([...admins, ...approvers].map(a => a.id))];
       }
       case "FINANCE_TEAM": {
         const staff = await prisma.user.findMany({

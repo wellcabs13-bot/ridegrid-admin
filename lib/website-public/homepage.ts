@@ -8,6 +8,15 @@ import {
   resolvePublicChrome,
 } from "./repository";
 
+// The homepage hero assigned in the Website & SEO Media Manager (a 2.5 MB PNG) is
+// served from optimised AVIF/WebP copies in /public/media/home. Assigning a different
+// hero in the Media Manager replaces it as before.
+export const HOMEPAGE_HERO = {
+  managedSource: "/api/files/95e4e7ff-6990-47bb-bbd2-f6a9a94b1f97",
+  src: "/media/home/hero-night-sedan.webp",
+  alt: "White sedan on a city highway at night with red light trails",
+} as const;
+
 // Presentation fallback only.
 // Dashboard configuration always wins when configured.
 const fallback: WebsiteHomepageConfig = {

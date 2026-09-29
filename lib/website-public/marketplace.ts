@@ -37,12 +37,25 @@ export function marketplaceIntentHref(context: SearchContext, date: string, time
   return `/marketplace/results?${params}`;
 }
 export const JOURNEYS = [
-  { label: "One Way", service: "OUTSTATION", trip: "ONEWAY" },
+  { label: "Outstation", service: "OUTSTATION", trip: "ONEWAY" },
   { label: "Round Trip", service: "OUTSTATION", trip: "ROUNDTRIP" },
-  { label: "Airport", service: "AIRPORT", trip: "" },
   { label: "Local", service: "LOCAL", trip: "" },
-  { label: "Rental", service: "RENTAL", trip: "" },
+  { label: "Airport", service: "AIRPORT", trip: "" },
 ] as const;
+/** Airport search intent for the central listing service; no fare or supply is implied. */
+export function airportIntentHref(input: { city: string; direction: "PICKUP" | "DROP"; airport?: string; passengers?: number }, date: string, time: string) {
+  const params = new URLSearchParams({ serviceType: "AIRPORT", pickupCity: input.city, city: input.city, airportDirection: input.direction, date, time });
+  if (input.airport) params.set("airport", input.airport);
+  if (input.passengers && input.passengers > 1) params.set("passengers", String(input.passengers));
+  return `/marketplace/results?${params}`;
+}
+/** Adds the party size so results show only vehicles with enough seats. */
+export function withPassengers(href: string, passengers: number) {
+  if (!Number.isInteger(passengers) || passengers <= 1) return href;
+  const url = new URL(href, "https://www.wellcabs.com");
+  url.searchParams.set("passengers", String(passengers));
+  return `${url.pathname}?${url.searchParams}`;
+}
 export function journeyOptions(options: PricingOption[], journey: number) {
   const j = JOURNEYS[journey];
   return j ? options.filter(o => o.pricingType === j.service && (j.service !== "OUTSTATION" || o.tripType === j.trip)) : [];

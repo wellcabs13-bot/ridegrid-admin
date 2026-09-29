@@ -2,9 +2,10 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requestUser } from "@/lib/request-access";
 import { driverScope, VendorError } from "./access";
+import { quarantinedOwner } from "@/lib/services/vehicle/VehicleMediaModeration";
 export async function protectDocumentFile(request: NextRequest, id: string) {
   const fileUrl = `/api/files/${id}`;
-  const [vehicle, driver, vendor, generic, corporate] = await Promise.all([
+  const [vehicle, driver, vendor, generic, corporate, quarantined] = await Promise.all([
     prisma.vehicleDocument.findFirst({
       where: { fileUrl },
       select: { vehicle: { select: { vendorId: true } } },
@@ -28,14 +29,32 @@ export async function protectDocumentFile(request: NextRequest, id: string) {
         WHERE "quotationFileUrl" = ${fileUrl} OR "agreementFileUrl" = ${fileUrl} LIMIT 1`)
       .then((rows) => rows?.[0] ?? null)
       .catch(() => null),
+    // A listing photo withdrawn from public view (e.g. an identity document uploaded as a vehicle photo).
+    quarantinedOwner(fileUrl),
   ]);
-  if (!vehicle && !driver && !vendor && !generic && !corporate) return false; // Existing public media.
+  if (!vehicle && !driver && !vendor && !generic && !corporate && !quarantined) return false; // Existing public media.
   const user = await requestUser(request);
   if (!user) throw new VendorError(401, "Please sign in.");
   if (["SUPER_ADMIN", "OPERATIONS"].includes(user.role)) return true;
+  if (quarantined && !vehicle && !driver && !vendor && !generic && !corporate) {
+    const own = user.role === "VENDOR" && quarantined.vendorId
+      ? await prisma.vendor.findFirst({ where: { id: quarantined.vendorId, userId: user.id, deletedAt: null }, select: { id: true } })
+      : null;
+    if (own) return true;
+    throw new VendorError(403, "Document access denied.");
+  }
   if (corporate) {
     const member = user.role === "CORPORATE_ADMIN" && await prisma.corporateEmployee.findFirst({
       where: { userId: user.id, corporateId: corporate.corporateId, isActive: true },
+      select: { id: true },
+    });
+    if (member) return true;
+    throw new VendorError(403, "Document access denied.");
+  }
+  // Corporate documents: the owning company's administrators; RideGrid's published documents: any active corporate administrator.
+  if (generic?.entityType === "CORPORATE" || generic?.entityType === "RIDEGRID") {
+    const member = user.role === "CORPORATE_ADMIN" && await prisma.corporateEmployee.findFirst({
+      where: { userId: user.id, isActive: true, ...(generic.entityType === "CORPORATE" ? { corporateId: generic.entityId } : {}) },
       select: { id: true },
     });
     if (member) return true;

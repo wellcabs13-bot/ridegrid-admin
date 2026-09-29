@@ -52,7 +52,7 @@ export default function CorporateAdminLayout({ children }: { children: ReactNode
   const [unread, setUnread] = useState(0);
   const isAdmin = user?.role === "CORPORATE_ADMIN";
 
-  useEffect(() => { if (!loading && !isAuthenticated) router.replace("/login"); }, [loading, isAuthenticated, router]);
+  useEffect(() => { if (!loading && !isAuthenticated) router.replace("/corporate-login"); }, [loading, isAuthenticated, router]);
   useEffect(() => { setOpen(false); }, [pathname]);
   useEffect(() => {
     if (!isAdmin) return;
@@ -68,9 +68,9 @@ export default function CorporateAdminLayout({ children }: { children: ReactNode
   }, [isAdmin, pathname]);
 
   if (loading || !isAuthenticated) return <div className="flex min-h-screen items-center justify-center bg-neutral-50" role="status"><span className="animate-pulse text-sm font-medium text-neutral-600">Restoring your session…</span></div>;
-  if (!isAdmin) return <div className="rg-admin flex min-h-screen items-center justify-center bg-neutral-50 p-6"><div className="rg-card max-w-md p-8 text-center"><h1 className="text-lg font-semibold">Corporate administrator access required</h1><p className="mt-2 text-sm text-neutral-500">This portal is available to company travel administrators. Your account role is {user?.role.replaceAll("_", " ").toLowerCase()}.</p><Link href="/admin" className="rg-primary mt-6">Go to your workspace</Link></div></div>;
-
-  async function signOut() { await logout().catch(() => undefined); router.replace("/login"); router.refresh(); }
+  async function signOut() { await logout().catch(() => undefined); router.replace("/corporate-login"); router.refresh(); }
+  // Other roles get no link into another workspace from here; they can only sign out.
+  if (!isAdmin) return <div className="rg-admin flex min-h-screen items-center justify-center bg-neutral-50 p-6"><div className="rg-card max-w-md p-8 text-center"><h1 className="text-lg font-semibold">Corporate administrator access required</h1><p className="mt-2 text-sm text-neutral-500">This portal is available to company travel administrators only. Employees use the RideGrid Corporate Employee App.</p><button type="button" onClick={signOut} className="rg-primary mt-6">Sign out</button></div></div>;
   const active = (href: string) => pathname === href || (href !== "/corporate-admin" && pathname.startsWith(href + "/"));
 
   return <div className="rg-admin flex h-dvh overflow-hidden bg-neutral-50">

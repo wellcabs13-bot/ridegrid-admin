@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
   const entries = await publishingIndexingEngine.sitemapEntries().catch(() => []);
   const result = generateSitemapDocuments([
     { url: "https://www.wellcabs.com/" },
+    { url: "https://www.wellcabs.com/corporate-travel" },
     ...INFO_PAGES.filter(p => !p.review).map(p => ({ url: `https://www.wellcabs.com/${p.slug}` })),
     ...entries.filter(entry => !phase1Record(new URL(entry.url).pathname)),
     ...phase1SitemapEntries(),

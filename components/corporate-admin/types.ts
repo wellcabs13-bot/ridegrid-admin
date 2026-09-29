@@ -9,11 +9,11 @@ export type Booking = {
   payment: { method: string; status: string } | null;
   tripStatus: string | null;
   approval: { id: string; status: string } | null;
-  traveller: string; employee: EmployeeRef | null; assignment: string;
+  traveller: string; employee: EmployeeRef | null; assignment: string; gst: string | null; archived: boolean; credit: string;
   fare: { vendorFare: string; platformFee: string; taxAmount: string; discount: string; finalPayable: string; passThroughTotal: string } | null;
 };
 
-export type ApprovalStep = { level: number; stage: string; status: string; actedAt: string | null; remarks: string | null; approver: string | null };
+export type ApprovalStep = { level: number; stage: string; status: string; actedAt: string | null; remarks: string | null; approver: string | null; assignedTo: string; approverType: string };
 
 export type Approval = {
   id: string; status: string; rawStatus: string; amount: string | null; currentStage: string; submittedAt: string; completedAt: string | null;
@@ -27,3 +27,12 @@ export type Approval = {
 };
 
 export type Paged<T> = { items: T[]; page: number; pageSize: number; total: number };
+
+export type OrgOptions = {
+  branches: { id: string; branchName: string; city: string | null; isActive: boolean }[];
+  departments: { id: string; departmentName: string; branchId: string | null; isActive: boolean }[];
+  costCenters: { id: string; name: string; code: string }[];
+  people: { id: string; employeeName: string; employeeCode: string; designation: string; branchId: string | null; departmentId: string | null; hasLogin: boolean }[];
+  policies: { id: string; policyName: string; branchId: string | null; departmentId: string | null }[];
+  vehicleCategories: string[];
+};

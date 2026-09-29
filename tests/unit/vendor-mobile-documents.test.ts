@@ -11,6 +11,7 @@ const m = vi.hoisted(() => ({
   vendorDocument: { create: vi.fn(), findFirst: vi.fn() },
   driverDocument: { create: vi.fn(), findFirst: vi.fn() },
   documentRecord: { findFirst: vi.fn() },
+  fileAsset: { findFirst: vi.fn() },
   auditLog: { create: vi.fn() },
   $transaction: vi.fn(),
 }));
