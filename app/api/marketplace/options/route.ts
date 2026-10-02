@@ -1,15 +1,16 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { listMarketplaceOptions } from "@/lib/services/marketplace/MarketplaceOptionsService";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const data = await listMarketplaceOptions();
+    // ?include=tours adds priced Tour packages (service "TOUR") for the website search.
+    const includeTours = new URL(request.url).searchParams.get("include") === "tours";
+    const data = await listMarketplaceOptions({ includeTours });
 
     return NextResponse.json({
       success: true,
       data,
-      tours: [],
-      toursConfigured: false,
+      toursConfigured: data.some((row) => row.service === "TOUR"),
       count: data.length,
     });
   } catch (error) {
@@ -20,7 +21,7 @@ export async function GET() {
         success: false,
         message: "Unable to load current marketplace pricing.",
       },
-      { status: 500 }
+      { status: 503 }
     );
   }
 }

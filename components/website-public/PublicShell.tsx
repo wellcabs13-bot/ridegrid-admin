@@ -75,7 +75,7 @@ export function PublicHeader({ navigation }: { navigation: PublicNavLink[] }) {
                 {!links.some((link) => link.href === "/contact") && <Link href="/contact">Contact & support</Link>}
                 <Link href="/corporate-login" prefetch={false}>Corporate Login</Link>
                 <Link href="/partners" prefetch={false}>Driver / Partner Login</Link>
-                <Link href="/#ride-search" className={s.mobileCta} aria-label="Find your ride - Book a Cab">
+                <Link href="/marketplace" className={s.mobileCta} aria-label="Find your ride - Book a Cab">
                   Book a Cab <ArrowRight size={16} aria-hidden="true" />
                 </Link>
               </nav>
@@ -88,7 +88,7 @@ export function PublicHeader({ navigation }: { navigation: PublicNavLink[] }) {
 
           <div className={s.headerActions}>
             <a href={WELLCABS.whatsapp} className={s.mobileWhatsApp} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Wellcabs (opens in a new tab)"><MessageCircle size={20} aria-hidden="true" /></a>
-            <Link href="/#ride-search" className={s.headerCta} aria-label="Find your ride - Book a Cab">
+            <Link href="/marketplace" className={s.headerCta} aria-label="Find your ride - Book a Cab">
               Book a Cab
               <ArrowRight size={16} aria-hidden="true" />
             </Link>

@@ -33,10 +33,20 @@ describe("Phase-1 publication and scope", () => {
     }
   });
   it("has no book-tour or airport form when the service is unsupported", () => {
-    for (const p of phase1Pages.filter(p => !p.bookingSupported)) {
+    for (const p of phase1Pages.filter(p => !p.bookingSupported && p.pageType !== "tour")) {
       expect(phase1PublicPage(p.canonicalUrl)!.sections.some(s => s.type === "SEARCH")).toBe(false);
       expect(p.capabilityState).toBe("CAPABILITY_LIMITED");
       expect(p.indexState).toBe("READY_INDEX");
+    }
+  });
+  it("opens published tours in the Tour marketplace search", () => {
+    const tours = phase1Pages.filter(p => p.pageType === "tour");
+    expect(tours.length).toBeGreaterThan(0);
+    for (const p of tours) {
+      const page = phase1PublicPage(p.canonicalUrl)!;
+      expect(page.sections.some(s => s.type === "SEARCH")).toBe(true);
+      expect(page.searchContext).toMatchObject({ service: "TOUR_PACKAGE", city: p.city, tour: p.entity });
+      expect(JSON.stringify(page)).not.toMatch(/not currently (bookable|available)/i);
     }
   });
   it("allows search crawlers without changing training crawler rules", () => {

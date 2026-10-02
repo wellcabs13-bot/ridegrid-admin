@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BadgeCheck, Building2, CarFront, Headset, IndianRupee, LockKeyhole, MapPinned, Plane, Route, ShieldCheck, UserCheck } from "lucide-react";
 import { HOMEPAGE_HERO, type resolveHomepage } from "@/lib/website-public/homepage";
+import { homepageImage, type HomepageImageSlot } from "@/lib/website-public/homepage-assets";
 import { WELLCABS } from "@/lib/website-public/brand";
 import { ContentBlocks, FAQ } from "./Content";
 import HeroSearch from "./HeroSearch";
@@ -15,11 +16,11 @@ type Page = Awaited<ReturnType<typeof resolveHomepage>>;
 
 // Only services RideGrid supports today. Airport transfers are searchable; cars
 // appear as vendors publish airport fares.
-const SERVICES = [
-  { id: "outstation", title: "Outstation Cabs", body: "One-way and round trips between cities, with the exact car and driver you choose.", href: "/services/one-way-cab/pune", cta: "Explore outstation", Icon: Route, image: "/media/phase1/rg-p1-001.webp" },
-  { id: "local-cabs", title: "Local Cab Service", body: "8 hours / 80 km and 12 hours / 120 km packages for a day around the city.", href: "/services/local-car-rental/pune", cta: "Explore local packages", Icon: MapPinned, image: "/media/phase1/rg-p1-010.webp" },
-  { id: "airport-transfers", title: "Airport Transfers", body: "Pickups and drops for Pune and Mumbai airports, planned around your flight.", href: "/airports/pune-airport", cta: "Explore airport transfers", Icon: Plane, image: "/media/phase1/rg-p1-009.webp" },
-  { id: "corporate-rental", title: "Corporate Car Rental", body: "Employee travel with approvals, policies, budgets and one monthly bill.", href: "/corporate-travel", cta: "Explore corporate travel", Icon: Building2, image: "/media/phase1/rg-p1-002.webp" },
+const SERVICES: { id: string; title: string; body: string; href: string; cta: string; Icon: typeof Route; slot: HomepageImageSlot }[] = [
+  { id: "outstation", title: "Outstation Cabs", body: "One-way and round trips between cities, with the exact car and driver you choose.", href: "/services/one-way-cab/pune", cta: "Explore outstation", Icon: Route, slot: "outstation" },
+  { id: "local-cabs", title: "Local Cab Service", body: "8 hours / 80 km and 12 hours / 120 km packages for a day around the city.", href: "/services/local-car-rental/pune", cta: "Explore local packages", Icon: MapPinned, slot: "local" },
+  { id: "airport-transfers", title: "Airport Transfers", body: "Pickups and drops for Pune and Mumbai airports, planned around your flight.", href: "/airports/pune-airport", cta: "Explore airport transfers", Icon: Plane, slot: "airport" },
+  { id: "corporate-rental", title: "Corporate Car Rental", body: "Employee travel with approvals, policies, budgets and one monthly bill.", href: "/corporate-travel", cta: "Explore corporate travel", Icon: Building2, slot: "corporateService" },
 ];
 
 const TRUST = [
@@ -38,6 +39,12 @@ const FAQS = [
   { question: "Do you offer travel for companies?", answer: "Yes. Companies get a Corporate Travel Portal with employee travel policies, approvals, budgets, corporate credit and consolidated invoices." },
 ];
 
+// Resolves a homepage slot to the real photo when one has been added, else the bundled placeholder.
+function HomeImage({ slot, sizes, priority }: { slot: HomepageImageSlot; sizes: string; priority?: boolean }) {
+  const { src } = homepageImage(slot);
+  return <Image src={src} alt="" fill sizes={sizes} priority={priority} fetchPriority={priority ? "high" : undefined} unoptimized={src.endsWith(".svg")} className={h.cover} />;
+}
+
 export default function Homepage({ page, options }: { page: Page; options?: unknown[] }) {
   const { chrome, hero, sections, discovery } = page;
   const enabled = (type: string) => sections.find((section) => section.type === type);
@@ -50,21 +57,26 @@ export default function Homepage({ page, options }: { page: Page; options?: unkn
     <ContentBlocks blocks={chrome.blocks} placement="BEFORE_PRIMARY_CONTENT" />
 
     <section className={h.hero} aria-labelledby="home-title">
-      <div className={h.heroMedia} aria-hidden="true">
-        {customHero
-          ? <ManagedImage media={customHero} cover />
-          : <Image src={HOMEPAGE_HERO.src} alt="" fill priority fetchPriority="high" sizes="100vw" className={h.heroImage} />}
-        <div className={h.heroShade} />
-      </div>
-      <div className={`${h.container} ${h.heroContent}`}>
-        <p className={h.kicker}><span aria-hidden="true" />RideGrid by Wellcabs</p>
-        <h1 id="home-title" aria-label={hero.title || "Travel Further With Confidence"}><span aria-hidden="true">{line1}{rest.length > 0 && <><br /><em>{rest.join(" ")}</em></>}</span></h1>
-        <p className={h.lead}>{hero.subtitle || "Clean cars, professional drivers and the exact vehicle you choose — with transparent pricing for reliable travel."}</p>
-        <ul className={h.points} aria-label="Why travel with RideGrid">
-          <li><ShieldCheck size={16} aria-hidden="true" />Clean, verified cars</li>
-          <li><UserCheck size={16} aria-hidden="true" />Professional drivers</li>
-          <li><IndianRupee size={16} aria-hidden="true" />Transparent fares</li>
-        </ul>
+      <div className={`${h.container} ${h.heroGrid}`}>
+        <div className={h.heroContent}>
+          <p className={h.kicker}><span aria-hidden="true" />RideGrid by Wellcabs</p>
+          <h1 id="home-title" aria-label={hero.title || "Travel Further With Confidence"}><span aria-hidden="true">{line1}{rest.length > 0 && <><br /><em>{rest.join(" ")}</em></>}</span></h1>
+          <p className={h.lead}>{hero.subtitle || "Clean cars, professional drivers and the exact vehicle you choose — with transparent pricing for reliable travel."}</p>
+          <div className={h.heroActions}>
+            <Link href="/marketplace" className={h.primary}>Book a Cab <ArrowRight size={17} aria-hidden="true" /></Link>
+            <Link href="/corporate-travel" className={h.secondary}>Corporate Travel</Link>
+          </div>
+          <ul className={h.points} aria-label="Why travel with RideGrid">
+            <li><ShieldCheck size={18} aria-hidden="true" />Clean, verified cars</li>
+            <li><UserCheck size={18} aria-hidden="true" />Professional drivers</li>
+            <li><IndianRupee size={18} aria-hidden="true" />Transparent fares</li>
+          </ul>
+        </div>
+        <div className={h.heroVisual} aria-hidden="true">
+          {customHero
+            ? <ManagedImage media={customHero} cover />
+            : <HomeImage slot="hero" priority sizes="(max-width: 900px) 100vw, 46vw" />}
+        </div>
       </div>
       {searchSection && <div className={`${h.container} ${h.searchDock}`}>
         <HeroSearch heading={searchSection.heading || "Where are we taking you?"} description="Outstation, round trip, local or airport — compare real cars with their drivers." initialOptions={options} />
@@ -79,10 +91,10 @@ export default function Homepage({ page, options }: { page: Page; options?: unkn
       <div className={h.container}>
         <div className={h.heading}><p className={h.eyebrow}>Our services</p><h2 id="services-title">Every kind of road trip, one marketplace.</h2></div>
         <div className={h.serviceGrid}>{SERVICES.map((service, i) => <article key={service.id} className={h.serviceCard}>
-          <div className={h.serviceImage}>{i === 0 && chrome.images?.sectionImage1 ? <ManagedImage media={chrome.images.sectionImage1} cover /> : <Image src={service.image} alt="" fill sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 25vw" className={h.cover} />}<span className={h.serviceIcon}><service.Icon size={20} aria-hidden="true" /></span></div>
+          <div className={h.serviceImage}>{i === 0 && chrome.images?.sectionImage1 ? <ManagedImage media={chrome.images.sectionImage1} cover /> : <HomeImage slot={service.slot} sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 25vw" />}<span className={h.serviceIcon}><service.Icon size={20} aria-hidden="true" /></span></div>
           <div className={h.serviceBody}><h3>{service.title}</h3><p>{service.body}</p><Link href={service.href} prefetch={false}>{service.cta}<ArrowRight size={16} aria-hidden="true" /></Link></div>
         </article>)}</div>
-        <p className={h.footnote}>Service images are illustrations.</p>
+        <p className={h.footnote}>Service images are for illustration.</p>
       </div>
     </section>
 
@@ -108,7 +120,7 @@ export default function Homepage({ page, options }: { page: Page; options?: unkn
             <Link href="/corporate-login" className={h.textLink}>Corporate Login</Link>
           </div>
         </div>
-        <div className={h.corporateVisual}>{chrome.images?.sectionImage2 ? <ManagedImage media={chrome.images.sectionImage2} cover /> : <Image src="/media/phase1/rg-p1-002.webp" alt="" fill sizes="(max-width: 900px) 100vw, 45vw" className={h.cover} />}</div>
+        <div className={h.corporateVisual}>{chrome.images?.sectionImage2 ? <ManagedImage media={chrome.images.sectionImage2} cover /> : <HomeImage slot="corporate" sizes="(max-width: 900px) 100vw, 45vw" />}</div>
       </div>
     </section>
 
@@ -128,7 +140,7 @@ export default function Homepage({ page, options }: { page: Page; options?: unkn
       {chrome.images?.featuredImage && <div className={h.ctaMedia} aria-hidden="true"><ManagedImage media={chrome.images.featuredImage} cover /></div>}
       <div className={`${h.container} ${h.ctaInner}`}>
         <div><h2 id="cta-title">{ctaSection?.heading && ctaSection.heading !== "Ready when you are." ? ctaSection.heading : "Ready for your next journey?"}</h2><p>{ctaSection?.description && ctaSection.description !== "Search RideGrid for your next journey." ? ctaSection.description : "Search real cars and drivers, see the full fare and book in minutes."}</p></div>
-        <div className={h.actions}><Link href="/#ride-search" className={h.primary}>Book a Cab <ArrowRight size={17} aria-hidden="true" /></Link><a href={WELLCABS.whatsapp} target="_blank" rel="noopener noreferrer" className={h.secondaryDark}>Plan on WhatsApp<span className="sr-only"> (opens in a new tab)</span></a></div>
+        <div className={h.actions}><Link href="/marketplace" className={h.primary}>Book a Cab <ArrowRight size={17} aria-hidden="true" /></Link><a href={WELLCABS.whatsapp} target="_blank" rel="noopener noreferrer" className={h.secondaryDark}>Plan on WhatsApp<span className="sr-only"> (opens in a new tab)</span></a></div>
       </div>
     </section>
     <ContentBlocks blocks={chrome.blocks} placement="AFTER_CTA" />

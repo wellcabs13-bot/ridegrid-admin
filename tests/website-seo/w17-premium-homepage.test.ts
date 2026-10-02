@@ -44,7 +44,7 @@ describe(
           "<HeroSearch",
         );
 
-        // Searches go to the current marketplace results, never the retired search page.
+        // Searches go to the marketplace results; "Book a Cab" opens the canonical /marketplace page.
         expect(
           readFileSync("lib/website-public/marketplace.ts", "utf8"),
         ).toContain(
@@ -53,7 +53,7 @@ describe(
 
         expect(
           homepage,
-        ).not.toContain(
+        ).toContain(
           'href="/marketplace"',
         );
       },

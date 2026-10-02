@@ -65,7 +65,7 @@ describe("popular routes come from live central options", () => {
     const routes = popularRoutes(options);
     expect(routes.map((r) => `${r.from}>${r.to}`)).toEqual(["Pune>Mumbai", "Pune>Surat"]);
     expect(routes[0]).toMatchObject({ oneWay: true, roundTrip: true, href: "/routes/pune-to-mumbai-cab" });
-    expect(routes[1].href).toBe("/#ride-search");
+    expect(routes[1].href).toBe("/marketplace");
     expect(JSON.stringify(routes)).not.toMatch(/fare|price|₹/i);
     expect(popularRoutes([])).toEqual([]);
   });

@@ -3,10 +3,10 @@ import MarketplaceResultsClient from "./MarketplaceResultsClient";
 
 function MarketplaceResultsLoading() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+    <main className="flex min-h-screen items-center justify-center bg-neutral-100 text-neutral-900">
       <div className="text-center">
-        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-cyan-400" />
-        <p className="mt-4 text-sm font-semibold text-slate-300">
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-red-600" />
+        <p className="mt-4 text-sm font-semibold text-neutral-600">
           Loading available vehicles...
         </p>
       </div>

@@ -35,7 +35,7 @@ it("leaves reduced-motion content visible and closes the menu with Escape", () =
   expect(menu.open).toBe(false);
   expect(menu.querySelector("summary")).toHaveFocus();
   menu.open = true;
-  fireEvent.click(menu.querySelector('a[href="/#ride-search"]')!);
+  fireEvent.click(menu.querySelector('a[href="/marketplace"]')!);
   expect(menu.open).toBe(false);
 });
 

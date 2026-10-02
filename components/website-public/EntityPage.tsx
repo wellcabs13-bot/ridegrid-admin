@@ -19,7 +19,7 @@ function Section({ section, searchHref, page }: { section: PublicSection; search
 }
 export default function EntityPage({ page, chrome }: { page: PublicPage; chrome: PublicChrome }) {
   const hero = page.sections.find(s => s.type === "HERO");
-  const hasSearch = page.sections.some(s => s.type === "SEARCH"), searchHref = hasSearch ? "#ride-search" : "/#ride-search";
+  const hasSearch = page.sections.some(s => s.type === "SEARCH"), searchHref = hasSearch ? "#ride-search" : "/marketplace";
   const media = page.images?.heroImage || chrome.media.find(m => m.category === page.entityType)?.asset || chrome.media.find(m => m.category === "GENERAL")?.asset || chrome.media.find(m => m.category === "HERO")?.asset;
   const firstCta = page.sections.findIndex(s => s.type === "CTA"), lastCta = page.sections.findLastIndex(s => s.type === "CTA");
   const supporting = [page.images?.sectionImage1, page.images?.sectionImage2, page.images?.featuredImage, page.images?.galleryImage1, page.images?.galleryImage2].filter(Boolean);

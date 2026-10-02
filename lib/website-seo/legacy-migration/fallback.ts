@@ -94,7 +94,7 @@ footer{margin-top:55px;background:#050505;color:#aaa;padding:28px 6%;text-align:
 <h1>${escapeHtml(page.headings[0] || page.title)}</h1>
 
 <div class="actions">
-<a class="btn primary" href="/#ride-search">Search & Book a Cab</a>
+<a class="btn primary" href="/marketplace">Search & Book a Cab</a>
 <a class="btn secondary" href="/marketplace">Explore Vehicles</a>
 </div>
 

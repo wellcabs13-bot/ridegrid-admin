@@ -40,7 +40,7 @@ export function realEntityCandidates(options: PricingOption[], availableCategori
   return { candidates, skipped, notes: ["AREA: no reliable persisted locality source; no area entities created.", "VEHICLE: available, non-deleted vehicle categories intersected with live pricing options.", "No geocoder suggestions, private vehicle identifiers, ratings or fares are imported."] };
 }
 export async function loadRealCandidates() {
-  const response = await marketplaceOptions();
+  const response = await marketplaceOptions(new Request("http://localhost/api/marketplace/options"));
   const payload = await response.json();
   if (!response.ok || !payload.success || !Array.isArray(payload.data)) throw new Error("Live marketplace options are unavailable. Nothing was synced.");
   const vehicles = await prisma.vehicle.findMany({ where: { deletedAt: null, status: "AVAILABLE" }, select: { category: true }, distinct: ["category"] });

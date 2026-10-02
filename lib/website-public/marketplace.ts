@@ -1,5 +1,5 @@
 export interface PricingOption { id: string; pricingType: string; tripType: string; vehicleCategory: string; packageName: string; city: string | null; fromCity: string | null; toCity: string | null; airportName: string | null; transferDirection: string | null; includedKm: number | null }
-export interface SearchContext { city?: string; destination?: string; destinations?: string[]; service?: string; category?: string; pageId?: string; pageType?: string }
+export interface SearchContext { city?: string; destination?: string; destinations?: string[]; service?: string; tour?: string; category?: string; pageId?: string; pageType?: string }
 /** Adapt the central rate-version contract; never synthesize inventory or prices. */
 export function normalizePricingOptions(rows: unknown[]): PricingOption[] {
   return rows.flatMap(value => {
@@ -7,9 +7,9 @@ export function normalizePricingOptions(rows: unknown[]): PricingOption[] {
     const row = value as Record<string, unknown>;
     const text = (key: string) => typeof row[key] === "string" ? row[key] as string : "";
     const service = text("service");
-    if (!["ONE_WAY", "ROUNDTRIP", "LOCAL"].includes(service)) return [];
+    if (!["ONE_WAY", "ROUNDTRIP", "LOCAL", "TOUR"].includes(service)) return [];
     if (!text("rateId") || !text("vehicleCategory")) return [];
-    return [{ id: text("rateId"), pricingType: service === "LOCAL" ? "LOCAL" : "OUTSTATION", tripType: service === "ONE_WAY" ? "ONEWAY" : service === "ROUNDTRIP" ? "ROUNDTRIP" : "",
+    return [{ id: text("rateId"), pricingType: service === "LOCAL" ? "LOCAL" : service === "TOUR" ? "TOUR_PACKAGE" : "OUTSTATION", tripType: service === "ONE_WAY" ? "ONEWAY" : service === "ROUNDTRIP" ? "ROUNDTRIP" : "",
       vehicleCategory: text("vehicleCategory"), packageName: text("packageName"), city: text("city"), fromCity: text("fromCity"), toCity: text("toCity"), airportName: null, transferDirection: null, includedKm: typeof row.includedKm === "number" ? row.includedKm : null }];
   });
 }
@@ -24,6 +24,12 @@ export function categoryKey(value: string) {
 }
 /** Search intent is not a rate or a promise of supply. The listing service quotes real cars. */
 export function marketplaceIntentHref(context: SearchContext, date: string, time: string, endDate = "") {
+  if (context.service === "TOUR_PACKAGE") {
+    const params = new URLSearchParams({ serviceType: "TOUR_PACKAGE", pickupCity: context.city || "", city: context.city || "", date, time });
+    if (context.tour) params.set("packageName", context.tour);
+    if (context.category) params.set("category", categoryKey(context.category).toUpperCase());
+    return `/marketplace/results?${params}`;
+  }
   const local = context.service === "LOCAL", round = context.service === "ROUNDTRIP";
   const params = new URLSearchParams({ serviceType: local ? "LOCAL" : "OUTSTATION", pickupCity: context.city || "", date, time });
   if (local) params.set("city", context.city || "");
@@ -41,7 +47,13 @@ export const JOURNEYS = [
   { label: "Round Trip", service: "OUTSTATION", trip: "ROUNDTRIP" },
   { label: "Local", service: "LOCAL", trip: "" },
   { label: "Airport", service: "AIRPORT", trip: "" },
+  // Fixed-price circuits from the published tour catalog; listed only where a car has a Tour price.
+  { label: "Tours", service: "TOUR_PACKAGE", trip: "" },
 ] as const;
+/** Cities with a published RideGrid airport page. Airport fares come from the central
+ * listing service; a city here implies no supply. Shared by the website and the apps. */
+export const AIRPORT_CITIES = ["Pune", "Mumbai"] as const;
+
 /** Airport search intent for the central listing service; no fare or supply is implied. */
 export function airportIntentHref(input: { city: string; direction: "PICKUP" | "DROP"; airport?: string; passengers?: number }, date: string, time: string) {
   const params = new URLSearchParams({ serviceType: "AIRPORT", pickupCity: input.city, city: input.city, airportDirection: input.direction, date, time });
@@ -68,7 +80,7 @@ export function marketplaceResultsHref(option: PricingOption, date: string, time
     params.set("airport", option.airportName || ""); params.set("airportDirection", option.transferDirection || ""); params.set("airportSlab", option.includedKm === null ? "" : String(option.includedKm));
   } else params.set("packageName", option.packageName);
   if (category) params.set("category", category);
-  if (option.pricingType === "LOCAL") params.set("city", option.city || "");
+  if (option.pricingType === "LOCAL" || option.pricingType === "TOUR_PACKAGE") params.set("city", option.city || "");
   if (option.tripType === "ROUNDTRIP") {
     const start = Date.parse(`${date}T00:00:00Z`), end = Date.parse(`${endDate}T00:00:00Z`);
     if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) throw new Error("Choose a valid return date.");

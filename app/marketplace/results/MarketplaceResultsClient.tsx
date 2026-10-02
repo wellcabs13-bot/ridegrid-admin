@@ -115,6 +115,7 @@ function serviceLabel(value: string) {
   switch (value) {
     case "OUTSTATION": return "Outstation";
     case "LOCAL": return "Local";
+    case "TOUR_PACKAGE": return "Tour";
     case "AIRPORT":
     case "AIRPORT_TRANSFER": return "Airport";
     default: return title(value) || "Marketplace";
@@ -197,8 +198,8 @@ export default function MarketplaceResultsClient() {
   const endDate = searchParams.get("endDate") || "";
   // Party size from the public search: only cars with enough seats are shown.
   const passengers = Math.max(0, Math.min(20, Number(searchParams.get("passengers")) || 0));
-  // Public searches start on the homepage search; operator/corporate flows on /marketplace.
-  const searchHome = corporateId ? "/marketplace" : "/#ride-search";
+  // Every public and corporate search starts on the one canonical marketplace page.
+  const searchHome = "/marketplace";
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -313,21 +314,23 @@ export default function MarketplaceResultsClient() {
 
   const subtitle = serviceType === "OUTSTATION"
     ? `${pickupCity}${dropCity ? ` → ${dropCity}` : ""}`
+    : serviceType === "TOUR_PACKAGE"
+      ? `${packageName || "Tour"}${city ? ` · from ${city}` : ""}`
     : serviceType === "AIRPORT"
       ? `${airport || "Airport"}${airportDirection ? ` · ${title(airportDirection)}` : ""}`
       : `Pickup${city ? ` anywhere in ${city}` : ""}`;
 
   return (
-    <main className="min-h-screen bg-[#020617] text-white">
-      <header className="border-b border-white/10 bg-[#020617]">
+    <main className="min-h-screen bg-[#f7f7f8] text-neutral-900">
+      <header className="border-b border-neutral-200 bg-[#f7f7f8]">
         <div className="mx-auto max-w-[1500px] px-6 py-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="text-[11px] font-black tracking-[0.28em] text-cyan-300">
+              <div className="text-[11px] font-black tracking-[0.28em] text-red-600">
                 LIVE MARKETPLACE RESULTS
               </div>
               <h1 className="mt-2 text-3xl font-black tracking-tight">{heading}</h1>
-              <p className="mt-1 text-sm text-slate-300">{subtitle}</p>
+              <p className="mt-1 text-sm text-neutral-600">{subtitle}</p>
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <InfoPill label="Service" value={serviceLabel(serviceType)} />
@@ -353,7 +356,7 @@ export default function MarketplaceResultsClient() {
             <button
               type="button"
               onClick={() => router.push(searchHome)}
-              className="rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-bold text-white hover:bg-white/10"
+              className="rounded-xl border border-neutral-300 bg-white px-5 py-3 text-sm font-bold text-neutral-900 hover:bg-neutral-100"
             >
               Change Search
             </button>
@@ -367,18 +370,18 @@ export default function MarketplaceResultsClient() {
             <div className="text-xl font-black">
               {loading ? "Finding vehicles..." : `${sortedListings.length} Vehicle${sortedListings.length === 1 ? "" : "s"} Found`}
             </div>
-            <div className="mt-1 text-xs text-slate-400">
+            <div className="mt-1 text-xs text-neutral-500">
               Verified cabs with a live price for your trip.
             </div>
           </div>
 
           {!loading && sortedListings.length > 0 && (
-            <label className="flex items-center gap-2 text-sm text-slate-300">
+            <label className="flex items-center gap-2 text-sm text-neutral-600">
               Sort by
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="rounded-xl border border-white/10 bg-slate-900 px-4 py-2.5 font-semibold text-white outline-none"
+                className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 font-semibold text-neutral-900 outline-none"
               >
                 <option value="recommended">Recommended</option>
                 <option value="price_low">Price: Low to High</option>
@@ -391,20 +394,20 @@ export default function MarketplaceResultsClient() {
         </div>
 
         {loading && (
-          <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-14 text-center">
-            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-cyan-400" />
+          <div className="rounded-3xl border border-neutral-200 bg-white p-14 text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-red-600" />
             <div className="mt-5 font-bold">Finding your best vehicles</div>
           </div>
         )}
 
         {error && !loading && (
-          <div className="rounded-3xl border border-red-400/20 bg-red-400/10 p-8 text-center text-red-200">{error}</div>
+          <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-700">{error}</div>
         )}
 
         {!loading && !error && sortedListings.length === 0 && (
-          <div className="rounded-3xl border border-amber-400/20 bg-amber-400/10 p-14 text-center">
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-14 text-center">
             <div className="text-xl font-black">No cabs available for this trip right now</div>
-            <p className="mx-auto mt-2 max-w-xl text-sm text-slate-300">
+            <p className="mx-auto mt-2 max-w-xl text-sm text-neutral-600">
               {passengers > 1 && listings.length > 0
                 ? `${listings.length} car${listings.length === 1 ? " is" : "s are"} available, but none seat ${passengers} passengers. Try fewer passengers or another date.`
                 : "Try another date or time, modify your trip, or check again later for a current quote and matching cab."}
@@ -412,7 +415,7 @@ export default function MarketplaceResultsClient() {
             <button
               type="button"
               onClick={() => router.push(searchHome)}
-              className="mt-6 rounded-xl bg-cyan-400 px-6 py-3 font-black text-slate-950"
+              className="mt-6 rounded-xl bg-red-600 px-6 py-3 font-black text-white"
             >
               Modify trip or date
             </button>
@@ -443,9 +446,9 @@ export default function MarketplaceResultsClient() {
 
 function InfoPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs">
-      <span className="text-slate-500">{label}: </span>
-      <span className="font-bold text-slate-200">{value}</span>
+    <div className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs">
+      <span className="text-neutral-500">{label}: </span>
+      <span className="font-bold text-neutral-800">{value}</span>
     </div>
   );
 }
@@ -474,9 +477,10 @@ function MarketplaceListingCard({
 
   const quoteMeta = pkg.quote as any;
 
-  const isRoundTripDisplay =
+  // Tours are fixed-price circuits (stored on a roundtrip rule) and never show the daily roundtrip breakdown.
+  const isRoundTripDisplay = pkg.packageType !== "TOUR_PACKAGE" && (
     pkg.tripType === "ROUNDTRIP" ||
-    quoteMeta?.calculationRule?.operational?.service === "ROUNDTRIP";
+    quoteMeta?.calculationRule?.operational?.service === "ROUNDTRIP");
 
   const roundTripDisplayDays = isRoundTripDisplay
     ? Math.max(1, Number(quoteMeta?.tripMetrics?.days || 1))
@@ -495,11 +499,11 @@ function MarketplaceListingCard({
   };
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/85 shadow-2xl shadow-black/20">
+    <article className="overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm shadow-neutral-900/5">
       <div className="grid lg:grid-cols-[330px_minmax(0,1fr)_310px]">
         {/* REAL VEHICLE MEDIA */}
-        <div className="border-b border-white/10 lg:border-b-0 lg:border-r">
-          <div className="relative h-[245px] bg-slate-950">
+        <div className="border-b border-neutral-200 lg:border-b-0 lg:border-r">
+          <div className="relative h-[245px] bg-neutral-100">
             {currentPhoto ? (
               <img
                 src={currentPhoto}
@@ -509,13 +513,13 @@ function MarketplaceListingCard({
             ) : (
               <div className="flex h-full flex-col items-center justify-center px-8 text-center">
                 <div className="text-5xl">🚗</div>
-                <div className="mt-3 text-sm font-bold text-slate-300">Vehicle photo not uploaded</div>
-                <div className="mt-1 text-xs text-slate-500">No demo image is used.</div>
+                <div className="mt-3 text-sm font-bold text-neutral-600">Vehicle photo not uploaded</div>
+                <div className="mt-1 text-xs text-neutral-500">No demo image is used.</div>
               </div>
             )}
 
             {rank === 0 && (
-              <span className="absolute left-4 top-4 rounded-full bg-cyan-400 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
+              <span className="absolute left-4 top-4 rounded-full bg-red-600 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white">
                 Best Price
               </span>
             )}
@@ -529,26 +533,26 @@ function MarketplaceListingCard({
           </div>
 
           {photos.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto border-t border-white/10 p-3">
+            <div className="flex gap-2 overflow-x-auto border-t border-neutral-200 p-3">
               {photos.slice(0, 5).map((photo, photoIndex) => (
                 <button
                   key={`${photo}-${photoIndex}`}
                   type="button"
                   onClick={() => setGalleryIndex(photoIndex)}
-                  className={`h-14 w-16 shrink-0 overflow-hidden rounded-lg border-2 ${galleryIndex === photoIndex ? "border-cyan-300" : "border-white/10"}`}
+                  className={`h-14 w-16 shrink-0 overflow-hidden rounded-lg border-2 ${galleryIndex === photoIndex ? "border-red-600" : "border-neutral-200"}`}
                 >
                   <img src={photo} alt="" className="h-full w-full object-cover" />
                 </button>
               ))}
               {photos.length > 5 && (
-                <button type="button" onClick={() => setGalleryIndex(5)} className="flex h-14 w-16 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xs font-black">
+                <button type="button" onClick={() => setGalleryIndex(5)} className="flex h-14 w-16 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-xs font-black">
                   +{photos.length - 5}
                 </button>
               )}
             </div>
           )}
 
-          <div className="border-t border-white/10 px-4 py-3 text-xs text-slate-400">
+          <div className="border-t border-neutral-200 px-4 py-3 text-xs text-neutral-500">
             {photos.length ? `${photos.length} real vehicle photo${photos.length === 1 ? "" : "s"}` : "Real photos will appear after upload"}
           </div>
         </div>
@@ -560,22 +564,22 @@ function MarketplaceListingCard({
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-2xl font-black">{listing.vehicle.make} {listing.vehicle.model}</h2>
                 {listing.vehicle.variant && (
-                  <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-xs font-bold text-cyan-200">
+                  <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">
                     {listing.vehicle.variant}
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm text-neutral-500">
                 {listing.vehicle.registrationNumber || "Registration unavailable"} • {title(listing.vehicle.category)} • {listing.vehicle.seatingCapacity} Seater
               </p>
             </div>
 
-            <div className="rounded-xl border border-amber-300/15 bg-amber-300/10 px-4 py-2 text-right">
-              <div className="text-[10px] font-black uppercase tracking-wider text-amber-200">Vehicle Rating</div>
-              <div className="mt-1 text-lg font-black text-white">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-right">
+              <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">Vehicle Rating</div>
+              <div className="mt-1 text-lg font-black text-neutral-900">
                 {listing.ratings?.vehicle?.count ? `★ ${stars(vehicleRating)}` : "—"}
               </div>
-              <div className="text-[11px] text-slate-400">
+              <div className="text-[11px] text-neutral-500">
                 {listing.ratings?.vehicle?.count ? `${listing.ratings.vehicle.count} reviews` : "No reviews yet"}
               </div>
             </div>
@@ -590,10 +594,10 @@ function MarketplaceListingCard({
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Vendor</div>
+            <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500">Vendor</div>
               <div className="mt-3 flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-cyan-400/15 text-lg font-black text-cyan-200">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-lg font-black text-red-700">
                   {initials(listing.vendor?.companyName)}
                 </div>
                 <div>
@@ -601,37 +605,37 @@ function MarketplaceListingCard({
                     {listing.vendor?.companyName || "Vendor"}
                   </div>
                   {listing.vendor?.verified && (
-                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-cyan-400/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-cyan-200">✓ Verified vendor</div>
+                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-red-700">✓ Verified vendor</div>
                   )}
-                  <div className="mt-0.5 text-xs text-slate-400">
+                  <div className="mt-0.5 text-xs text-neutral-500">
                     ★ {ratingBlock(vendorRating)}
                   </div>
-                  <div className="mt-0.5 text-xs text-slate-500">
+                  <div className="mt-0.5 text-xs text-neutral-500">
                     {listing.location.city || "India"}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Assigned Driver</div>
+            <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+              <div className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500">Assigned Driver</div>
               <div className="mt-3 flex items-center gap-3">
                 {listing.media?.driverPhoto ? (
                   <img src={listing.media.driverPhoto} alt={listing.driver?.name || "Driver"} className="h-12 w-12 rounded-full object-cover" />
                 ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-400/15 text-sm font-black text-emerald-200">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-sm font-black text-emerald-700">
                     {initials(listing.driver?.name)}
                   </div>
                 )}
                 <div>
                   <div className="font-black">
                     {listing.driver?.name || "Assigned Driver"}
-                    {listing.driver?.verified && <span className="ml-1 text-cyan-300" title="Verified driver">✓</span>}
+                    {listing.driver?.verified && <span className="ml-1 text-red-600" title="Verified driver">✓</span>}
                   </div>
-                  <div className="mt-0.5 text-xs text-slate-400">
+                  <div className="mt-0.5 text-xs text-neutral-500">
                     ★ {ratingBlock(driverRating)}
                   </div>
-                  <div className="mt-0.5 text-xs text-emerald-300">Active & assigned</div>
+                  <div className="mt-0.5 text-xs text-emerald-700">Active & assigned</div>
                 </div>
               </div>
             </div>
@@ -662,8 +666,8 @@ function MarketplaceListingCard({
         </div>
 
         {/* PRICING */}
-        <div className="border-t border-white/10 bg-slate-950/60 p-6 lg:border-l lg:border-t-0">
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
+        <div className="border-t border-neutral-200 bg-neutral-50 p-6 lg:border-l lg:border-t-0">
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-red-600">
                 TOTAL PACKAGE
                 {(pkg as any).tripDays ? (
                   <>
@@ -676,15 +680,15 @@ function MarketplaceListingCard({
           <div className="mt-2 text-xl font-black">{packageHeadline(listing)}</div>
 
           {locationLine(listing) && (
-            <div className="mt-2 text-xs text-slate-400">{locationLine(listing)}</div>
+            <div className="mt-2 text-xs text-neutral-500">{locationLine(listing)}</div>
           )}
 
           <div className="mt-5 flex items-end gap-2">
-            <span className="text-4xl font-black text-cyan-300">{currency(pkg.finalPayable)}</span>
-            <span className="pb-1 text-xs text-slate-500">Final payable</span>
+            <span className="text-4xl font-black text-red-600">{currency(pkg.finalPayable)}</span>
+            <span className="pb-1 text-xs text-neutral-500">Final payable</span>
           </div>
 
-          <div className="mt-5 space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-xs">
+          <div className="mt-5 space-y-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-xs">
             {pkg.includedKm != null && (
               <PriceLine
                 label="Included KM"
@@ -718,45 +722,45 @@ function MarketplaceListingCard({
           </div>
 
           {pkg.notes && (
-            <p className="mt-3 whitespace-pre-line rounded-xl border border-amber-300/20 bg-amber-300/5 px-3 py-2 text-xs text-amber-100">
-              <span className="font-bold">Vendor notes: </span>{pkg.notes}
+            <p className="mt-3 whitespace-pre-line rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <span className="font-bold">{pkg.packageType === "TOUR_PACKAGE" ? "Tour notes" : "Vendor notes"}: </span>{pkg.notes}
             </p>
           )}
 
           {pkg.pricingType === "AIRPORT" && (
-            <div className="mt-3 rounded-xl border border-cyan-300/15 bg-cyan-300/5 px-3 py-2 text-xs text-cyan-100">
+            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
               {pkg.airportName || "Airport"}{pkg.transferDirection ? ` • ${title(pkg.transferDirection)}` : ""}{pkg.includedKm != null ? ` • ${isRoundTripDisplay ? Number(pkg.includedKm || 0) * roundTripDisplayDays : pkg.includedKm} KM${isRoundTripDisplay && pkg.includedKm != null ? ` (${pkg.includedKm} KM/day)` : ""} slab` : ""}
             </div>
           )}
 
                     {/* ROUNDTRIP PACKAGE SUMMARY */}
           {isRoundTripDisplay && (
-            <div className="my-3 rounded-xl border border-orange-300/20 bg-orange-300/5 p-3">
-              <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-orange-300">
+            <div className="my-3 rounded-xl border border-orange-200 bg-orange-50 p-3">
+              <div className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-orange-700">
                 Roundtrip Package
               </div>
 
               <div className="grid gap-2 text-xs">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-400">Trip Duration</span>
-                  <span className="font-black text-white">
+                  <span className="text-neutral-500">Trip Duration</span>
+                  <span className="font-black text-neutral-900">
                     {roundTripDisplayDays} {roundTripDisplayDays === 1 ? "Day" : "Days"}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-400">Daily Package</span>
-                  <span className="font-black text-white">
+                  <span className="text-neutral-500">Daily Package</span>
+                  <span className="font-black text-neutral-900">
                     {currency(Number(pkg.baseFare || 0) / roundTripDisplayDays)} / day
                   </span>
                 </div>
 
                 {pkg.includedKm != null && (
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-400">Included KM</span>
-                    <span className="font-black text-white">
+                    <span className="text-neutral-500">Included KM</span>
+                    <span className="font-black text-neutral-900">
                       {pkg.includedKm} KM
-                      <span className="ml-1 font-medium text-slate-400">
+                      <span className="ml-1 font-medium text-neutral-500">
                         ({pkg.includedKmPerDay} KM/day)
                       </span>
                     </span>
@@ -765,10 +769,10 @@ function MarketplaceListingCard({
 
                 {pkg.driverAllowance != null && (
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-400">Driver Allowance</span>
-                    <span className="font-black text-white">
+                    <span className="text-neutral-500">Driver Allowance</span>
+                    <span className="font-black text-neutral-900">
                       {currency(pkg.driverAllowance)}
-                      <span className="ml-1 font-medium text-slate-400">
+                      <span className="ml-1 font-medium text-neutral-500">
                         ({currency(pkg.driverAllowancePerDay ?? pkg.driverAllowance)}/day)
                       </span>
                     </span>
@@ -777,8 +781,8 @@ function MarketplaceListingCard({
 
                 {pkg.extraKmRate != null && (
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-400">Extra KM</span>
-                    <span className="font-black text-white">
+                    <span className="text-neutral-500">Extra KM</span>
+                    <span className="font-black text-neutral-900">
                       {currency(pkg.extraKmRate)}/KM
                     </span>
                   </div>
@@ -791,15 +795,15 @@ function MarketplaceListingCard({
             type="button"
             disabled={bookingLoading}
             onClick={() => onBook(listing)}
-            className="mt-6 w-full rounded-2xl bg-cyan-400 px-5 py-4 text-sm font-black text-slate-950 shadow-lg shadow-cyan-400/10 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-6 w-full rounded-2xl bg-red-600 px-5 py-4 text-sm font-black text-white shadow-lg shadow-red-600/10 transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {bookingLoading ? "Opening..." : "Book Vehicle"}
           </button>
 
-          <div className="mt-3 text-center text-xs font-bold text-emerald-300">
+          <div className="mt-3 text-center text-xs font-bold text-emerald-700">
             ⚡ Instant Confirmation
           </div>
-          <div className="mt-2 text-center text-[11px] text-slate-500">
+          <div className="mt-2 text-center text-[11px] text-neutral-500">
             100% Secure Booking
           </div>
         </div>
@@ -809,27 +813,27 @@ function MarketplaceListingCard({
 }
 
 function Feature({ text }: { text: string }) {
-  return <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-300">{text}</span>;
+  return <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-semibold text-neutral-600">{text}</span>;
 }
 
 function Badge({ text }: { text: string }) {
-  return <span className="rounded-full border border-emerald-300/15 bg-emerald-300/10 px-3 py-1.5 text-[10px] font-black tracking-wider text-emerald-300">{text}</span>;
+  return <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[10px] font-black tracking-wider text-emerald-700">{text}</span>;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-black text-white">{value}</div>
+    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{label}</div>
+      <div className="mt-1 text-sm font-black text-neutral-900">{value}</div>
     </div>
   );
 }
 
 function RatingStat({ label, value, suffix = "★" }: { label: string; value?: number | null; suffix?: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-black text-white">
+    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">{label}</div>
+      <div className="mt-1 text-sm font-black text-neutral-900">
         {typeof value === "number" ? `${Number(value).toFixed(1)} ${suffix}` : "—"}
       </div>
     </div>
@@ -839,8 +843,8 @@ function RatingStat({ label, value, suffix = "★" }: { label: string; value?: n
 function PriceLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-slate-400">{label}</span>
-      <span className="font-bold text-slate-100">{value}</span>
+      <span className="text-neutral-500">{label}</span>
+      <span className="font-bold text-neutral-900">{value}</span>
     </div>
   );
 }

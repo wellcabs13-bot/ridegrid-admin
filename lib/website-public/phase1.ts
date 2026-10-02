@@ -11,9 +11,23 @@ export function phase1Record(pathname: string) { return byPath.get(pathname); }
 export function phase1SitemapEntries() {
   return phase1Pages.filter(page => page.indexState === "READY_INDEX").map(page => ({ url: base + page.canonicalUrl }));
 }
+// Published tours are bookable through the Tour marketplace: cars appear only where a vendor
+// has priced that tour. The generated copy predates Tour pricing, so its "not bookable"
+// lines are replaced here rather than regenerating the SEO manifest.
+const NOT_BOOKABLE = /not currently (bookable|available)/i;
+const TOUR_BOOKING_FAQ = "Yes. Choose your date and time in the search on this page. Cars appear only when a vendor has published a price for this tour, and each listing shows the full fare and any tour notes before you book.";
+function bookableTour(page: Phase1Page): Phase1Page {
+  if (page.pageType !== "tour") return page;
+  return { ...page, bookingSupported: true,
+    description: page.description.replace(/s*Dedicated Tours are not currently bookable online./i, " Compare cars with a published tour price and book online.").trim(),
+    editorial: page.editorial.map(item => ({ ...item, paragraphs: item.paragraphs.filter(text => !NOT_BOOKABLE.test(text)) })).filter(item => item.paragraphs.length),
+    faqs: page.faqs.map(faq => NOT_BOOKABLE.test(faq.answer) ? { ...faq, answer: TOUR_BOOKING_FAQ } : faq),
+    search: { city: page.city, service: "TOUR_PACKAGE", tour: page.entity, pageId: page.pageId, pageType: page.pageType } };
+}
 export function phase1PublicPage(pathname: string): PublicPage | null {
-  const page = byPath.get(pathname);
-  if (!page) return null;
+  const record = byPath.get(pathname);
+  if (!record) return null;
+  const page = bookableTour(record);
   const canonical = base + page.canonicalUrl;
   const section = (id: string, type: PublicSection["type"], heading: string, paragraphs: string[] = []): PublicSection => ({ id, type, heading, paragraphs, benefits: [], faqs: [], links: [], cta: null });
   const sections = [section("hero", "HERO", page.h1, [page.intro])];
@@ -31,7 +45,7 @@ export function phase1PublicPage(pathname: string): PublicPage | null {
   const image = images.find(item => item.pageId === page.pageId && item.status === "APPROVED" && /^\/media\/phase1\/[a-zA-Z0-9-]+\.webp$/.test(item.assetPath));
   const heroImage = image ? { src: image.assetPath, alt: image.altText, caption: "AI-generated travel illustration" } : undefined;
   return { title: page.h1, entityName: page.entity, entityType: page.pageType.toUpperCase(), pathname,
-    searchContext: { ...page.search, destinations: phase1Pages.filter(p => p.pageType === "route" && p.city === page.city).map(p => p.search.destination!).filter(Boolean) }, phase1: true, bookingSupported: page.bookingSupported, sections, links: page.links, breadcrumbs, images: { heroImage, ogImage: heroImage },
+    searchContext: page.pageType === "tour" ? page.search : { ...page.search, destinations: phase1Pages.filter(p => p.pageType === "route" && p.city === page.city).map(p => p.search.destination!).filter(Boolean) }, phase1: true, bookingSupported: page.bookingSupported, sections, links: page.links, breadcrumbs, images: { heroImage, ogImage: heroImage },
     seo: { title: page.title, description: page.description, canonical, robots: { index: page.indexState === "READY_INDEX", follow: true }, ogImage: heroImage,
       schema: { "@context": "https://schema.org", "@graph": [
         { "@type": "WebPage", "@id": canonical + "#page", url: canonical, name: page.h1, description: page.description },

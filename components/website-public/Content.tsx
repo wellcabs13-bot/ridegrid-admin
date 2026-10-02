@@ -17,7 +17,7 @@ export function MarketplaceSection({ heading = "Find the right ride for your pla
     { Icon: CalendarCheck2, title: "Continue to booking", body: "Review the trip details and follow the booking and payment steps." },
   ].map(({ Icon, title, body }) => <div className={s.step} key={title}><span className={s.stepIcon}><Icon size={20} /></span><div><h3>{title}</h3><p>{body}</p></div></div>)}</div></div></section>;
 }
-export function CTA({ heading, description, link = { label: "Find your ride", href: "/#ride-search" } }: { heading: string; description?: string; link?: PublicLink }) {
+export function CTA({ heading, description, link = { label: "Find your ride", href: "/marketplace" } }: { heading: string; description?: string; link?: PublicLink }) {
   return <section className={s.section}><div className={s.container}><div className={s.cta}><p className={s.eyebrow}>Your next journey</p><h2>{heading}</h2>{description && <p>{description}</p>}<div className={s.actions}><PublicAnchor link={link} className={s.button}>{link.label}<ArrowUpRight size={17} /></PublicAnchor></div></div></div></section>;
 }
 export function RelatedPages({ heading = "Explore more journeys", links }: { heading?: string; links: (PublicLink & { type?: string; description?: string })[] }) {

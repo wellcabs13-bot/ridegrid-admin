@@ -6,7 +6,7 @@ async function main() {
   console.error = () => {}; // Do not expose connection diagnostics or credentials.
   try {
     const { GET } = await import("../../app/api/marketplace/options/route");
-    const response = await GET();
+    const response = await GET(new Request("http://localhost/api/marketplace/options"));
     const result = await response.json();
     const rows = Array.isArray(result.data) ? result.data : [];
     const snapshot = { checkedAt: new Date().toISOString(), httpStatus: response.status, source: "/api/marketplace/options", toursConfigured: result.toursConfigured === true,

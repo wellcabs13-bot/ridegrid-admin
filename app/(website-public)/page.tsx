@@ -21,6 +21,6 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   // Options and page data load in parallel; a pricing outage never blocks the page
   // (the search then loads options in the browser and shows its own error state).
-  const [page, options] = await Promise.all([resolveHomepage(), listMarketplaceOptions().catch(() => undefined)]);
+  const [page, options] = await Promise.all([resolveHomepage(), listMarketplaceOptions({ includeTours: true }).catch(() => undefined)]);
   return <Homepage page={page} options={options} />;
 }

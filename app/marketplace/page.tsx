@@ -1,31 +1,32 @@
-﻿import { Suspense } from "react";
+import HeroSearch from "@/components/website-public/HeroSearch";
+import { listMarketplaceOptions } from "@/lib/services/marketplace/MarketplaceOptionsService";
+import m from "./Marketplace.module.css";
 
-import MarketplaceSearchClient from "./MarketplaceSearchClient";
+// The one public marketplace: the website search (Outstation, Round Trip, Local, Airport,
+// Tours) over the central listing service. Results, booking and payment continue under
+// /marketplace/*. A pricing outage never blocks the page; the search loads options itself.
+const STEPS = [
+  { title: "Choose your journey", body: "Outstation, round trip, local package, airport transfer or a published tour." },
+  { title: "Compare real cars", body: "Every listing is an exact verified car with its assigned driver." },
+  { title: "See the full fare", body: "Fare, GST and platform fee are shown before you book." },
+  { title: "Book securely", body: "Confirm your trip details and pay through the secure gateway." },
+];
 
-function MarketplaceLoading() {
-  return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 text-white">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8">
-          <div className="h-4 w-44 animate-pulse rounded bg-slate-800" />
-          <div className="mt-4 h-9 w-80 max-w-full animate-pulse rounded bg-slate-800" />
-          <div className="mt-4 h-4 w-full max-w-xl animate-pulse rounded bg-slate-800" />
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-          <div className="py-16 text-center text-slate-300">
-            Loading RideGrid Marketplace...
-          </div>
-        </div>
+export default async function MarketplacePage() {
+  const options = await listMarketplaceOptions({ includeTours: true }).catch(() => undefined);
+  return <>
+    <section className={m.head}>
+      <div className={m.container}>
+        <p className={m.eyebrow}>RideGrid marketplace</p>
+        <h1 className={m.title}>Find your ride</h1>
+        <p className={m.lead}>Search live cars from verified vendors. Pick the exact car and driver and see the complete fare before you book.</p>
       </div>
-    </main>
-  );
-}
-
-export default function MarketplacePage() {
-  return (
-    <Suspense fallback={<MarketplaceLoading />}>
-      <MarketplaceSearchClient />
-    </Suspense>
-  );
+    </section>
+    <div className={`${m.container} ${m.search}`}>
+      <HeroSearch heading="Where are we taking you?" description="Outstation, round trip, local, airport or tours — compare real cars with their drivers." initialOptions={options} />
+    </div>
+    <ol className={`${m.container} ${m.steps}`}>
+      {STEPS.map((step, i) => <li key={step.title} className={m.step}><span className={m.stepNumber}>{i + 1}</span><strong>{step.title}</strong><span>{step.body}</span></li>)}
+    </ol>
+  </>;
 }

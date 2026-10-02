@@ -23,6 +23,7 @@ type Listing = {
     pricingPackageId?: string;
     packageName?: string | null;
     packageType?: string | null;
+    notes?: string | null;
     baseFare: number;
     finalPayable: number;
     quote: FareDetailsValue & { calculationRule?: { operational?: { service: string } } };
@@ -795,6 +796,12 @@ export default function MarketplaceBookingClient() {
                   <SummaryRow label="Night Charge" value={currency(listing.pricing.nightCharge)} />
                 )}
               </div>
+
+              {listing.pricing.notes && (
+                <p className="mt-4 whitespace-pre-line rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
+                  <span className="font-bold">{listing.pricing.packageType === "TOUR_PACKAGE" ? "Tour notes" : "Vendor notes"}: </span>{listing.pricing.notes}
+                </p>
+              )}
 
               {/* Airport trips only: outstation/local packages can carry a stale transfer direction. */}
               {(airport || listing.pricing.airportName) && (

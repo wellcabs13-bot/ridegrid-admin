@@ -33,7 +33,7 @@ const fallback: WebsiteHomepageConfig = {
       "Find your ride",
 
     primaryCtaHref:
-      "/#ride-search",
+      "/marketplace",
 
     secondaryCtaLabel:
       "Explore vehicles",

@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 // Current searchable marketplace options: approved, effective rate versions on active
@@ -6,55 +7,67 @@ import { prisma } from "@/lib/prisma";
 const clean = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
-function logicalService(service: string) {
+function logicalService(service: string, includeTours: boolean) {
+  if (service === "TOUR_PACKAGE") return includeTours ? "TOUR" : null;
   if (service === "OUTSTATION_ONE_WAY") return "ONE_WAY";
   if (service === "OUTSTATION_ROUND_TRIP") return "ROUNDTRIP";
   if (service === "LOCAL_HOURLY") return "LOCAL";
   return null;
 }
 
-export async function listMarketplaceOptions() {
-  const now = new Date();
-
-  const rates = await prisma.pricingRateVersion.findMany({
-    where: {
-      status: "APPROVED",
-      effectiveFrom: { lte: now },
-      OR: [
-        { effectiveTo: null },
-        { effectiveTo: { gt: now } },
-      ],
-      pricingPackageId: { not: null },
-      pricingPackage: {
+// Current searchable supply: approved, effective rate versions on active packages of
+// verified, available cars whose approved (unsuspended) vendor and active driver can
+// operate. The one definition of "listed in the marketplace", also used to tell a
+// vendor how many of its cars are live.
+export function marketplaceRateWhere(now = new Date(), vendorId?: string): Prisma.PricingRateVersionWhereInput {
+  return {
+    status: "APPROVED",
+    effectiveFrom: { lte: now },
+    OR: [
+      { effectiveTo: null },
+      { effectiveTo: { gt: now } },
+    ],
+    pricingPackageId: { not: null },
+    pricingPackage: {
+      isActive: true,
+      pricingRule: {
         isActive: true,
-        pricingRule: {
-          isActive: true,
-        },
-        vehicle: {
+      },
+      vehicle: {
+        ...(vendorId ? { vendorId } : {}),
+        deletedAt: null,
+        status: "AVAILABLE",
+        isVerified: true,
+        vendor: {
           deletedAt: null,
-          status: "AVAILABLE",
-          isVerified: true,
-          vendor: {
+          isApproved: true,
+          suspendedAt: null,
+          user: {
             deletedAt: null,
-            isApproved: true,
+            isActive: true,
+          },
+        },
+        driver: {
+          is: {
+            deletedAt: null,
+            status: "ACTIVE",
             user: {
               deletedAt: null,
               isActive: true,
             },
           },
-          driver: {
-            is: {
-              deletedAt: null,
-              status: "ACTIVE",
-              user: {
-                deletedAt: null,
-                isActive: true,
-              },
-            },
-          },
         },
       },
     },
+  };
+}
+
+// Tours are opt-in so existing app clients keep receiving only the services they render.
+export async function listMarketplaceOptions({ includeTours = false }: { includeTours?: boolean } = {}) {
+  const now = new Date();
+
+  const rates = await prisma.pricingRateVersion.findMany({
+    where: marketplaceRateWhere(now),
     include: {
       pricingPackage: {
         include: {
@@ -80,7 +93,7 @@ export async function listMarketplaceOptions() {
     const pkg = rate.pricingPackage;
     if (!pkg) continue;
 
-    const service = logicalService(rate.service);
+    const service = logicalService(rate.service, includeTours);
     if (!service) continue;
 
     const row = {
