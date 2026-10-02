@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { Actor, createRate, evidence, lock, savePolicy, transitionRate } from "./RateService";
+import { Actor, BatchRate, createRatesBatch, deactivateRatesBatch, lock, lockMany, packageScope, savePolicy } from "./RateService";
 import { date, object, policyData, text } from "./config";
 import { Fee, OperationalTerms, PricingError, SERVICES, Service, Tax, Terms, canonicalService, decimal, money, nonnegative, normalize, scopeKey } from "./engine";
 import { PricingCatalog, catalogCity, cityKey, pricingCatalog } from "./catalog";
@@ -27,12 +27,15 @@ const liveWhere = (statuses: string[], now = new Date()): Prisma.PricingRateVers
 /** Operating cities for pricing: the published website city/route/tour catalog. */
 export function pricingCities(catalog: PricingCatalog = pricingCatalog()) { return catalog.cities; }
 
+const latestVersionIds = async (vendorId: string) => (await prisma.$queryRaw<{ id: string }[]>`SELECT DISTINCT ON ("scopeKey") id FROM "PricingRateVersion" WHERE "vendorId" = ${vendorId} ORDER BY "scopeKey", version DESC LIMIT 1000`).map(row => row.id);
+
 export async function simplePricingData(actor: Actor, role: string) {
   const vendorId = actor.vendorId, catalog = pricingCatalog();
   const [vendors, pairs, rates, current, policies] = await Promise.all([
     prisma.vendor.findMany({ where: { ...activeVendorWhere, ...(!actor.admin && !actor.finance ? { id: vendorId } : {}) }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" } }),
     vendorId ? prisma.vehicle.findMany({ where: pairWhere(vendorId), select: pairSelect, orderBy: { registrationNumber: "asc" } }) : [],
-    vendorId ? prisma.pricingRateVersion.findMany({ where: { vendorId }, include: { pricingPackage: { select: { vehicleId: true, packageName: true, vehicle: { select: { make: true, model: true, registrationNumber: true, driver: { select: { id: true, firstName: true, lastName: true } } } } } } }, orderBy: { createdAt: "desc" }, take: 500 }) : [],
+    // The table shows only the latest version of each price; full history stays in Advanced.
+    vendorId ? latestVersionIds(vendorId).then(ids => ids.length ? prisma.pricingRateVersion.findMany({ where: { id: { in: ids } }, include: { pricingPackage: { select: { vehicleId: true, packageName: true, vehicle: { select: { make: true, model: true, registrationNumber: true, driver: { select: { id: true, firstName: true, lastName: true } } } } } } }, orderBy: { createdAt: "desc" } }) : []) : [],
     // Every live price for the vendor (not just the latest 500 versions) so the bulk grids prefill reliably.
     vendorId ? prisma.pricingRateVersion.findMany({ where: { vendorId, pricingPackageId: { not: null }, ...liveWhere(["APPROVED", "PENDING"]) }, select: { pricingPackageId: true, version: true, status: true, service: true, fare: true, terms: true, pricingPackage: { select: { vehicleId: true, packageName: true, city: true, toCity: true } } }, orderBy: { version: "desc" } }) : [],
     prisma.pricingPolicy.findMany({ where: { ...globalScope, kind: { in: ["TAX", "FEE"] } }, orderBy: { version: "desc" } }),
@@ -125,57 +128,81 @@ function selection(actor: Actor, b: Record<string, unknown>) {
   if (new Set(pairs.map(pair => pair.vehicleId)).size !== pairs.length) throw new PricingError("INVALID_INPUT", "Select each car only once", 400);
   return { vendorId, pairs: pairs.sort((x, y) => x.vehicleId.localeCompare(y.vehicleId)) };
 }
-async function lockPair(tx: Prisma.TransactionClient, vendorId: string, selected: { vehicleId: string; driverId: string }) {
-  await tx.$queryRaw`SELECT id FROM "Vehicle" WHERE id = ${selected.vehicleId} FOR UPDATE`;
-  const pair = await tx.vehicle.findFirst({ where: { ...pairWhere(vendorId), id: selected.vehicleId, driverId: selected.driverId }, select: pairSelect });
-  if (!pair?.driver) throw new PricingError("INVALID_INPUT", "A selected car or aligned driver is no longer active for this vendor. Reload and select again.", 400);
-  return pair as Pair & { driver: NonNullable<Pair["driver"]> };
+type ActivePair = Pair & { driver: NonNullable<Pair["driver"]> };
+/** Locks and re-validates every selected car-driver pair in two queries. */
+async function lockPairs(tx: Prisma.TransactionClient, vendorId: string, selected: { vehicleId: string; driverId: string }[]) {
+  const ids = selected.map(pair => pair.vehicleId);
+  await tx.$queryRaw`SELECT id FROM "Vehicle" WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`;
+  const found = new Map((await tx.vehicle.findMany({ where: { ...pairWhere(vendorId), id: { in: ids } }, select: pairSelect })).map(pair => [pair.id, pair]));
+  return selected.map(choice => {
+    const pair = found.get(choice.vehicleId);
+    if (!pair?.driver || pair.driverId !== choice.driverId) throw new PricingError("INVALID_INPUT", "A selected car or aligned driver is no longer active for this vendor. Reload and select again.", 400);
+    return pair as ActivePair;
+  });
 }
-async function ruleFor(tx: Prisma.TransactionClient, vendorId: string, pair: Pair, service: Simple) {
-  const rule = await tx.pricingRule.upsert({ where: { vendorId_vehicleCategory_pricingType_tripType: { vendorId, vehicleCategory: pair.category, ...RULE[service] } }, update: {}, create: { vendorId, vehicleCategory: pair.category, ...RULE[service], chargeType: "FIXED", baseFare: 0 } });
-  if (!rule.isActive) throw new PricingError("INVALID_INPUT", "This service is disabled for the vendor. Review it in Advanced first.", 400);
-  return rule;
-}
-const findPackage = (tx: Prisma.TransactionClient, ruleId: string, vehicleId: string, spec: Pick<RateSpec, "city" | "name">) =>
-  tx.pricingPackage.findFirst({ where: { pricingRuleId: ruleId, vehicleId, city: { equals: spec.city, mode: "insensitive" }, packageName: { equals: spec.name, mode: "insensitive" } } });
-
 function unchanged(rate: { fare: Prisma.Decimal; terms: Prisma.JsonValue }, spec: RateSpec, driverId: string) {
   const t = rate.terms as unknown as Terms, o = t.operational;
   const same = (a: unknown, b: unknown) => decimal(String(a || "0")).eq(String(b || "0"));
   return !!o && o.driverId === driverId && money(rate.fare).eq(spec.fare) && (o.notes || "") === (spec.notes || "") && same(o.driverAllowancePerDay, spec.driverAllowance)
     && (["includedKm", "includedHours", "perKm", "perHour", "waitingPerHour"] as const).every(k => same(t[k], spec.terms[k]));
 }
+const packageKey = (vehicleId: string, ruleId: string, city: string | null, name: string) => `${vehicleId}|${ruleId}|${normalize(city)}|${normalize(name)}`;
 
-async function writeRate(tx: Prisma.TransactionClient, actor: Actor, vendorId: string, pair: Pair & { driver: NonNullable<Pair["driver"]> }, spec: RateSpec, from: Date, expected: Record<string, unknown>) {
-  const rule = await ruleFor(tx, vendorId, pair, spec.service), canonical = CANONICAL[spec.service];
-  await lock(tx, `simple-package:${pair.id}:${canonical}:${cityKey(spec.city)}:${cityKey(spec.destination)}:${normalize(spec.name)}`);
-  let pkg = await findPackage(tx, rule.id, pair.id, spec);
-  if (!pkg) {
-    pkg = await tx.pricingPackage.create({ data: { pricingRuleId: rule.id, vehicleId: pair.id, packageType: canonical, packageName: spec.name, city: spec.city, fromCity: spec.service === "LOCAL" ? null : spec.city, toCity: spec.destination || null,
-      includedHours: Number(spec.terms.includedHours), includedKm: Number(spec.terms.includedKm), baseFare: spec.fare, extraKmRate: spec.terms.perKm, extraHourRate: spec.terms.perHour, driverAllowance: spec.driverAllowance, isActive: true } });
-    await evidence(tx, actor, pkg.id, null, { ...pkg, vendorId, action: "CREATE_SERVICE_IDENTITY" });
+/** Applies one grid (or one Local price) to every selected car with prefetched rules,
+ * packages and live versions: priced rows create versions only when the value changed,
+ * blank rows deactivate only versions that actually exist. */
+async function applyGrid(tx: Prisma.TransactionClient, actor: Actor, vendorId: string, selected: { vehicleId: string; driverId: string }[], service: Simple, city: string, rows: { name: string; spec: RateSpec | null }[], from: Date, expected: Record<string, unknown>) {
+  const pairs = await lockPairs(tx, vendorId, selected), canonical = CANONICAL[service];
+  const priced = rows.filter(row => row.spec), categories = [...new Set(pairs.map(pair => pair.category))];
+  // Rate cards: one read; missing cards are created only when something is priced.
+  const rules = new Map((await tx.pricingRule.findMany({ where: { vendorId, ...RULE[service], vehicleCategory: { in: categories } } })).map(rule => [rule.vehicleCategory as string, rule]));
+  if (priced.length) for (const category of categories) {
+    let rule = rules.get(category);
+    if (!rule) { rule = await tx.pricingRule.upsert({ where: { vendorId_vehicleCategory_pricingType_tripType: { vendorId, vehicleCategory: category, ...RULE[service] } }, update: {}, create: { vendorId, vehicleCategory: category, ...RULE[service], chargeType: "FIXED", baseFare: 0 } }); rules.set(category, rule); }
+    if (!rule.isActive) throw new PricingError("INVALID_INPUT", "This service is disabled for the vendor. Review it in Advanced first.", 400);
   }
-  if (!pkg.isActive) throw new PricingError("INVALID_INPUT", `The ${spec.name} package for ${pair.registrationNumber} is disabled. Review it in Advanced first.`, 400);
-  const latest = await tx.pricingRateVersion.findFirst({ where: { pricingPackageId: pkg.id, ...liveWhere(["APPROVED", "PENDING"]) }, orderBy: { version: "desc" } });
-  if (latest && unchanged(latest, spec, pair.driver.id)) return { status: "UNCHANGED" };
-  const rateService = canonicalService((SERVICES as readonly string[]).includes(pkg.packageType) ? pkg.packageType : rule.pricingType, rule.tripType, pkg.transferDirection);
-  const key = scopeKey({ vendorId, vehicleCategory: pair.category, service: rateService, city: pkg.city || "", origin: pkg.fromCity || "", destination: pkg.toCity || "", pricingPackageId: pkg.id });
-  const previous = await tx.pricingRateVersion.findFirst({ where: { scopeKey: key }, orderBy: { version: "desc" }, select: { version: true } });
-  const operational: OperationalTerms = { service: spec.service, vehicleId: pair.id, driverId: pair.driver.id, driverName: `${pair.driver.firstName} ${pair.driver.lastName}`.trim(), car: `${pair.make} ${pair.model} — ${pair.registrationNumber}`, driverAllowancePerDay: spec.driverAllowance,
-    extraPickupDrop: spec.service === "ONE_WAY" ? "250" : "0", waitingFreeMinutes: spec.service === "ONE_WAY" ? "30" : "0", toll: "AS_APPLICABLE", parking: "AS_APPLICABLE", ...(spec.notes ? { notes: spec.notes } : {}) };
-  const rate = await createRate(actor, { pricingRuleId: rule.id, pricingPackageId: pkg.id, service: rateService, fare: spec.fare, effectiveFrom: from.toISOString(), expectedVersion: expected[key] ?? previous?.version ?? 0 }, tx, { ...spec.terms, operational }, { allowMissingMaster: true });
-  const submitted = await transitionRate(actor, rate.id, "submit", "", rate.version, tx);
-  return actor.admin && submitted.status === "PENDING" ? transitionRate(actor, submitted.id, "approve", "Approved by Super Admin via Simple Pricing", submitted.version, tx) : submitted;
-}
-
-/** Stops offering a car on a route: deactivates its current and scheduled versions; history is kept. */
-async function clearRate(tx: Prisma.TransactionClient, actor: Actor, vendorId: string, pair: Pair, service: Simple, spec: Pick<RateSpec, "city" | "name">) {
-  const rule = await tx.pricingRule.findUnique({ where: { vendorId_vehicleCategory_pricingType_tripType: { vendorId, vehicleCategory: pair.category, ...RULE[service] } } });
-  const pkg = rule && await findPackage(tx, rule.id, pair.id, spec);
-  if (!pkg) return 0;
-  const versions = await tx.pricingRateVersion.findMany({ where: { pricingPackageId: pkg.id, ...liveWhere(["APPROVED", "PENDING", "DRAFT"]) }, select: { id: true, version: true }, orderBy: { version: "asc" } });
-  for (const version of versions) await transitionRate(actor, version.id, "deactivate", "Price cleared in bulk pricing", version.version, tx);
-  return versions.length;
+  const ruleIds = [...rules.values()].map(rule => rule.id);
+  if (!ruleIds.length) return { saved: [] as { status: string }[], cleared: 0 };
+  // Serialize package identity creation exactly as the single-row path did.
+  if (priced.length) await lockMany(tx, pairs.flatMap(pair => priced.map(row => `simple-package:${pair.id}:${canonical}:${cityKey(row.spec!.city)}:${cityKey(row.spec!.destination)}:${normalize(row.spec!.name)}`)));
+  const names = rows.map(row => row.name);
+  const packages = new Map((await tx.pricingPackage.findMany({ where: { vehicleId: { in: pairs.map(pair => pair.id) }, pricingRuleId: { in: ruleIds }, packageName: { in: names, mode: "insensitive" } } }))
+    .map(pkg => [packageKey(pkg.vehicleId, pkg.pricingRuleId, pkg.city, pkg.packageName), pkg]));
+  const missing: Prisma.PricingPackageCreateManyInput[] = [];
+  for (const pair of pairs) for (const row of priced) {
+    const rule = rules.get(pair.category)!, spec = row.spec!;
+    if (packages.has(packageKey(pair.id, rule.id, spec.city, spec.name)) || missing.some(m => m.vehicleId === pair.id && m.packageName === spec.name)) continue;
+    missing.push({ pricingRuleId: rule.id, vehicleId: pair.id, packageType: canonical, packageName: spec.name, city: spec.city, fromCity: service === "LOCAL" ? null : spec.city, toCity: spec.destination || null,
+      includedHours: Number(spec.terms.includedHours), includedKm: Number(spec.terms.includedKm), baseFare: spec.fare, extraKmRate: spec.terms.perKm, extraHourRate: spec.terms.perHour, driverAllowance: spec.driverAllowance, isActive: true });
+  }
+  if (missing.length) {
+    const created = await tx.pricingPackage.createManyAndReturn({ data: missing });
+    await tx.auditLog.createMany({ data: created.map(pkg => ({ userId: actor.id, action: "CREATE" as const, entityName: "Pricing", entityId: pkg.id, newValue: JSON.parse(JSON.stringify({ ...pkg, vendorId, action: "CREATE_SERVICE_IDENTITY" })) })) });
+    for (const pkg of created) packages.set(packageKey(pkg.vehicleId, pkg.pricingRuleId, pkg.city, pkg.packageName), pkg);
+  }
+  // Every (car, row) cell resolved to its package and rate scope in memory.
+  const cells = pairs.flatMap(pair => rows.flatMap(row => {
+    const rule = rules.get(pair.category), pkg = rule && packages.get(packageKey(pair.id, rule.id, city, row.name));
+    if (!rule || !pkg) return [];
+    if (row.spec && !pkg.isActive) throw new PricingError("INVALID_INPUT", `The ${row.name} package for ${pair.registrationNumber} is disabled. Review it in Advanced first.`, 400);
+    const rateService = canonicalService((SERVICES as readonly string[]).includes(pkg.packageType) ? pkg.packageType : rule.pricingType, rule.tripType, pkg.transferDirection);
+    const scope = packageScope(rule, pkg, rateService);
+    return [{ pair, row, rule, scope, key: scopeKey(scope) }];
+  }));
+  const live = cells.length ? await tx.pricingRateVersion.findMany({ where: { scopeKey: { in: cells.map(cell => cell.key) }, status: { in: ["APPROVED", "PENDING", "DRAFT"] }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: new Date() } }] }, select: { id: true, scopeKey: true, version: true, status: true, fare: true, terms: true }, orderBy: { version: "desc" } }) : [];
+  const saved: { status: string }[] = [], create: BatchRate[] = [], clear: string[] = [];
+  for (const cell of cells) {
+    const versions = live.filter(version => version.scopeKey === cell.key);
+    if (!cell.row.spec) { clear.push(...versions.map(version => version.id)); continue; }
+    const spec = cell.row.spec, latest = versions.find(version => version.status !== "DRAFT");
+    if (latest && unchanged(latest, spec, cell.pair.driver.id)) { saved.push({ status: "UNCHANGED" }); continue; }
+    const operational: OperationalTerms = { service, vehicleId: cell.pair.id, driverId: cell.pair.driver.id, driverName: `${cell.pair.driver.firstName} ${cell.pair.driver.lastName}`.trim(), car: `${cell.pair.make} ${cell.pair.model} — ${cell.pair.registrationNumber}`, driverAllowancePerDay: spec.driverAllowance,
+      extraPickupDrop: service === "ONE_WAY" ? "250" : "0", waitingFreeMinutes: service === "ONE_WAY" ? "30" : "0", toll: "AS_APPLICABLE", parking: "AS_APPLICABLE", ...(spec.notes ? { notes: spec.notes } : {}) };
+    create.push({ pricingRuleId: cell.rule.id, scope: cell.scope, fare: spec.fare, terms: { ...spec.terms, operational }, ...(typeof expected[cell.key] === "number" ? { expectedVersion: expected[cell.key] as number } : {}) });
+  }
+  const cleared = await deactivateRatesBatch(actor, clear, tx);
+  saved.push(...await createRatesBatch(actor, create, from, "Approved by Super Admin via Simple Pricing", tx));
+  return { saved, cleared };
 }
 
 function summary(vehicleCount: number, saved: { status: string }[], cleared = 0) {
@@ -190,9 +217,8 @@ export async function saveSimpleRates(actor: Actor, raw: unknown) {
   const from = date(b.effectiveFrom, "start date");
   if (from <= new Date()) throw new PricingError("INVALID_INPUT", "Choose a future start time for these prices", 400);
   return prisma.$transaction(async tx => {
-    const saved = [];
-    for (const selected of pairs) saved.push(await writeRate(tx, actor, vendorId, await lockPair(tx, vendorId, selected), spec, from, expected));
-    return summary(pairs.length, saved);
+    const { saved, cleared } = await applyGrid(tx, actor, vendorId, pairs, "LOCAL", spec.city, [{ name: spec.name, spec }], from, expected);
+    return summary(pairs.length, saved, cleared);
   }, { timeout: 60000 });
 }
 
@@ -205,17 +231,9 @@ export async function saveBulkRates(actor: Actor, raw: unknown) {
   const from = date(b.effectiveFrom, "start date");
   if (priced.length && from <= new Date()) throw new PricingError("INVALID_INPUT", "Choose a future start time for these prices", 400);
   return prisma.$transaction(async tx => {
-    const saved: { status: string }[] = [];
-    let cleared = 0;
-    for (const selected of pairs) {
-      const pair = await lockPair(tx, vendorId, selected);
-      for (const row of [...input.rows].sort((x, y) => x.key.localeCompare(y.key))) {
-        if (row.spec) saved.push(await writeRate(tx, actor, vendorId, pair, row.spec, from, expected));
-        else cleared += await clearRate(tx, actor, vendorId, pair, input.service, { city: input.city, name: row.name });
-      }
-    }
+    const { saved, cleared } = await applyGrid(tx, actor, vendorId, pairs, input.service, input.city, input.rows, from, expected);
     return { ...summary(pairs.length, saved, cleared), service: input.service, city: input.city, routesPriced: priced.length, routesBlank: input.rows.length - priced.length };
-  }, { timeout: 280000, maxWait: 10000 });
+  }, { timeout: 120000, maxWait: 10000 });
 }
 
 export async function saveSimplePolicy(actor: Actor, raw: unknown) {

@@ -116,3 +116,91 @@ export async function savePolicy(actor: Actor, raw: unknown, transaction?: Prism
   };
   return transaction ? work(transaction) : prisma.$transaction(work);
 }
+
+// ---- Set-based equivalents used by the bulk pricing grids ----------------------------
+// Same scope keys, advisory locks, version numbering, MASTER/BAND selection, auto-approval,
+// outside-band reason rule, overlap closing and audit trail as createRate → submit →
+// (Super Admin) approve, and as deactivate — with a fixed number of queries per batch
+// instead of ~20 sequential queries per rate.
+export async function lockMany(tx: Prisma.TransactionClient, keys: string[]) {
+  const sorted = [...new Set(keys)].sort();
+  if (sorted.length) await tx.$queryRaw`SELECT count(*)::int AS "locked" FROM (SELECT pg_advisory_xact_lock(hashtextextended(k, 0)) FROM unnest(${sorted}::text[]) AS k) AS locks`;
+}
+/** The scope createRate derives from a package and its rate card. */
+export function packageScope(rule: { vendorId: string; vehicleCategory: string; pricingType: string }, pkg: { id: string; packageName: string; city: string | null; fromCity: string | null; toCity: string | null; airportName: string | null }, service: string): Scope {
+  const route = rule.pricingType === "OUTSTATION" ? pkg.packageName.match(/^(.+?)\s+to\s+(.+)$/i) : null;
+  return { vendorId: rule.vendorId, vehicleCategory: rule.vehicleCategory, service, pricingPackageId: pkg.id, city: normalize(pkg.city), origin: normalize(pkg.fromCity || route?.[1] || ""), destination: normalize(pkg.toCity || route?.[2] || ""), area: normalize(pkg.airportName) };
+}
+export interface BatchRate { pricingRuleId: string; scope: Scope; fare: string; terms: Partial<Terms>; expectedVersion?: number }
+const auditRow = (actor: Actor, entityId: string, oldValue: unknown, newValue: unknown): Prisma.AuditLogCreateManyInput =>
+  ({ userId: actor.id, action: oldValue ? "UPDATE" : "CREATE", entityName: "Pricing", entityId, ...(oldValue ? { oldValue: json(oldValue) } : {}), newValue: json(newValue) });
+
+export async function createRatesBatch(actor: Actor, items: BatchRate[], from: Date, approveReason: string, tx: Prisma.TransactionClient) {
+  if (!items.length) return [] as PricingRateVersion[];
+  const now = new Date();
+  const scoped = items.map(item => {
+    own(actor, item.scope.vendorId);
+    if (!!item.scope.origin !== !!item.scope.destination) throw new PricingError("INVALID_INPUT", "Both route endpoints are required", 400);
+    return { item, key: scopeKey(item.scope), fare: money(nonnegative(item.fare, "Your Fare")) };
+  });
+  const keys = scoped.map(x => x.key);
+  if (new Set(keys).size !== keys.length) throw new PricingError("INVALID_INPUT", "A price is listed more than once", 400);
+  await lockMany(tx, keys);
+  const existing = await tx.pricingRateVersion.findMany({ where: { scopeKey: { in: keys } }, select: { id: true, scopeKey: true, version: true, status: true, effectiveFrom: true, effectiveTo: true } });
+  const policies = await tx.pricingPolicy.findMany({ where: { active: true } });
+  const latest = new Map<string, number>();
+  for (const row of existing) latest.set(row.scopeKey, Math.max(latest.get(row.scopeKey) || 0, row.version));
+  const closing: { key: string; old: (typeof existing)[number] }[] = [];
+  const data = scoped.map(({ item, key, fare }) => {
+    const s = item.scope, previous = latest.get(key) || 0;
+    if (item.expectedVersion !== undefined && item.expectedVersion !== previous) throw new PricingError("VERSION_CONFLICT", "The rate changed. Reload before saving.");
+    const master = selectPolicy(policies, "MASTER", s, from, false);
+    const bandPolicy = selectPolicy(policies, "BAND", s, from, false);
+    const band = bandPolicy ? policyData("BAND", bandPolicy.data) as Band : null;
+    const reasonRequired = (reason: string) => (!band || !inBand(fare, band)) && (!actor.admin || !reason.trim());
+    // submit: DRAFT → PENDING, or APPROVED inside the auto-approval band (no reason given).
+    let status = band && inBand(fare, band, true) ? "APPROVED" : "PENDING", reason = "", adminApproved = false;
+    if (status === "APPROVED" && reasonRequired("")) throw new PricingError("APPROVAL_REASON_REQUIRED", "Outside-band approval requires Super Admin and a reason");
+    // Super Admin approval of a pending price, with the stated reason.
+    if (status === "PENDING" && actor.admin) {
+      if (reasonRequired(approveReason)) throw new PricingError("APPROVAL_REASON_REQUIRED", "Outside-band approval requires Super Admin and a reason");
+      status = "APPROVED"; reason = approveReason; adminApproved = true;
+    }
+    if (status === "APPROVED") for (const old of existing) {
+      if (old.scopeKey !== key || old.status !== "APPROVED" || (old.effectiveTo && old.effectiveTo <= from)) continue;
+      if (old.effectiveFrom >= from || from < now) throw new PricingError("OVERLAPPING_RATE", "Choose a future Effective From after the current version");
+      closing.push({ key, old });
+    }
+    return { adminApproved, row: { pricingRuleId: item.pricingRuleId, pricingPackageId: s.pricingPackageId || null, scopeKey: key, vendorId: s.vendorId, vehicleCategory: s.vehicleCategory as VehicleCategory, service: s.service,
+      city: s.city || "", origin: s.origin || "", destination: s.destination || "", area: s.area || "", version: previous + 1, effectiveFrom: from, effectiveTo: null, fare, smartReturnFare: null, status,
+      terms: json({ ...(master ? object(master.data) : {}), ...item.terms, ...(master ? { masterPolicyId: master.id, masterPolicyVersion: master.version } : {}) }), createdBy: actor.id,
+      ...(status === "APPROVED" ? { reviewedBy: actor.id, reviewedAt: now, reviewReason: reason || "Within auto-approval band" } : {}) } satisfies Prisma.PricingRateVersionCreateManyInput };
+  });
+  // A replacement closes its predecessor at the future boundary (before insert, so the
+  // database overlap guard holds); past quotes are never rewritten.
+  if (closing.length) await tx.pricingRateVersion.updateMany({ where: { id: { in: closing.map(c => c.old.id) } }, data: { effectiveTo: from } });
+  const created = await tx.pricingRateVersion.createManyAndReturn({ data: data.map(d => d.row) });
+  const byKey = new Map(created.map(row => [row.scopeKey, row]));
+  const audit: Prisma.AuditLogCreateManyInput[] = closing.map(c => auditRow(actor, c.old.id, c.old, { effectiveTo: from, replacedBy: byKey.get(c.key)!.id }));
+  data.forEach((d, i) => {
+    const row = byKey.get(scoped[i].key)!, draft = { ...row, status: "DRAFT", reviewedBy: null, reviewedAt: null, reviewReason: null };
+    audit.push(auditRow(actor, row.id, null, draft));
+    if (d.adminApproved) { const pending = { ...draft, status: "PENDING" }; audit.push(auditRow(actor, row.id, draft, pending), auditRow(actor, row.id, pending, row)); }
+    else audit.push(auditRow(actor, row.id, draft, row));
+  });
+  await tx.auditLog.createMany({ data: audit });
+  return created;
+}
+
+export async function deactivateRatesBatch(actor: Actor, ids: string[], tx: Prisma.TransactionClient) {
+  if (!ids.length) return 0;
+  const found = await tx.pricingRateVersion.findMany({ where: { id: { in: ids } }, select: { vendorId: true, scopeKey: true } });
+  for (const row of found) own(actor, row.vendorId);
+  await lockMany(tx, found.map(row => row.scopeKey));
+  const rows = await tx.pricingRateVersion.findMany({ where: { id: { in: ids }, status: { in: ["APPROVED", "PENDING", "DRAFT"] } } });
+  if (!rows.length) return 0;
+  const deactivatedAt = new Date();
+  await tx.pricingRateVersion.updateMany({ where: { id: { in: rows.map(row => row.id) } }, data: { status: "INACTIVE", deactivatedAt } });
+  await tx.auditLog.createMany({ data: rows.map(row => auditRow(actor, row.id, row, { ...row, status: "INACTIVE", deactivatedAt })) });
+  return rows.length;
+}

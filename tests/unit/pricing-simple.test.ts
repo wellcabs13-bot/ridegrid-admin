@@ -1,11 +1,12 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
-  db: { $transaction: vi.fn(), $queryRaw: vi.fn(), vendor: { findMany: vi.fn() }, vehicle: { findMany: vi.fn(), findFirst: vi.fn() }, pricingPackage: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() }, pricingRateVersion: { findMany: vi.fn(), findFirst: vi.fn() }, pricingPolicy: { findMany: vi.fn() }, pricingRule: { upsert: vi.fn(), findUnique: vi.fn() } },
-  createRate: vi.fn(), transitionRate: vi.fn(), savePolicy: vi.fn(), evidence: vi.fn(), lock: vi.fn(),
+  db: { $transaction: vi.fn(), $queryRaw: vi.fn(), vendor: { findMany: vi.fn() }, vehicle: { findMany: vi.fn() }, pricingPackage: { findMany: vi.fn(), createManyAndReturn: vi.fn() }, pricingRateVersion: { findMany: vi.fn() }, pricingPolicy: { findMany: vi.fn() }, pricingRule: { upsert: vi.fn(), findMany: vi.fn() }, auditLog: { createMany: vi.fn() } },
+  createRatesBatch: vi.fn(), deactivateRatesBatch: vi.fn(), lockMany: vi.fn(), savePolicy: vi.fn(), lock: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.db }));
-vi.mock("@/lib/services/pricing/RateService", () => ({ createRate: mocks.createRate, transitionRate: mocks.transitionRate, savePolicy: mocks.savePolicy, evidence: mocks.evidence, lock: mocks.lock }));
+vi.mock("@/lib/services/pricing/RateService", async () => ({ packageScope: (await vi.importActual<typeof import("@/lib/services/pricing/RateService")>("@/lib/services/pricing/RateService")).packageScope,
+  createRatesBatch: mocks.createRatesBatch, deactivateRatesBatch: mocks.deactivateRatesBatch, lockMany: mocks.lockMany, savePolicy: mocks.savePolicy, lock: mocks.lock }));
 import { activeVendorWhere, bulkInput, pairWhere, saveBulkRates, saveSimplePolicy, saveSimpleRates, serviceInput, simplePricingData } from "@/lib/services/pricing/SimplePricingService";
 import { pricingCatalog } from "@/lib/services/pricing/catalog";
 import { calculateBreakdown, Terms } from "@/lib/services/pricing/engine";
@@ -14,17 +15,20 @@ const admin = { id: "admin", admin: true, finance: false }, vendor = { id: "user
 const pair = (id: string) => ({ id, vendorId: "vendor", driverId: `driver-${id}`, category: "SEDAN", make: "Car", model: "Model", registrationNumber: id, driver: { id: `driver-${id}`, firstName: "Assigned", lastName: "Driver" } });
 const input = { vendorId: "vendor", service: "LOCAL", city: "Pune", package: "8_80", fare: "2000", extraKm: "12", extraHour: "150", pairs: [{ vehicleId: "car1", driverId: "driver-car1" }], expectedVersions: {}, effectiveFrom: "2035-01-01T00:00:00Z" };
 const policy = (kind: string, data: unknown) => ({ id: kind, key: kind, kind, version: 2, name: kind, data, active: true, effectiveFrom: new Date("2025-01-01"), effectiveTo: null });
+const items = () => mocks.createRatesBatch.mock.calls.flatMap(call => call[1]);
+let packageSeq = 0;
 beforeEach(() => {
-  vi.resetAllMocks(); mocks.db.$transaction.mockImplementation(fn => fn(mocks.db));
+  vi.resetAllMocks(); packageSeq = 0; mocks.db.$transaction.mockImplementation(fn => fn(mocks.db)); mocks.db.$queryRaw.mockResolvedValue([]);
   mocks.db.vendor.findMany.mockResolvedValue([{ id: "vendor", companyName: "Eligible vendor" }]);
-  mocks.db.vehicle.findMany.mockResolvedValue([pair("car1")]);
-  mocks.db.vehicle.findFirst.mockImplementation(async ({ where }) => where.id === "foreign" ? null : pair(where.id));
-  mocks.db.pricingPackage.findFirst.mockResolvedValue(null);
-  mocks.db.pricingPackage.create.mockImplementation(async ({ data }) => ({ id: `${data.vehicleId}-${data.packageName}`, ...data }));
-  mocks.db.pricingRule.upsert.mockImplementation(async ({ create }) => ({ id: "rule", isActive: true, ...create }));
-  mocks.db.pricingPolicy.findMany.mockResolvedValue([]); mocks.db.pricingRateVersion.findMany.mockResolvedValue([]); mocks.db.pricingRateVersion.findFirst.mockResolvedValue(null);
-  mocks.createRate.mockImplementation(async (_actor, data) => ({ id: data.pricingPackageId, version: 1, ...data }));
-  mocks.transitionRate.mockResolvedValue({ status: "PENDING" }); mocks.savePolicy.mockImplementation(async (_actor, data) => data);
+  mocks.db.vehicle.findMany.mockImplementation(async ({ where }) => where.id?.in ? where.id.in.filter((id: string) => id !== "foreign").map(pair) : [pair("car1")]);
+  mocks.db.pricingRule.findMany.mockResolvedValue([]);
+  mocks.db.pricingRule.upsert.mockImplementation(async ({ create }) => ({ id: `rule-${create.tripType}`, isActive: true, ...create }));
+  mocks.db.pricingPackage.findMany.mockResolvedValue([]);
+  mocks.db.pricingPackage.createManyAndReturn.mockImplementation(async ({ data }) => data.map((d: Record<string, unknown>) => ({ id: `pkg-${++packageSeq}`, airportName: null, transferDirection: null, ...d })));
+  mocks.db.pricingPolicy.findMany.mockResolvedValue([]); mocks.db.pricingRateVersion.findMany.mockResolvedValue([]);
+  mocks.createRatesBatch.mockImplementation(async (actor, batch) => batch.map(() => ({ status: actor.admin ? "APPROVED" : "PENDING" })));
+  mocks.deactivateRatesBatch.mockImplementation(async (_actor, ids) => ids.length);
+  mocks.savePolicy.mockImplementation(async (_actor, data) => data);
 });
 
 describe("simple pricing eligibility and local writes", () => {
@@ -50,7 +54,7 @@ describe("simple pricing eligibility and local writes", () => {
   });
   it("rejects foreign or inactive/misaligned pairs before creating rates", async () => {
     await expect(saveSimpleRates(vendor, { ...input, pairs: [{ vehicleId: "foreign", driverId: "driver" }] })).rejects.toThrow("no longer active");
-    expect(mocks.createRate).not.toHaveBeenCalled();
+    expect(mocks.createRatesBatch).not.toHaveBeenCalled();
   });
   it("rejects another vendor and finance rate writes", async () => {
     await expect(saveSimpleRates(vendor, { ...input, vendorId: "other" })).rejects.toMatchObject({ status: 403 });
@@ -59,19 +63,20 @@ describe("simple pricing eligibility and local writes", () => {
   it("creates and submits one separate local version for each selected aligned pair", async () => {
     const result = await saveSimpleRates(vendor, { ...input, pairs: [...input.pairs, { vehicleId: "car2", driverId: "driver-car2" }] });
     expect(result).toMatchObject({ vehicleCount: 2, rateCount: 2, pending: 2 });
-    expect(mocks.createRate).toHaveBeenCalledTimes(2); expect(mocks.transitionRate).toHaveBeenCalledTimes(2);
-    expect(mocks.createRate.mock.calls[0][3]).toMatchObject({ includedKm: "80", includedHours: "8", perKm: "12", perHour: "150", operational: { service: "LOCAL", vehicleId: "car1", driverId: "driver-car1" } });
-    expect(mocks.createRate.mock.calls[0][2]).toBe(mocks.db);
+    expect(mocks.createRatesBatch).toHaveBeenCalledTimes(1); expect(items()).toHaveLength(2);
+    expect(items()[0].terms).toMatchObject({ includedKm: "80", includedHours: "8", perKm: "12", perHour: "150", operational: { service: "LOCAL", vehicleId: "car1", driverId: "driver-car1" } });
+    expect(items()[0].scope).toMatchObject({ service: "LOCAL_HOURLY", city: "pune", origin: "", destination: "" });
+    expect(mocks.createRatesBatch.mock.calls[0][4]).toBe(mocks.db);
   });
   it("accepts only catalog operating cities for local, case-insensitively", async () => {
     await saveSimpleRates(admin, { ...input, city: "pUNE" });
-    expect(mocks.db.pricingPackage.create.mock.calls[0][0].data).toMatchObject({ city: "Pune", packageName: "8 Hrs / 80 Kms", packageType: "LOCAL_HOURLY" });
+    expect(mocks.db.pricingPackage.createManyAndReturn.mock.calls[0][0].data[0]).toMatchObject({ city: "Pune", packageName: "8 Hrs / 80 Kms", packageType: "LOCAL_HOURLY" });
     await expect(saveSimpleRates(admin, { ...input, city: "Lucknow" })).rejects.toThrow("operating cities");
   });
-  it("passes the loaded version boundary through to the existing concurrency guard", async () => {
+  it("passes a loaded version boundary through to the existing concurrency guard", async () => {
     await saveSimpleRates(admin, input);
-    expect(mocks.createRate.mock.calls[0][1].expectedVersion).toBe(0);
-    mocks.createRate.mockRejectedValue(new Error("The rate changed. Reload before saving."));
+    expect(items()[0].expectedVersion).toBeUndefined();
+    mocks.createRatesBatch.mockRejectedValue(new Error("The rate changed. Reload before saving."));
     await expect(saveSimpleRates(admin, input)).rejects.toThrow("Reload");
   });
 });
@@ -147,41 +152,60 @@ describe("website route catalog bulk grids", () => {
 describe("bulk grid writes", () => {
   const bulk = { vendorId: "vendor", service: "ONE_WAY", city: "Pune", effectiveFrom: "2035-01-01T00:00:00Z", pairs: [{ vehicleId: "car1", driverId: "driver-car1" }, { vehicleId: "car2", driverId: "driver-car2" }],
     rows: [{ destination: "Mumbai", fare: "3200" }, { destination: "Nashik", fare: "3500" }, { destination: "Shirdi", fare: "5200" }, { destination: "Kolhapur", fare: "" }] };
-  it("applies every priced route to every selected car in one transaction", async () => {
+  const pkg = (vehicleId: string, destination: string) => ({ id: `${vehicleId}-${destination}`, vehicleId, pricingRuleId: "rule", packageType: "OUTSTATION_ONE_WAY", packageName: `Pune to ${destination}`, city: "Pune", fromCity: "Pune", toCity: destination, airportName: null, transferDirection: null, isActive: true });
+  const existingRule = () => mocks.db.pricingRule.findMany.mockResolvedValue([{ id: "rule", vendorId: "vendor", vehicleCategory: "SEDAN", pricingType: "OUTSTATION", tripType: "ONEWAY", isActive: true }]);
+  it("prefetches once and applies every priced route to every car in one batch", async () => {
     const result = await saveBulkRates(admin, bulk);
     expect(mocks.db.$transaction).toHaveBeenCalledTimes(1);
-    expect(mocks.createRate).toHaveBeenCalledTimes(6);
-    expect(new Set(mocks.createRate.mock.calls.map(call => call[1].pricingPackageId)).size).toBe(6);
-    expect(mocks.db.pricingPackage.create.mock.calls.map(call => call[0].data.packageName)).toEqual(expect.arrayContaining(["Pune to Mumbai", "Pune to Nashik", "Pune to Shirdi"]));
-    expect(result).toMatchObject({ vehicleCount: 2, rateCount: 6, routesPriced: 3, routesBlank: 1, cleared: 0 });
+    expect(mocks.db.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(mocks.db.pricingPackage.findMany).toHaveBeenCalledTimes(1);
+    expect(mocks.db.pricingPackage.createManyAndReturn).toHaveBeenCalledTimes(1);
+    expect(mocks.db.pricingPackage.createManyAndReturn.mock.calls[0][0].data.map((d: { packageName: string }) => d.packageName)).toEqual(["Pune to Mumbai", "Pune to Nashik", "Pune to Shirdi", "Pune to Mumbai", "Pune to Nashik", "Pune to Shirdi"]);
+    expect(mocks.createRatesBatch).toHaveBeenCalledTimes(1); expect(items()).toHaveLength(6);
+    expect(new Set(items().map(i => i.scope.pricingPackageId)).size).toBe(6);
+    expect(items()[0].scope).toMatchObject({ service: "OUTSTATION_ONE_WAY", city: "pune", origin: "pune", destination: "mumbai" });
+    expect(items()[0].terms).toMatchObject({ waitingPerHour: "250", operational: { service: "ONE_WAY", extraPickupDrop: "250", waitingFreeMinutes: "30" } });
+    expect(mocks.deactivateRatesBatch).toHaveBeenCalledWith(admin, [], mocks.db);
+    expect(result).toMatchObject({ vehicleCount: 2, rateCount: 6, approved: 6, routesPriced: 3, routesBlank: 1, cleared: 0 });
   });
-  it("deactivates an existing price when its row is cleared", async () => {
-    mocks.db.pricingRule.findUnique.mockResolvedValue({ id: "rule" });
-    mocks.db.pricingPackage.findFirst.mockImplementation(async ({ where }) => where.packageName.equals === "Pune to Kolhapur" ? { id: `${where.vehicleId}-kolhapur`, isActive: true } : null);
-    mocks.db.pricingRateVersion.findMany.mockResolvedValue([{ id: "old", version: 2 }]);
-    const result = await saveBulkRates(admin, bulk);
-    expect(mocks.transitionRate).toHaveBeenCalledWith(admin, "old", "deactivate", expect.any(String), 2, mocks.db);
-    expect(result.cleared).toBe(2);
+  it("deactivates only versions that exist when a row is cleared", async () => {
+    existingRule();
+    mocks.db.pricingPackage.findMany.mockResolvedValue([pkg("car1", "Kolhapur"), pkg("car2", "Mumbai")]);
+    mocks.db.pricingRateVersion.findMany.mockImplementation(async ({ where }) => where.scopeKey.in.filter((k: string) => k.includes("kolhapur")).map((scopeKey: string) => ({ id: "old", scopeKey, version: 2, status: "APPROVED", fare: "1", terms: {} })));
+    const result = await saveBulkRates(admin, { ...bulk, rows: [{ destination: "Kolhapur", fare: "" }, { destination: "Mumbai", fare: "" }] });
+    expect(mocks.deactivateRatesBatch).toHaveBeenCalledWith(admin, ["old"], mocks.db);
+    expect(mocks.db.pricingPackage.createManyAndReturn).not.toHaveBeenCalled();
+    expect(mocks.db.pricingRule.upsert).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ cleared: 1, rateCount: 0 });
   });
   it("skips unchanged prices instead of duplicating versions", async () => {
-    mocks.db.pricingPackage.findFirst.mockResolvedValue({ id: "pkg", isActive: true, packageType: "OUTSTATION_ONE_WAY", city: "Pune", fromCity: "Pune", toCity: "Mumbai" });
-    mocks.db.pricingRateVersion.findFirst.mockImplementation(async ({ where }) => where.pricingPackageId ? { fare: "3200.00", terms: { includedKm: "0", includedHours: "0", perKm: "0", perHour: "0", waitingPerHour: "250", operational: { driverId: "driver-car1", driverAllowancePerDay: "0" } } } : null);
+    existingRule();
+    mocks.db.pricingPackage.findMany.mockResolvedValue([pkg("car1", "Mumbai")]);
+    mocks.db.pricingRateVersion.findMany.mockImplementation(async ({ where }) => where.scopeKey.in.map((scopeKey: string) => ({ id: "v", scopeKey, version: 1, status: "APPROVED", fare: "3200.00", terms: { includedKm: "0", includedHours: "0", perKm: "0", perHour: "0", waitingPerHour: "250", operational: { driverId: "driver-car1", driverAllowancePerDay: "0" } } })));
     const result = await saveBulkRates(admin, { ...bulk, pairs: [bulk.pairs[0]], rows: [{ destination: "Mumbai", fare: "3200" }] });
-    expect(mocks.createRate).not.toHaveBeenCalled();
+    expect(items()).toHaveLength(0);
     expect(result).toMatchObject({ unchanged: 1, rateCount: 0 });
   });
   it("stores tour notes on the versioned rate terms", async () => {
     await saveBulkRates(admin, { ...bulk, pairs: [bulk.pairs[0]], service: "TOUR", rows: [{ tour: "pune-to-ashtavinayak-darshan-tour", fare: "9000", notes: "Includes temple waiting" }] });
     expect(mocks.db.pricingRule.upsert.mock.calls[0][0].create).toMatchObject({ pricingType: "OUTSTATION", tripType: "ROUNDTRIP" });
-    expect(mocks.db.pricingPackage.create.mock.calls[0][0].data).toMatchObject({ packageType: "TOUR_PACKAGE", packageName: "Pune to Ashtavinayak Darshan", fromCity: "Pune", toCity: "Ashtavinayak Darshan" });
-    expect(mocks.createRate.mock.calls[0][3].operational).toMatchObject({ service: "TOUR", notes: "Includes temple waiting" });
+    expect(mocks.db.pricingPackage.createManyAndReturn.mock.calls[0][0].data[0]).toMatchObject({ packageType: "TOUR_PACKAGE", packageName: "Pune to Ashtavinayak Darshan", fromCity: "Pune", toCity: "Ashtavinayak Darshan" });
+    expect(items()[0].scope).toMatchObject({ service: "TOUR_PACKAGE", origin: "pune", destination: "ashtavinayak darshan" });
+    expect(items()[0].terms.operational).toMatchObject({ service: "TOUR", notes: "Includes temple waiting" });
+  });
+  it("rejects disabled rate cards and packages", async () => {
+    mocks.db.pricingRule.findMany.mockResolvedValue([{ id: "rule", vendorId: "vendor", vehicleCategory: "SEDAN", pricingType: "OUTSTATION", tripType: "ONEWAY", isActive: false }]);
+    await expect(saveBulkRates(admin, bulk)).rejects.toThrow("disabled");
+    existingRule(); mocks.db.pricingPackage.findMany.mockResolvedValue([{ ...pkg("car1", "Mumbai"), isActive: false }]);
+    await expect(saveBulkRates(admin, { ...bulk, pairs: [bulk.pairs[0]] })).rejects.toThrow("package for car1 is disabled");
   });
   it("does not require a future start when only clearing", async () => {
     await expect(saveBulkRates(admin, { ...bulk, effectiveFrom: "2020-01-01T00:00:00Z", rows: [{ destination: "Kolhapur", fare: "" }] })).resolves.toMatchObject({ rateCount: 0 });
     await expect(saveBulkRates(admin, { ...bulk, effectiveFrom: "2020-01-01T00:00:00Z" })).rejects.toThrow("future");
   });
-  it("rejects writes for another vendor", async () => {
+  it("rejects writes for another vendor and misaligned pairs", async () => {
     await expect(saveBulkRates(vendor, { ...bulk, vendorId: "other" })).rejects.toMatchObject({ status: 403 });
+    await expect(saveBulkRates(admin, { ...bulk, pairs: [{ vehicleId: "car1", driverId: "someone-else" }] })).rejects.toThrow("no longer active");
   });
 });
 

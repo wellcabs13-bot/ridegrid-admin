@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { Terms } from "@/lib/services/pricing/engine";
 import { Catalog, CurrentPrice, GridRow, RouteGrid } from "./RouteGrid";
@@ -36,11 +36,13 @@ export default function SimplePricing() {
   const [from, setFrom] = useState(future);
   const [gst, setGst] = useState(""), [fee, setFee] = useState(""), [taxBase, setTaxBase] = useState(""), [policyFrom, setPolicyFrom] = useState(future);
   const [filterService, setFilterService] = useState(""), [filterVehicle, setFilterVehicle] = useState(""), [filterDriver, setFilterDriver] = useState(""), [filterCity, setFilterCity] = useState(""), [filterStatus, setFilterStatus] = useState(""), [view, setView] = useState<Rate | null>(null);
+  const loadedVendor = useRef<string | null>(null);
   useEffect(() => {
-    const controller = new AbortController(); setLoading(true); setError("");
+    // After a save, refresh in the background so the grid and scroll position stay in place.
+    const controller = new AbortController(); if (loadedVendor.current !== vendor) { setLoading(true); setError(""); }
     fetch(`/api/pricing/manage?view=simple${vendor ? `&vendorId=${encodeURIComponent(vendor)}` : ""}`, { credentials: "include", signal: controller.signal })
       .then(async response => { const result = await response.json(); if (!response.ok || !result.success) throw new Error(result.message || "Could not load pricing"); return result.data as Data; })
-      .then(result => { if (controller.signal.aborted) return; setData(result); if (result.role === "VENDOR" && result.vendorId && !vendor) setVendor(result.vendorId);
+      .then(result => { if (controller.signal.aborted) return; loadedVendor.current = vendor; setData(result); if (result.role === "VENDOR" && result.vendorId && !vendor) setVendor(result.vendorId);
         const tax = result.policies.find(p => p.kind === "TAX"), platform = result.policies.find(p => p.kind === "FEE");
         setGst(tax?.data?.length === 1 ? String(tax.data[0].rate) : ""); setFee(platform ? String(platform.data.percent) : ""); })
       .catch(e => { if (!controller.signal.aborted) setError(e.message); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
