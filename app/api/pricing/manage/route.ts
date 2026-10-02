@@ -5,7 +5,10 @@ import { Actor, createRate, savePolicy, transitionRate, lock, evidence } from "@
 import { PricingError, SERVICES, money, nonnegative, normalize } from "@/lib/services/pricing/engine";
 import { object, text } from "@/lib/services/pricing/config";
 import { VehicleCategory } from "@prisma/client";
-import { saveSimplePolicy, saveSimpleRates, simplePricingData } from "@/lib/services/pricing/SimplePricingService";
+import { saveBulkRates, saveSimplePolicy, saveSimpleRates, simplePricingData } from "@/lib/services/pricing/SimplePricingService";
+
+// Bulk route-grid saves write many versions in one transaction.
+export const maxDuration = 300;
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,6 +46,7 @@ export async function POST(request: NextRequest) {
     const action = text(b.action, "action");
     let data: unknown;
     if (action === "simple-rates") data = await saveSimpleRates(actor, b);
+    else if (action === "simple-bulk") data = await saveBulkRates(actor, b);
     else if (action === "simple-policy") data = await saveSimplePolicy(actor, b);
     else if (action === "policy") data = await savePolicy(actor, b);
     else if (action === "draft") data = await createRate(actor, b);

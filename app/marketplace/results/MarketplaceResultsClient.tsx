@@ -49,6 +49,7 @@ type Listing = {
     otherCharges?: number | null;
     airportName?: string | null;
     transferDirection?: string | null;
+    notes?: string | null;
   };
   marketplace: {
     rating: number;
@@ -367,7 +368,7 @@ export default function MarketplaceResultsClient() {
               {loading ? "Finding vehicles..." : `${sortedListings.length} Vehicle${sortedListings.length === 1 ? "" : "s"} Found`}
             </div>
             <div className="mt-1 text-xs text-slate-400">
-              Real vehicles matched to active saved PricingPackage records.
+              Verified cabs with a live price for your trip.
             </div>
           </div>
 
@@ -715,6 +716,12 @@ function MarketplaceListingCard({
             {pkg.parkingCharge != null && <PriceLine label="Parking" value={currency(pkg.parkingCharge)} />}
             {pkg.otherCharges != null && <PriceLine label="Other Charges" value={currency(pkg.otherCharges)} />}
           </div>
+
+          {pkg.notes && (
+            <p className="mt-3 whitespace-pre-line rounded-xl border border-amber-300/20 bg-amber-300/5 px-3 py-2 text-xs text-amber-100">
+              <span className="font-bold">Vendor notes: </span>{pkg.notes}
+            </p>
+          )}
 
           {pkg.pricingType === "AIRPORT" && (
             <div className="mt-3 rounded-xl border border-cyan-300/15 bg-cyan-300/5 px-3 py-2 text-xs text-cyan-100">

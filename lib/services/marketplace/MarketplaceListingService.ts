@@ -3,6 +3,7 @@ import { PricingError, SERVICES, decimal } from "@/lib/services/pricing/engine";
 import { publicSnapshot } from "@/lib/services/pricing/publicSnapshot";
 import { Prisma, VehicleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { locationKey } from "@/lib/website-public/marketplace";
 import { vehicleRepository } from "@/lib/repositories/vehicle";
 import {
   findUnavailableAssignments,
@@ -18,6 +19,8 @@ export interface MarketplaceListingFilters {
 
 const norm = (v?: string | null) => String(v ?? "").trim().toLowerCase();
 const same = (a?: string | null, b?: string | null) => norm(a) === norm(b);
+// City names compare through the website alias map (e.g. Aurangabad / Chhatrapati Sambhajinagar).
+const sameCity = (a?: string | null, b?: string | null) => locationKey(a || "") === locationKey(b || "");
 const num = (v: unknown) => v == null ? null : Number(v);
 
 function route(name: string, from: string | null, to: string | null) {
@@ -108,6 +111,8 @@ export class MarketplaceListingService {
 
     const matching = packages.filter((pkg) => {
       if ((SERVICES as readonly string[]).includes(serviceType) && pkg.packageType !== serviceType) return false;
+      // Tour circuits are priced and listed only as Tours, never as point-to-point routes.
+      if (!(SERVICES as readonly string[]).includes(serviceType) && pkg.packageType === "TOUR_PACKAGE") return false;
       const r = serviceType === "OUTSTATION"
         ? route(pkg.packageName, pkg.fromCity, pkg.toCity)
         : { fromCity: pkg.fromCity, toCity: pkg.toCity };
@@ -117,10 +122,10 @@ export class MarketplaceListingService {
           !tripType ||
           !pickupCity ||
           !visitCities.length ||
-          !same(r.fromCity, pickupCity) ||
-          !visitCities.some(city => same(r.toCity, city))
+          !sameCity(r.fromCity, pickupCity) ||
+          !visitCities.some(city => sameCity(r.toCity, city))
         ) return false;
-      } else if (pickupCity && pkg.city && !same(pkg.city, pickupCity)) return false;
+      } else if (pickupCity && pkg.city && !sameCity(pkg.city, pickupCity)) return false;
 
       if (packageName && !same(pkg.packageName, packageName)) return false;
       if (airport && !same(pkg.airportName, airport)) return false;
@@ -163,7 +168,7 @@ export class MarketplaceListingService {
         const set = coverage.get(pkg.vehicleId) || new Set<string>();
 
         for (const city of visitCities) {
-          if (same(r.toCity, city)) set.add(norm(city));
+          if (sameCity(r.toCity, city)) set.add(norm(city));
         }
 
         coverage.set(pkg.vehicleId, set);
@@ -312,6 +317,7 @@ export class MarketplaceListingService {
           otherCharges: num(pkg.otherCharges), airportName: pkg.airportName,
           transferDirection: pkg.transferDirection,
           extraPickupCharge: num(pkg.extraPickupCharge), extraDropCharge: num(pkg.extraDropCharge),
+          notes: quote.snapshot.calculationRule.operational?.notes || null,
         },
         // Public marketplace fields only. Vendor/driver contact details are shared through
         // role-scoped booking APIs once a booking and assignment exist.

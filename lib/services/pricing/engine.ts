@@ -35,7 +35,7 @@ export function resolveRate<T extends Rate>(rates: T[], scope: Scope, at: Date):
   if (ranked[1]?.rank === ranked[0].rank) throw new PricingError("CONFLICTING_RATES");
   return ranked[0].r;
 }
-export interface OperationalTerms { service: "LOCAL" | "ONE_WAY" | "ROUNDTRIP"; vehicleId: string; driverId: string; driverName: string; car: string; driverAllowancePerDay: string; extraPickupDrop: string; waitingFreeMinutes: string; toll: "AS_APPLICABLE"; parking: "AS_APPLICABLE" }
+export interface OperationalTerms { service: "LOCAL" | "ONE_WAY" | "ROUNDTRIP" | "TOUR"; vehicleId: string; driverId: string; driverName: string; car: string; driverAllowancePerDay: string; extraPickupDrop: string; waitingFreeMinutes: string; toll: "AS_APPLICABLE"; parking: "AS_APPLICABLE"; notes?: string }
 export interface Terms { method: "FIXED" | "PER_KM" | "PER_HOUR"; includedKm: string; includedHours: string; minimumKmPerDay: string; perKm: string; perHour: string; driverAllowance: string; waitingPerHour: string; nightCharge: string; cancellationReference: string; fallbackRateVersionId?: string; fallbackVendorIds?: string[]; operational?: OperationalTerms }
 export interface Band { minimum: string; recommended: string; maximum: string; autoMinimum: string; autoMaximum: string; smartMinimum?: string; smartMaximum?: string }
 export function inBand(fare: Money, band: Band, auto = false) {
