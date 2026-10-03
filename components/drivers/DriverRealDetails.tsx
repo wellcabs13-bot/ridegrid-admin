@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import ResetLoginPassword from "@/components/admin/ResetLoginPassword";
 
 interface Props {
   driverId: string | number;
@@ -116,9 +117,12 @@ export default function DriverRealDetails({ driverId }: Props) {
     <div className="space-y-6">
 
       <section className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="mb-5 text-xl font-semibold">
-          Driver Information
-        </h3>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-xl font-semibold">
+            Driver Information
+          </h3>
+          {driver.id && <ResetLoginPassword kind="drivers" id={driver.id} />}
+        </div>
 
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           <div>

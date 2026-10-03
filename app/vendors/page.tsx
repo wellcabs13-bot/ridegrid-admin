@@ -7,6 +7,7 @@ import { PageHeading } from "@/components/admin/Primitives";
 import { Confirm, Drawer, Empty, Field, Notice, Pager, Pill, Rows, Section, inr, num, send, when, words } from "@/components/admin/kit";
 import AddVendorModal from "@/components/vendors/AddVendorModal";
 import VendorForm, { VendorFormData } from "@/components/vendors/VendorForm";
+import ResetLoginPassword from "@/components/admin/ResetLoginPassword";
 import { Plus, RefreshCw } from "lucide-react";
 
 type Row = {
@@ -126,6 +127,7 @@ function VendorDrawer({ id, onClose, onEdit, onChanged }: { id: string | null; o
   const ask = (a: string) => { setActionError(""); setConfirm(a); };
   const footer = d && d.state !== "DELETED" ? <>
     <button className="rg-secondary" onClick={() => onEdit(d.id)}>Edit details</button>
+    <ResetLoginPassword kind="vendors" id={d.id} />
     {d.state !== "SUSPENDED" && (d.verified ? <button className="rg-secondary" onClick={() => ask("unverify")}>Remove verification</button> : <button className="rg-primary" onClick={() => ask("verify")}>Verify vendor</button>)}
     {d.state === "SUSPENDED" ? <button className="rg-secondary" onClick={() => ask("reinstate")}>Reinstate</button> : <button className="rg-secondary" onClick={() => ask("suspend")}>Suspend</button>}
     <button className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white" onClick={() => ask("delete")}>Delete</button>
