@@ -1,11 +1,34 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, MapPin, Plane, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, Clock3, MapPin, Plane, Users } from "lucide-react";
 import { AIRPORT_CITIES, airportIntentHref, categoryKey, JOURNEYS, journeyOptions, locationKey, marketplaceIntentHref, marketplaceResultsHref, normalizePricingOptions, withPassengers, type PricingOption, type SearchContext } from "@/lib/website-public/marketplace";
 import s from "./public.module.css";
 
 const PASSENGERS = [1, 2, 3, 4, 5, 6, 7];
+// Visible tab names only; JOURNEYS keeps the service/trip mapping (and its SEO labels).
+const TAB_LABELS = ["One Way", "Round Trip", "Local", "Airport", "Tours"];
+const friendlyDate = (value: string) => {
+  const d = new Date(`${value}T00:00:00`);
+  return value && Number.isFinite(d.getTime()) ? d.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }) : "";
+};
+const friendlyTime = (value: string) => {
+  const [h, m] = value.split(":").map(Number);
+  return value && Number.isFinite(h) && Number.isFinite(m) ? `${String(((h + 11) % 12) + 1).padStart(2, "0")}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}` : "";
+};
+// Native date/time inputs keep the exact YYYY-MM-DD / HH:mm values the APIs expect;
+// the visible face shows them as "Thu, 09 Oct 2026" and "11:30 AM".
+function PickerField({ label, icon, type, value, display, placeholder, min, required, onChange }: { label: string; icon: React.ReactNode; type: "date" | "time"; value: string; display: string; placeholder: string; min?: string; required?: boolean; onChange: (value: string) => void }) {
+  return <label className={s.field}><span>{label}</span>
+    <span className={`${s.picker} ${value ? "" : s.pickerEmpty}`}>
+      <span className={s.pickerIcon} aria-hidden="true">{icon}</span>
+      <span className={s.pickerText} aria-hidden="true">{display || placeholder}</span>
+      <input type={type} required={required} min={min} value={value} aria-label={label} className={s.pickerInput}
+        onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* picker opens natively */ } }}
+        onChange={(e) => onChange(e.target.value)} />
+    </span>
+  </label>;
+}
 const unique = (values: (string | null | undefined)[]) => {
   const result = new Map<string, string>();
   for (const value of values) if (value && !result.has(locationKey(value))) result.set(locationKey(value), value);
@@ -129,7 +152,7 @@ export default function HeroSearch({ heading = "Where are we taking you?", descr
     <h2 className={s.searchTitle}>{heading}</h2>
     {description && <p className={s.muted}>{description}</p>}
     {loading ? <p role="status" className={s.muted}>Loading journey options...</p> : <>
-      <div className={s.tabs} role="group" aria-label="Journey type">{JOURNEYS.map((j, i) => <button key={j.label} type="button" aria-pressed={journey === i} className={`${s.tab} ${journey === i ? s.tabActive : ""}`} onClick={() => choose(i)}>{j.label}</button>)}</div>
+      <div className={s.tabs} role="group" aria-label="Journey type">{JOURNEYS.map((j, i) => <button key={j.label} type="button" aria-pressed={journey === i} className={`${s.tab} ${journey === i ? s.tabActive : ""}`} onClick={() => choose(i)}>{TAB_LABELS[i] ?? j.label}</button>)}</div>
       {noOptions ? <div className={s.notice}><p>{error || "There are no journey options to book at the moment. Please check back soon."}</p><button type="button" className={s.button} onClick={() => setRetry((v) => v + 1)}>Try again</button></div> : <form onSubmit={submit}>
         <div className={s.fields}>
           {airport && <label className={s.field}><span><Plane size={12} className="inline" aria-hidden="true" /> Transfer</span><select value={direction} onChange={(e) => setDirection(e.target.value as "PICKUP" | "DROP")}><option value="PICKUP">Pickup from airport</option><option value="DROP">Drop to airport</option></select></label>}
@@ -137,9 +160,9 @@ export default function HeroSearch({ heading = "Where are we taking you?", descr
           {outstation && <label className={s.field}>Destination<select required disabled={!city} value={destination} onChange={(e) => { setDestination(e.target.value); setCategory(""); }}><option value="">Where to?</option>{destinations.map((v) => <option key={v}>{v}</option>)}</select></label>}
           {tour && <label className={s.field}>Tour<select required={!context?.tour} disabled={!city} value={packageId} onChange={(e) => { setPackageId(e.target.value); setCategory(""); }}><option value="">{packages.length ? "Choose a tour" : context?.tour || "No priced tours yet"}</option>{packages.map((o) => <option key={o.id} value={o.id}>{o.packageName}</option>)}</select></label>}
           {local && <label className={s.field}>Journey package<select required={!context && packages.length > 0} disabled={!city} value={packageId} onChange={(e) => { setPackageId(e.target.value); setCategory(""); }}><option value="">{packages.length ? "Choose a package" : "Check current local packages"}</option>{packages.map((o) => <option key={o.id} value={o.id}>{o.packageName}</option>)}</select></label>}
-          <label className={s.field}><span><CalendarDays size={12} className="inline" aria-hidden="true" /> Pickup date</span><input type="date" required min={minDate} value={date} onChange={(e) => setDate(e.target.value)} /></label>
-          <label className={s.field}>Pickup time<input type="time" required value={time} onChange={(e) => setTime(e.target.value)} /></label>
-          {selected.trip === "ROUNDTRIP" && <label className={s.field}>Return date<input type="date" required min={date || minDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label>}
+          <PickerField label="Pickup date" type="date" required min={minDate} value={date} display={friendlyDate(date)} placeholder="Select date" icon={<CalendarDays size={18} />} onChange={setDate} />
+          <PickerField label="Pickup time" type="time" required value={time} display={friendlyTime(time)} placeholder="Select time" icon={<Clock3 size={18} />} onChange={setTime} />
+          {selected.trip === "ROUNDTRIP" && <PickerField label="Return date" type="date" required min={date || minDate} value={endDate} display={friendlyDate(endDate)} placeholder="Select date" icon={<CalendarDays size={18} />} onChange={setEndDate} />}
           {!local && passengerField}
         </div>
         <div className={s.searchBottom}>

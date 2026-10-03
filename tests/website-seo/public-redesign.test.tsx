@@ -22,7 +22,7 @@ describe("homepage search uses the current marketplace", () => {
     const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
     render(<HeroSearch initialOptions={options} />);
     expect(fetch).not.toHaveBeenCalled();
-    expect(screen.getByRole("group", { name: "Journey type" })).toHaveTextContent(/Outstation.*Round Trip.*Local.*Airport/);
+    expect(screen.getByRole("group", { name: "Journey type" })).toHaveTextContent(/One Way.*Round Trip.*Local.*Airport.*Tours/);
     vi.unstubAllGlobals();
   });
   it("sends the party size so results show only cars with enough seats", () => {

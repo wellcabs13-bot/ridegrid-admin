@@ -14,7 +14,8 @@ const STEPS = [
 
 export default async function MarketplacePage() {
   const options = await listMarketplaceOptions({ includeTours: true }).catch(() => undefined);
-  return <>
+  // data-rg-light opts this page out of the shell's dark marketplace overrides.
+  return <div data-rg-light className={m.page}>
     <section className={m.head}>
       <div className={m.container}>
         <p className={m.eyebrow}>RideGrid marketplace</p>
@@ -23,10 +24,10 @@ export default async function MarketplacePage() {
       </div>
     </section>
     <div className={`${m.container} ${m.search}`}>
-      <HeroSearch heading="Where are we taking you?" description="Outstation, round trip, local, airport or tours — compare real cars with their drivers." initialOptions={options} />
+      <HeroSearch heading="Where are we taking you?" description="One way, round trip, local, airport or tours — compare real cars with their drivers." initialOptions={options} />
     </div>
     <ol className={`${m.container} ${m.steps}`}>
       {STEPS.map((step, i) => <li key={step.title} className={m.step}><span className={m.stepNumber}>{i + 1}</span><strong>{step.title}</strong><span>{step.body}</span></li>)}
     </ol>
-  </>;
+  </div>;
 }

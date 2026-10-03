@@ -70,17 +70,26 @@
 
 /* Shared ride search */
 .searchWrap { position: relative; z-index: 3; scroll-margin-top: 110px; }
-.search { position: relative; padding: clamp(18px, 2.6vw, 28px); border: 1px solid var(--line); border-radius: 18px; background: #fff; color: var(--ink); box-shadow: 0 24px 60px rgba(10, 10, 12, .16); }
+.search { position: relative; padding: clamp(18px, 2.6vw, 30px); border: 1px solid #ececef; border-radius: 20px; background: linear-gradient(180deg, #ffffff 0%, #fffbfa 100%); color: var(--ink); box-shadow: 0 1px 0 rgba(255, 255, 255, .8) inset, 0 28px 64px -24px rgba(17, 17, 20, .22), 0 8px 20px -12px rgba(225, 29, 46, .12); }
+.search::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; border-radius: 20px 20px 0 0; background: linear-gradient(90deg, #e11d2e, #ff5a5f 55%, #ffb4b4); }
 .searchTitle { margin: 0 0 4px; font-size: clamp(20px, 2.2vw, 24px); font-weight: 800; letter-spacing: -.02em; }
-.tabs { display: flex; gap: 6px; margin: 16px 0 18px; padding: 5px; border-radius: 12px; background: var(--soft); }
+.tabs { display: flex; gap: 6px; margin: 18px 0 20px; padding: 5px; border: 1px solid #efeff2; border-radius: 14px; background: #f7f7f9; }
 .tab { flex: 1 1 0; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 9px; background: transparent; color: #4b4b53; font-size: 14px; font-weight: 700; cursor: pointer; transition: background .15s, color .15s; }
-.tab:hover { background: #ebebef; }
-.tabActive, .tabActive:hover { background: #0b0b0d; color: #fff; }
+.tab:hover { background: #fff; color: #111114; }
+.tabActive, .tabActive:hover { background: #fff; color: #e11d2e; box-shadow: 0 1px 2px rgba(17, 17, 20, .06), 0 6px 16px -8px rgba(225, 29, 46, .45), inset 0 0 0 1px #fbd0d4; }
 .fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: #4b4b53; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
-.field select, .field input { width: 100%; min-height: 50px; padding: 12px; border: 1px solid #d9d9df; border-radius: 10px; background: #fff; color: var(--ink); font-size: 16px; font-weight: 500; letter-spacing: 0; text-transform: none; }
-.field select:focus, .field input:focus { outline: 2px solid #e11d2e; outline-offset: 1px; }
-.field select:disabled { background: var(--soft); color: #8b8b93; }
+.field { display: flex; flex-direction: column; gap: 7px; min-width: 0; color: #5d5d66; font-size: 11.5px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.field select, .field input { width: 100%; min-height: 52px; padding: 12px 14px; border: 1px solid #e2e2e7; border-radius: 12px; background-color: #fff; color: var(--ink); font-size: 16px; font-weight: 600; letter-spacing: 0; text-transform: none; box-shadow: 0 1px 2px rgba(17, 17, 20, .04); transition: border-color .15s, box-shadow .15s; color-scheme: light; }
+.field select:hover, .field input:hover, .picker:hover { border-color: #cfcfd6; }
+.field select:focus, .field input:focus { outline: none; border-color: #e11d2e; box-shadow: 0 0 0 4px rgba(225, 29, 46, .12); }
+.field select:disabled { background-color: #f7f7f9; color: #9a9aa2; cursor: not-allowed; }
+.picker { position: relative; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 14px; border: 1px solid #e2e2e7; border-radius: 12px; background: #fff; color: var(--ink); font-size: 16px; font-weight: 600; letter-spacing: 0; text-transform: none; box-shadow: 0 1px 2px rgba(17, 17, 20, .04); transition: border-color .15s, box-shadow .15s; cursor: pointer; }
+.picker:focus-within { border-color: #e11d2e; box-shadow: 0 0 0 4px rgba(225, 29, 46, .12); }
+.pickerIcon { display: inline-flex; color: #e11d2e; flex: 0 0 auto; }
+.pickerText { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pickerEmpty .pickerText { color: #9a9aa2; font-weight: 500; }
+.field .pickerInput { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; box-shadow: none; }
+.field .pickerInput::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
 .searchBottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-top: 14px; }
 .searchBottom > * { min-width: 0; }
 .searchBottomEnd { justify-content: flex-end; }
@@ -128,8 +137,9 @@
   .heroDescription { font-size: 15px; }
   .section { padding: 48px 0; }
   .search { padding: 16px; border-radius: 14px; }
-  .tabs { flex-wrap: wrap; }
-  .tab { flex: 1 1 calc(50% - 6px); font-size: 13px; }
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; padding: 8px 16px; font-size: 13.5px; white-space: nowrap; }
   .searchBottom { flex-direction: column; align-items: stretch; }
   .searchBottom .field { max-width: none; }
   .searchSubmit { width: 100%; min-width: 0; }

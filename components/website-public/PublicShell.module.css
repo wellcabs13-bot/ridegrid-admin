@@ -135,21 +135,22 @@
 }
 
 /* Marketplace results, booking and payment pages keep their dark application
-   styling inside the public shell; these overrides stay scoped to that content. */
+   styles inside the public shell; these overrides stay scoped to that content.
+   Pages marked data-rg-light (search, results) use the bright website design. */
 .marketplaceContent { min-width: 0; }
 .marketplaceContent :global(input), .marketplaceContent :global(select), .marketplaceContent :global(button) { min-height: 44px; }
-.marketplaceContent :global(.bg-white) { background: var(--rg-surface) !important; }
-.marketplaceContent :global(.bg-slate-50), .marketplaceContent :global(.bg-neutral-50) { background: var(--rg-surface) !important; }
-.marketplaceContent :global(.bg-slate-100), .marketplaceContent :global(.bg-slate-200) { background: var(--rg-surface-3) !important; }
-.marketplaceContent :global(.text-slate-900), .marketplaceContent :global(.text-slate-950) { color: var(--rg-text) !important; }
-.marketplaceContent :global(.text-slate-700), .marketplaceContent :global(.text-slate-800) { color: var(--rg-text-secondary) !important; }
-.marketplaceContent :global(.text-slate-500), .marketplaceContent :global(.text-slate-600) { color: var(--rg-text-muted) !important; }
-.marketplaceContent :global(.text-slate-400) { color: var(--rg-text-dim) !important; }
-.marketplaceContent :global(.border-slate-200), .marketplaceContent :global(.border-slate-300) { border-color: var(--rg-border) !important; }
-.marketplaceContent :global(input), .marketplaceContent :global(select) { background: var(--rg-surface-2) !important; border-color: var(--rg-border-strong) !important; color: var(--rg-text) !important; }
-.marketplaceContent :global(.bg-cyan-400), .marketplaceContent :global(.bg-cyan-500), .marketplaceContent :global(.bg-cyan-300), .marketplaceContent :global(.bg-cyan-50) { background: rgba(220, 38, 38, .16) !important; }
-.marketplaceContent :global(.text-cyan-300) { color: var(--rg-red-light) !important; }
-.marketplaceContent :global(.bg-emerald-50), .marketplaceContent :global(.bg-emerald-100), .marketplaceContent :global(.bg-emerald-400), .marketplaceContent :global(.bg-emerald-300) { background: rgba(52, 211, 153, .14) !important; }
-.marketplaceContent :global(.bg-blue-50) { background: rgba(96, 165, 250, .14) !important; }
-.marketplaceContent :global(.bg-red-50) { background: rgba(239, 68, 68, .14) !important; }
-.marketplaceContent :global(.bg-amber-50), .marketplaceContent :global(.bg-amber-300), .marketplaceContent :global(.bg-amber-400) { background: rgba(245, 158, 11, .16) !important; }
+.marketplaceContent :global(.bg-white:not([data-rg-light] *)) { background: var(--rg-surface) !important; }
+.marketplaceContent :global(.bg-slate-50:not([data-rg-light] *)), .marketplaceContent :global(.bg-neutral-50:not([data-rg-light] *)) { background: var(--rg-surface) !important; }
+.marketplaceContent :global(.bg-slate-100:not([data-rg-light] *)), .marketplaceContent :global(.bg-slate-200:not([data-rg-light] *)) { background: var(--rg-surface-3) !important; }
+.marketplaceContent :global(.text-slate-900:not([data-rg-light] *)), .marketplaceContent :global(.text-slate-950:not([data-rg-light] *)) { color: var(--rg-text) !important; }
+.marketplaceContent :global(.text-slate-700:not([data-rg-light] *)), .marketplaceContent :global(.text-slate-800:not([data-rg-light] *)) { color: var(--rg-text-secondary) !important; }
+.marketplaceContent :global(.text-slate-500:not([data-rg-light] *)), .marketplaceContent :global(.text-slate-600:not([data-rg-light] *)) { color: var(--rg-text-muted) !important; }
+.marketplaceContent :global(.text-slate-400:not([data-rg-light] *)) { color: var(--rg-text-dim) !important; }
+.marketplaceContent :global(.border-slate-200:not([data-rg-light] *)), .marketplaceContent :global(.border-slate-300:not([data-rg-light] *)) { border-color: var(--rg-border) !important; }
+.marketplaceContent :global(input:not([data-rg-light] *)), .marketplaceContent :global(select:not([data-rg-light] *)) { background: var(--rg-surface-2) !important; border-color: var(--rg-border-strong) !important; color: var(--rg-text) !important; }
+.marketplaceContent :global(.bg-cyan-400:not([data-rg-light] *)), .marketplaceContent :global(.bg-cyan-500:not([data-rg-light] *)), .marketplaceContent :global(.bg-cyan-300:not([data-rg-light] *)), .marketplaceContent :global(.bg-cyan-50:not([data-rg-light] *)) { background: rgba(220, 38, 38, .16) !important; }
+.marketplaceContent :global(.text-cyan-300:not([data-rg-light] *)) { color: var(--rg-red-light) !important; }
+.marketplaceContent :global(.bg-emerald-50:not([data-rg-light] *)), .marketplaceContent :global(.bg-emerald-100:not([data-rg-light] *)), .marketplaceContent :global(.bg-emerald-400:not([data-rg-light] *)), .marketplaceContent :global(.bg-emerald-300:not([data-rg-light] *)) { background: rgba(52, 211, 153, .14) !important; }
+.marketplaceContent :global(.bg-blue-50:not([data-rg-light] *)) { background: rgba(96, 165, 250, .14) !important; }
+.marketplaceContent :global(.bg-red-50:not([data-rg-light] *)) { background: rgba(239, 68, 68, .14) !important; }
+.marketplaceContent :global(.bg-amber-50:not([data-rg-light] *)), .marketplaceContent :global(.bg-amber-300:not([data-rg-light] *)), .marketplaceContent :global(.bg-amber-400:not([data-rg-light] *)) { background: rgba(245, 158, 11, .16) !important; }
