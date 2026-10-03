@@ -1,0 +1,125 @@
+/* Operational dashboard styles; no public website selectors.
+   Scope: .rg-admin wraps both the Super Admin dashboard (DashboardLayout)
+   and the Corporate Admin portal (CorporateAdminLayout), so every rule below
+   reskins both products at once. Tokens come from app/globals.css :root.
+
+   Strategy: the app's admin surfaces are built from ordinary Tailwind
+   utilities (bg-white, text-slate-500, border-slate-200, ...). Rather than
+   hand-edit every page, this scoped stylesheet remaps that existing utility
+   vocabulary to the RideGrid premium dark palette — the same technique this
+   file already used for buttons (see the bg-blue-600 → red rule below),
+   extended systemically across surfaces, text, borders and status colors. */
+
+.rg-admin {
+  color: var(--rg-text);
+  background-color: var(--rg-black);
+  background-image: radial-gradient(1200px 600px at 100% -10%, rgba(220, 38, 38, 0.08), transparent 60%);
+}
+
+/* ---------- Base interaction states ---------- */
+.rg-admin :is(button,a,input,select,textarea):focus-visible { outline:2px solid var(--rg-red-light); outline-offset:3px; }
+.rg-admin button:disabled { cursor:not-allowed; opacity:.55; }
+.rg-admin input,.rg-admin select,.rg-admin textarea { max-width:100%; background-color:var(--rg-surface-2) !important; border-color:var(--rg-border-strong) !important; color:var(--rg-text) !important; }
+.rg-admin main { scrollbar-gutter:stable; }
+.rg-admin main::-webkit-scrollbar { width:10px; height:10px; }
+.rg-admin main::-webkit-scrollbar-track { background:transparent; }
+.rg-admin main::-webkit-scrollbar-thumb { background:var(--rg-surface-3); border-radius:8px; border:2px solid var(--rg-black); }
+.rg-admin main::-webkit-scrollbar-thumb:hover { background:#37373f; }
+
+/* ---------- Surfaces: light → premium dark ---------- */
+.rg-admin :is(.bg-white,.bg-slate-50,.bg-neutral-50,.bg-gray-50) { background-color:var(--rg-surface) !important; }
+.rg-admin :is(.bg-slate-100,.bg-slate-200,.bg-neutral-100,.bg-gray-100) { background-color:var(--rg-surface-3) !important; }
+
+/* ---------- Text hierarchy: light → premium dark ---------- */
+.rg-admin :is(.text-slate-900,.text-slate-950,.text-neutral-950,.text-neutral-900,.text-gray-900) { color:var(--rg-text) !important; }
+/* Accent-tinted labels/icons (eyebrow text, icon glyphs) at the -600 shade */
+.rg-admin :is(.text-blue-600,.text-indigo-600) { color:#93c5fd !important; }
+.rg-admin :is(.text-emerald-600,.text-green-600) { color:#6ee7b7 !important; }
+.rg-admin :is(.text-amber-600,.text-yellow-600,.text-orange-600) { color:#fcd34d !important; }
+.rg-admin .text-cyan-600 { color:#67e8f9 !important; }
+.rg-admin .text-violet-600 { color:#c4b5fd !important; }
+.rg-admin :is(.text-slate-700,.text-slate-800,.text-neutral-700,.text-neutral-800,.text-gray-700,.text-gray-800) { color:var(--rg-text-secondary) !important; }
+.rg-admin :is(.text-slate-500,.text-slate-600,.text-neutral-500,.text-neutral-600,.text-gray-500,.text-gray-600) { color:var(--rg-text-muted) !important; }
+.rg-admin :is(.text-slate-400,.text-neutral-400,.text-gray-400) { color:var(--rg-text-dim) !important; }
+
+/* ---------- Borders: light → subtle dark hairlines ---------- */
+.rg-admin :is(.border-slate-100,.border-slate-200,.border-slate-300,.border-neutral-100,.border-neutral-200,.border-neutral-300,.border-gray-200,.border-gray-300) { border-color:var(--rg-border) !important; }
+.rg-admin .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color:var(--rg-border) !important; }
+
+/* ---------- Status / badge soft backgrounds → translucent premium tints ---------- */
+.rg-admin :is(.bg-red-50,.bg-red-100) { background-color:rgba(239,68,68,.14) !important; }
+.rg-admin :is(.text-red-700,.text-red-800) { color:#fca5a5 !important; }
+.rg-admin :is(.bg-blue-50,.bg-blue-100,.bg-indigo-50,.bg-indigo-100) { background-color:rgba(96,165,250,.14) !important; }
+.rg-admin :is(.text-blue-700,.text-blue-800,.text-indigo-700,.text-indigo-800) { color:#93c5fd !important; }
+.rg-admin :is(.bg-emerald-50,.bg-emerald-100,.bg-green-50,.bg-green-100) { background-color:rgba(52,211,153,.14) !important; }
+.rg-admin :is(.text-emerald-700,.text-emerald-800,.text-green-700,.text-green-800) { color:#6ee7b7 !important; }
+.rg-admin :is(.bg-amber-50,.bg-amber-100,.bg-yellow-50,.bg-yellow-100,.bg-orange-50,.bg-orange-100) { background-color:rgba(245,158,11,.16) !important; }
+.rg-admin :is(.text-amber-700,.text-amber-800,.text-yellow-700,.text-yellow-800,.text-orange-700,.text-orange-800) { color:#fcd34d !important; }
+.rg-admin :is(.bg-cyan-50,.bg-cyan-100) { background-color:rgba(34,211,238,.14) !important; }
+.rg-admin :is(.text-cyan-700,.text-cyan-800) { color:#67e8f9 !important; }
+.rg-admin :is(.bg-violet-50,.bg-violet-100,.bg-purple-50,.bg-purple-100) { background-color:rgba(167,139,250,.16) !important; }
+.rg-admin :is(.text-violet-700,.text-violet-800,.text-purple-700,.text-purple-800) { color:#c4b5fd !important; }
+.rg-admin :is(.border-red-200,.border-blue-200,.border-indigo-200,.border-emerald-200,.border-green-200,.border-amber-200,.border-yellow-200,.border-orange-200,.border-cyan-200,.border-violet-200,.border-purple-200) { border-color:rgba(255,255,255,.12) !important; }
+
+/* ---------- Safety net: native/unstyled form controls & buttons ----------
+   Some pages (e.g. filter bars) render bare <input>/<select>/<button> with
+   no explicit bg-/text- utility, so the remaps above have nothing to catch.
+   Element-level (unqualified) rules below give them the premium dark
+   treatment by default; any component with its own explicit bg- or text-
+   utility class keeps winning, since class selectors always outrank these. */
+.rg-admin :is(input,textarea)::placeholder { color:var(--rg-text-dim) !important; }
+.rg-admin main button { background-color:var(--rg-surface-3) !important; color:var(--rg-text) !important; border-color:var(--rg-border-strong) !important; }
+
+/* ---------- Primary/solid buttons: unify blue/indigo brand accents to red ---------- */
+.rg-admin main :is(.bg-blue-600,.bg-blue-500,.bg-indigo-600,.bg-indigo-500) { background-color:var(--rg-red) !important; }
+.rg-admin main :is(.hover\:bg-blue-700,.hover\:bg-indigo-700):hover { background-color:var(--rg-red-dark) !important; }
+.rg-admin main .fixed { overflow-y:auto; }
+
+/* ---------- Premium core primitives ---------- */
+.rg-admin .rg-primary {
+  display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+  border-radius:.65rem; padding:.65rem 1rem; font-size:.875rem; font-weight:600; color:#fff;
+  background:linear-gradient(135deg, var(--rg-red-light), var(--rg-red-dark));
+  box-shadow:var(--rg-shadow-glow), inset 0 1px 0 rgba(255,255,255,.15);
+  transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.rg-admin .rg-primary:hover { background:linear-gradient(135deg, #f87171, var(--rg-red)); box-shadow:0 10px 26px -6px var(--rg-red-glow), inset 0 1px 0 rgba(255,255,255,.15); }
+.rg-admin .rg-primary:active { transform:translateY(1px); }
+
+.rg-admin .rg-secondary {
+  display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+  border:1px solid var(--rg-border-strong); border-radius:.65rem;
+  background:var(--rg-surface-3); color:var(--rg-text); padding:.6rem 1rem; font-size:.875rem; font-weight:500;
+  transition:background .15s ease, border-color .15s ease;
+}
+.rg-admin .rg-secondary:hover { background:#2c2c33; border-color:rgba(255,255,255,.2); }
+
+.rg-admin .rg-icon { display:inline-flex; align-items:center; justify-content:center; padding:.65rem; border:1px solid var(--rg-border); border-radius:.65rem; color:var(--rg-text-secondary); background:transparent; }
+.rg-admin .rg-icon:hover { background:var(--rg-surface-3); color:var(--rg-text); }
+
+.rg-admin .rg-card {
+  overflow:hidden; border:1px solid var(--rg-border); border-radius:1rem;
+  background:linear-gradient(180deg, var(--rg-surface-2), var(--rg-surface));
+  box-shadow:var(--rg-shadow-card), inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+.rg-admin .rg-input { width:100%; border:1px solid var(--rg-border-strong); border-radius:.6rem; background:var(--rg-surface-2); color:var(--rg-text); padding:.65rem .8rem; font-size:.875rem; }
+.rg-admin .rg-input::placeholder { color:var(--rg-text-dim); }
+.rg-admin .rg-input:focus-visible { border-color:var(--rg-red-light); }
+
+.rg-admin .rg-table { width:100%; border-collapse:collapse; text-align:left; font-size:.875rem; }
+.rg-admin .rg-table th { background:var(--rg-surface-2); color:var(--rg-text-muted); font-size:.7rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
+.rg-admin .rg-table :is(th,td) { padding:1rem 1.25rem; border-bottom:1px solid var(--rg-border); }
+.rg-admin .rg-table tbody tr:hover { background:rgba(255,255,255,.03); }
+
+.rg-admin .rg-skip { position:fixed; z-index:100; top:-100px; left:1rem; padding:1rem; border-radius:.65rem; background:var(--rg-surface-2); color:var(--rg-text); border:1px solid var(--rg-red-light); }
+.rg-admin .rg-skip:focus { top:1rem; }
+
+/* ---------- Sidebar / nav: deepen the already-dark shell, add brand glow ---------- */
+.rg-admin aside { background:linear-gradient(180deg, #0d0d10, #000) !important; box-shadow:4px 0 24px -8px rgba(0,0,0,.6); }
+.rg-admin aside :is(.bg-red-600) { background:linear-gradient(135deg, var(--rg-red-light), var(--rg-red-dark)) !important; box-shadow:0 4px 14px -4px var(--rg-red-glow); }
+
+/* ---------- Header: subtle red glow wash behind the top bar ---------- */
+.rg-admin header { background-image:linear-gradient(180deg, rgba(220,38,38,.06), transparent 70%); }
+
+@media (max-width:639px) { .rg-admin header .rg-primary { display:none; } }

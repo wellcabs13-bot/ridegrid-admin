@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+*.log
+.expo
+.next
+.next-*
+.claude
+apps
+
+# Local-only uploads and backups (git-ignored) never ship in a CLI deploy.
+storage/media
+backups
+_backups

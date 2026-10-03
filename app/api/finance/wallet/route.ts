@@ -1,15 +1,69 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
 import { financeService } from "@/lib/services/finance/FinanceService";
+import { authenticate } from "@/lib/auth/middleware";
+import { SecurityRole } from "@/types/security";
+
+function getToken(request: NextRequest) {
+  const authorization =
+    request.headers.get("authorization");
+
+  const headerToken =
+    authorization?.startsWith("Bearer ")
+      ? authorization.slice(7)
+      : undefined;
+
+  return (
+    headerToken ??
+    request.cookies.get(
+      "ridegrid_access_token"
+    )?.value ??
+    request.cookies.get(
+      "ridegrid-token"
+    )?.value
+  );
+}
 
 export async function GET(
   request: NextRequest
 ) {
   try {
-    const { searchParams } = new URL(request.url);
+    const user =
+      await authenticate(getToken(request));
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const allowedRoles = [
+      SecurityRole.SUPER_ADMIN,
+      SecurityRole.FINANCE,
+      SecurityRole.OPERATIONS,
+    ];
+
+    if (!allowedRoles.includes(user.role)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Forbidden.",
+        },
+        { status: 403 }
+      );
+    }
 
     const vendorId =
-      searchParams.get("vendorId");
+      new URL(request.url)
+        .searchParams
+        .get("vendorId");
 
     if (!vendorId) {
       return NextResponse.json(

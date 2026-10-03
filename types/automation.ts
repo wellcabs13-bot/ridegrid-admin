@@ -10,6 +10,13 @@ export enum AutomationTrigger {
   VENDOR_APPROVED = "VENDOR_APPROVED",
 
   PAYMENT_RECEIVED = "PAYMENT_RECEIVED",
+  REFUND_DUE = "REFUND_DUE",
+
+  TRIP_COMPLETED = "TRIP_COMPLETED",
+
+  CORPORATE_APPROVAL_REQUIRED = "CORPORATE_APPROVAL_REQUIRED",
+  CORPORATE_APPROVED = "CORPORATE_APPROVED",
+  CORPORATE_REJECTED = "CORPORATE_REJECTED",
 
   DOCUMENT_EXPIRY = "DOCUMENT_EXPIRY",
 
@@ -43,6 +50,24 @@ export enum AutomationAction {
   RUN_AI = "RUN_AI",
 }
 
+// Who receives an in-app notification created by a rule.
+export type AutomationRecipient =
+  | "TRAVELLER"
+  | "VENDOR"
+  | "DRIVER"
+  | "CORPORATE_APPROVERS"
+  | "FINANCE_TEAM";
+
+// What the Automation dashboard reports for a rule:
+// ACTIVE - subscribed to its event and able to run; DISABLED - switched off by an admin;
+// NOT_CONFIGURED - needs a provider or scheduler that does not exist yet;
+// FAILED - its most recent execution failed and has not been recovered.
+export type AutomationRuntimeStatus =
+  | "ACTIVE"
+  | "DISABLED"
+  | "NOT_CONFIGURED"
+  | "FAILED";
+
 export interface AutomationRule {
   id: string;
   name: string;
@@ -59,6 +84,11 @@ export interface AutomationRule {
   createdAt: Date;
 
   updatedAt: Date;
+
+  recipient?: AutomationRecipient;
+
+  // Set when the rule cannot run until an external dependency exists.
+  requires?: string;
 }
 
 export interface AutomationExecution {

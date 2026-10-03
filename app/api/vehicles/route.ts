@@ -1,503 +1,1091 @@
-import { NextRequest, NextResponse } from "next/server";
+import { centralFleetAccess } from "@/lib/vendor-mobile/legacy";
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-import {
-  FuelType,
-  Prisma,
-  TransmissionType,
-  VehicleCategory,
-  VehicleStatus,
-} from "@prisma/client";
+const VehicleCategory = {
+  HATCHBACK: "HATCHBACK",
+  SEDAN: "SEDAN",
+  SUV: "SUV",
+  MUV: "MUV",
+  LUXURY: "LUXURY",
+  TEMPO_TRAVELLER: "TEMPO_TRAVELLER",
+  MINI_BUS: "MINI_BUS",
+  BUS: "BUS",
+} as const;
 
-import { vehicleService } from "@/lib/services/vehicle/VehicleService";
+const FuelType = {
+  PETROL: "PETROL",
+  DIESEL: "DIESEL",
+  CNG: "CNG",
+  ELECTRIC: "ELECTRIC",
+  HYBRID: "HYBRID",
+} as const;
 
-function enumValue<T extends string>(
-  value: unknown,
-  values: readonly T[]
-): T | undefined {
-  return typeof value === "string" &&
-    values.includes(value as T)
-    ? (value as T)
-    : undefined;
+const TransmissionType = {
+  MANUAL: "MANUAL",
+  AUTOMATIC: "AUTOMATIC",
+} as const;
+
+const VehicleStatus = {
+  AVAILABLE: "AVAILABLE",
+  RESERVED: "RESERVED",
+  ON_TRIP: "ON_TRIP",
+  MAINTENANCE: "MAINTENANCE",
+  BLOCKED: "BLOCKED",
+} as const;
+
+import { success, failure } from "@/lib/api-response";
+
+function clean(value: unknown) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  return String(value).trim();
 }
 
-export async function GET(request: NextRequest) {
+function nullableString(value: unknown) {
+  const valueString = clean(value);
+  return valueString || null;
+}
+
+function nullableNumber(value: unknown) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+function requiredNumber(
+  value: unknown,
+  fallback = 0
+) {
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+}
+
+function isEnumValue<T extends Record<string, string>>(
+  enumObject: T,
+  value: unknown
+): value is T[keyof T] {
+  return Object.values(enumObject).includes(
+    value as T[keyof T]
+  );
+}
+
+function vehicleResponse(vehicle: any) {
+  return {
+    id: vehicle.id,
+
+    registrationNumber:
+      vehicle.registrationNumber,
+
+    make: vehicle.make,
+    model: vehicle.model,
+    variant: vehicle.variant,
+    year: vehicle.year,
+    color: vehicle.color,
+
+    category: vehicle.category,
+    fuelType: vehicle.fuelType,
+    transmission: vehicle.transmission,
+
+    seatingCapacity:
+      vehicle.seatingCapacity,
+
+    luggageCapacity:
+      vehicle.luggageCapacity,
+
+    homeCity: vehicle.homeCity,
+
+    status: vehicle.status,
+
+    baseFare:
+      Number(vehicle.baseFare),
+
+    pricePerKm:
+      vehicle.pricePerKm !== null
+        ? Number(vehicle.pricePerKm)
+        : null,
+
+    waitingCharge:
+      vehicle.waitingCharge !== null
+        ? Number(vehicle.waitingCharge)
+        : null,
+
+    nightCharge:
+      vehicle.nightCharge !== null
+        ? Number(vehicle.nightCharge)
+        : null,
+
+    rating: vehicle.rating,
+    totalTrips: vehicle.totalTrips,
+    isVerified: vehicle.isVerified,
+
+    createdAt: vehicle.createdAt,
+    updatedAt: vehicle.updatedAt,
+
+    vendor: vehicle.vendor
+      ? {
+          id: vehicle.vendor.id,
+          companyName:
+            vehicle.vendor.companyName,
+          name:
+            vehicle.vendor.user?.name || "",
+          email:
+            vehicle.vendor.user?.email || "",
+          mobile:
+            vehicle.vendor.user?.mobile || null,
+        }
+      : null,
+
+    driver: vehicle.driver
+      ? {
+          id: vehicle.driver.id,
+          name:
+            vehicle.driver.user?.name || "",
+          email:
+            vehicle.driver.user?.email || "",
+          mobile:
+            vehicle.driver.user?.mobile || null,
+        }
+      : null,
+  };
+}
+
+/* =========================================================
+   GET — VEHICLE LIST
+========================================================= */
+
+export async function GET(
+  request: NextRequest
+) {
   try {
-    const { searchParams } = new URL(request.url);
+    const denied = await centralFleetAccess(request, "fleet"); if (denied) return denied;
+    const { searchParams } =
+      new URL(request.url);
 
-    const id = searchParams.get("id");
-    const vendorId = searchParams.get("vendorId");
-    const driverId = searchParams.get("driverId");
-    const status = searchParams.get("status");
-    const registrationNumber =
-      searchParams.get("registrationNumber");
+    const page = Math.max(
+      1,
+      Number(
+        searchParams.get("page") || "1"
+      )
+    );
 
-    if (id) {
-      const vehicle =
-        await vehicleService.getById(id);
+    const limit = Math.min(
+      100,
+      Math.max(
+        1,
+        Number(
+          searchParams.get("limit") || "50"
+        )
+      )
+    );
 
-      if (!vehicle) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Vehicle not found.",
+    const search =
+      searchParams
+        .get("search")
+        ?.trim() || "";
+
+    const status =
+      searchParams
+        .get("status")
+        ?.trim() || "";
+
+    const category =
+      searchParams
+        .get("category")
+        ?.trim() || "";
+
+    const skip =
+      (page - 1) * limit;
+
+    const where: any = {
+      deletedAt: null,
+    };
+
+    if (search) {
+      where.OR = [
+        {
+          registrationNumber: {
+            contains: search,
+            mode: "insensitive",
           },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: vehicle,
-      });
-    }
-
-    if (registrationNumber) {
-      const vehicle =
-        await vehicleService.getByRegistrationNumber(
-          registrationNumber
-        );
-
-      if (!vehicle) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Vehicle not found.",
+        },
+        {
+          make: {
+            contains: search,
+            mode: "insensitive",
           },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: vehicle,
-      });
-    }
-
-    if (vendorId) {
-      const vehicles =
-        await vehicleService.getByVendor(
-          vendorId
-        );
-
-      return NextResponse.json({
-        success: true,
-        data: vehicles,
-      });
-    }
-
-    if (driverId) {
-      const vehicles =
-        await vehicleService.getByDriver(
-          driverId
-        );
-
-      return NextResponse.json({
-        success: true,
-        data: vehicles,
-      });
-    }
-
-    if (status) {
-      const vehicleStatus = enumValue(
-        status,
-        Object.values(VehicleStatus)
-      );
-
-      if (!vehicleStatus) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Invalid vehicle status.",
+        },
+        {
+          model: {
+            contains: search,
+            mode: "insensitive",
           },
-          { status: 400 }
-        );
-      }
-
-      const vehicles =
-        await vehicleService.getByStatus(
-          vehicleStatus
-        );
-
-      return NextResponse.json({
-        success: true,
-        data: vehicles,
-      });
+        },
+        {
+          homeCity: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+      ];
     }
 
-    const vehicles =
-      await vehicleService.getAll();
+    if (
+      status &&
+      isEnumValue(VehicleStatus, status)
+    ) {
+      where.status = status;
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: vehicles,
-    });
+    if (
+      category &&
+      isEnumValue(
+        VehicleCategory,
+        category
+      )
+    ) {
+      where.category = category;
+    }
+
+    const [
+      vehicles,
+      total,
+    ] = await Promise.all([
+      prisma.vehicle.findMany({
+        where,
+
+        include: {
+          vendor: {
+            include: {
+              user: true,
+            },
+          },
+
+          driver: {
+            include: {
+              user: true,
+            },
+          },
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+
+        skip,
+        take: limit,
+      }),
+
+      prisma.vehicle.count({
+        where,
+      }),
+    ]);
+
+    return success(
+      {
+        data: vehicles.map(
+          vehicleResponse
+        ),
+
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages:
+            Math.ceil(
+              total / limit
+            ),
+        },
+      },
+
+      "Vehicles fetched successfully."
+    );
   } catch (error) {
     console.error(
-      "GET /api/vehicles:",
+      "GET /api/vehicles error:",
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to fetch vehicles.",
-      },
-      { status: 500 }
+    return failure(
+      "Failed to fetch vehicles.",
+      500
     );
   }
 }
+
+/* =========================================================
+   POST — CREATE VEHICLE
+========================================================= */
 
 export async function POST(
   request: NextRequest
 ) {
   try {
-    const body = await request.json();
+    const denied = await centralFleetAccess(request, "fleet"); if (denied) return denied;
+    const body =
+      await request.json();
 
-    if (
-      !body.vendorId ||
-      !body.registrationNumber ||
-      !body.make ||
-      !body.model ||
-      !body.category ||
-      !body.fuelType ||
-      !body.transmission ||
-      body.seatingCapacity === undefined ||
-      !body.homeCity ||
-      body.baseFare === undefined
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Required vehicle fields are missing.",
-        },
-        { status: 400 }
+    const vendorId =
+      clean(body.vendorId);
+
+    const registrationNumber =
+      clean(
+        body.registrationNumber ??
+          body.registrationNo
+      );
+
+    const make =
+      clean(
+        body.make ??
+          body.brand
+      );
+
+    const model =
+      clean(
+        body.model
+      );
+
+    const homeCity =
+      clean(
+        body.homeCity ??
+          body.city
+      );
+
+    const category =
+      clean(body.category);
+
+    const fuelType =
+      clean(body.fuelType);
+
+    const transmission =
+      clean(body.transmission);
+
+    const seatingCapacity =
+      requiredNumber(
+        body.seatingCapacity
+      );
+
+    if (!vendorId) {
+      return failure(
+        "Vendor is required.",
+        400
       );
     }
 
-    const category = enumValue(
-      body.category,
-      Object.values(VehicleCategory)
-    );
-
-    const fuelType = enumValue(
-      body.fuelType,
-      Object.values(FuelType)
-    );
-
-    const transmission = enumValue(
-      body.transmission,
-      Object.values(TransmissionType)
-    );
-
-    if (
-      !category ||
-      !fuelType ||
-      !transmission
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid vehicle category, fuel type, or transmission.",
-        },
-        { status: 400 }
+    if (!registrationNumber) {
+      return failure(
+        "Registration number is required.",
+        400
       );
     }
 
-    const data: Prisma.VehicleCreateInput = {
-      vendor: {
-        connect: {
-          id: body.vendorId,
+    if (!make) {
+      return failure(
+        "Vehicle make is required.",
+        400
+      );
+    }
+
+    if (!model) {
+      return failure(
+        "Vehicle model is required.",
+        400
+      );
+    }
+
+    if (!homeCity) {
+      return failure(
+        "Home city is required.",
+        400
+      );
+    }
+
+    if (
+      !isEnumValue(
+        VehicleCategory,
+        category
+      )
+    ) {
+      return failure(
+        "Invalid vehicle category.",
+        400
+      );
+    }
+
+    if (
+      !isEnumValue(
+        FuelType,
+        fuelType
+      )
+    ) {
+      return failure(
+        "Invalid fuel type.",
+        400
+      );
+    }
+
+    if (
+      !isEnumValue(
+        TransmissionType,
+        transmission
+      )
+    ) {
+      return failure(
+        "Invalid transmission type.",
+        400
+      );
+    }
+
+    if (seatingCapacity <= 0) {
+      return failure(
+        "Seating capacity must be greater than zero.",
+        400
+      );
+    }
+
+    const vendor =
+      await prisma.vendor.findFirst({
+        where: {
+          id: vendorId,
+          deletedAt: null,
         },
-      },
+      });
 
-      driver: body.driverId
-        ? {
-            connect: {
-              id: body.driverId,
-            },
-          }
-        : undefined,
+    if (!vendor) {
+      return failure(
+        "Selected vendor was not found or is inactive.",
+        400
+      );
+    }
 
-      registrationNumber:
-        body.registrationNumber,
+    const existingVehicle =
+      await prisma.vehicle.findUnique({
+        where: {
+          registrationNumber,
+        },
+      });
 
-      make: body.make,
-      model: body.model,
-      variant: body.variant || null,
-      year:
-        body.year !== undefined &&
-        body.year !== null &&
-        body.year !== ""
-          ? Number(body.year)
-          : null,
-
-      color: body.color || null,
-
-      category,
-      fuelType,
-      transmission,
-
-      seatingCapacity:
-        Number(body.seatingCapacity),
-
-      luggageCapacity:
-        body.luggageCapacity !== undefined &&
-        body.luggageCapacity !== null &&
-        body.luggageCapacity !== ""
-          ? Number(body.luggageCapacity)
-          : null,
-
-      homeCity: body.homeCity,
-
-      status:
-        body.status &&
-        enumValue(
-          body.status,
-          Object.values(VehicleStatus)
-        )
-          ? enumValue(
-              body.status,
-              Object.values(VehicleStatus)
-            )
-          : VehicleStatus.AVAILABLE,
-
-      baseFare: body.baseFare,
-      pricePerKm:
-        body.pricePerKm ?? null,
-      waitingCharge:
-        body.waitingCharge ?? null,
-      nightCharge:
-        body.nightCharge ?? null,
-
-      rating:
-        body.rating !== undefined
-          ? Number(body.rating)
-          : 0,
-
-      totalTrips:
-        body.totalTrips !== undefined
-          ? Number(body.totalTrips)
-          : 0,
-
-      isVerified:
-        body.isVerified === true,
-    };
+    if (
+      existingVehicle &&
+      !existingVehicle.deletedAt
+    ) {
+      return failure(
+        "A vehicle with this registration number already exists.",
+        409
+      );
+    }
 
     const vehicle =
-      await vehicleService.create(data);
+      existingVehicle
+        ? await prisma.vehicle.update({
+            where: {
+              id: existingVehicle.id,
+            },
 
-    return NextResponse.json(
-      {
-        success: true,
-        message:
-          "Vehicle created successfully.",
-        data: vehicle,
-      },
-      { status: 201 }
+            data: {
+              deletedAt: null,
+              vendorId,
+              registrationNumber,
+              make,
+              model,
+              variant:
+                nullableString(
+                  body.variant
+                ),
+              year:
+                nullableNumber(
+                  body.year
+                ),
+              color:
+                nullableString(
+                  body.color
+                ),
+              category,
+              fuelType,
+              transmission,
+              seatingCapacity,
+              luggageCapacity:
+                nullableNumber(
+                  body.luggageCapacity
+                ),
+              homeCity,
+
+              status: (isEnumValue(VehicleStatus, clean(body.status)) ? clean(body.status) : VehicleStatus.AVAILABLE) as any,
+
+              baseFare:
+                requiredNumber(
+                  body.baseFare
+                ),
+
+              pricePerKm:
+                nullableNumber(
+                  body.pricePerKm
+                ),
+
+              waitingCharge:
+                nullableNumber(
+                  body.waitingCharge
+                ),
+
+              nightCharge:
+                nullableNumber(
+                  body.nightCharge
+                ),
+            },
+
+            include: {
+              vendor: {
+                include: {
+                  user: true,
+                },
+              },
+              driver: {
+                include: {
+                  user: true,
+                },
+              },
+            },
+          })
+        : await prisma.vehicle.create({
+            data: {
+              vendorId,
+
+              registrationNumber,
+
+              make,
+
+              model,
+
+              variant:
+                nullableString(
+                  body.variant
+                ),
+
+              year:
+                nullableNumber(
+                  body.year
+                ),
+
+              color:
+                nullableString(
+                  body.color
+                ),
+
+              category,
+
+              fuelType,
+
+              transmission,
+
+              seatingCapacity,
+
+              luggageCapacity:
+                nullableNumber(
+                  body.luggageCapacity
+                ),
+
+              homeCity,
+
+              status: (isEnumValue(VehicleStatus, clean(body.status)) ? clean(body.status) : VehicleStatus.AVAILABLE) as any,
+
+              baseFare:
+                requiredNumber(
+                  body.baseFare
+                ),
+
+              pricePerKm:
+                nullableNumber(
+                  body.pricePerKm
+                ),
+
+              waitingCharge:
+                nullableNumber(
+                  body.waitingCharge
+                ),
+
+              nightCharge:
+                nullableNumber(
+                  body.nightCharge
+                ),
+            },
+
+            include: {
+              vendor: {
+                include: {
+                  user: true,
+                },
+              },
+
+              driver: {
+                include: {
+                  user: true,
+                },
+              },
+            },
+          });
+
+    return success(
+      vehicleResponse(vehicle),
+      existingVehicle
+        ? "Vehicle restored successfully."
+        : "Vehicle created successfully."
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error(
-      "POST /api/vehicles:",
+      "POST /api/vehicles error:",
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to create vehicle.",
-      },
-      { status: 500 }
+    if (
+      error?.code === "P2002"
+    ) {
+      return failure(
+        "A vehicle with this registration number already exists.",
+        409
+      );
+    }
+
+    return failure(
+      "Failed to create vehicle.",
+      500
     );
   }
 }
 
-export async function PATCH(
+/* =========================================================
+   PUT — UPDATE VEHICLE
+========================================================= */
+
+export async function PUT(
   request: NextRequest
 ) {
   try {
-    const body = await request.json();
+    const denied = await centralFleetAccess(request, "fleet"); if (denied) return denied;
+    const body =
+      await request.json();
 
-    if (!body.id) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Vehicle id is required.",
-        },
-        { status: 400 }
+    const id =
+      clean(body.id);
+
+    if (!id) {
+      return failure(
+        "Vehicle ID is required.",
+        400
       );
     }
 
-    const {
-      id,
-      vendorId,
-      driverId,
-      status,
-      category,
-      fuelType,
-      transmission,
-      ...fields
-    } = body;
+    const existing =
+      await prisma.vehicle.findUnique({
+        where: { id },
+      });
 
-    const data: Prisma.VehicleUpdateInput = {
-      ...fields,
+    if (!existing || existing.deletedAt) {
+      return failure(
+        "Vehicle not found.",
+        404
+      );
+    }
 
-      ...(vendorId !== undefined
-        ? {
-            vendor: {
-              connect: {
-                id: vendorId,
-              },
-            },
-          }
-        : {}),
+    const data: any = {};
 
-      ...(driverId !== undefined
-        ? {
-            driver:
-              driverId === null
-                ? {
-                    disconnect: true,
-                  }
-                : {
-                    connect: {
-                      id: driverId,
-                    },
-                  },
-          }
-        : {}),
+    if (
+      body.vendorId !==
+      undefined
+    ) {
+      const vendorId =
+        clean(body.vendorId);
 
-      ...(status !== undefined
-        ? {
-            status: enumValue(
-              status,
-              Object.values(VehicleStatus)
-            ),
-          }
-        : {}),
+      if (!vendorId) {
+        return failure(
+          "Vendor is required.",
+          400
+        );
+      }
 
-      ...(category !== undefined
-        ? {
-            category: enumValue(
-              category,
-              Object.values(VehicleCategory)
-            ),
-          }
-        : {}),
+      const vendor =
+        await prisma.vendor.findFirst({
+          where: {
+            id: vendorId,
+            deletedAt: null,
+          },
+        });
 
-      ...(fuelType !== undefined
-        ? {
-            fuelType: enumValue(
-              fuelType,
-              Object.values(FuelType)
-            ),
-          }
-        : {}),
+      if (!vendor) {
+        return failure(
+          "Selected vendor was not found or is inactive.",
+          400
+        );
+      }
 
-      ...(transmission !== undefined
-        ? {
-            transmission: enumValue(
-              transmission,
-              Object.values(TransmissionType)
-            ),
-          }
-        : {}),
+      data.vendorId =
+        vendorId;
+    }
 
-      ...(fields.year !== undefined
-        ? {
-            year:
-              fields.year === null ||
-              fields.year === ""
-                ? null
-                : Number(fields.year),
-          }
-        : {}),
+    if (
+      body.registrationNumber !==
+        undefined ||
+      body.registrationNo !==
+        undefined
+    ) {
+      data.registrationNumber =
+        clean(
+          body.registrationNumber ??
+            body.registrationNo
+        );
+    }
 
-      ...(fields.seatingCapacity !== undefined
-        ? {
-            seatingCapacity:
-              Number(fields.seatingCapacity),
-          }
-        : {}),
+    if (
+      body.make !== undefined ||
+      body.brand !== undefined
+    ) {
+      data.make = clean(
+        body.make ??
+          body.brand
+      );
+    }
 
-      ...(fields.luggageCapacity !== undefined
-        ? {
-            luggageCapacity:
-              fields.luggageCapacity === null ||
-              fields.luggageCapacity === ""
-                ? null
-                : Number(fields.luggageCapacity),
-          }
-        : {}),
-    };
+    if (
+      body.model !== undefined
+    ) {
+      data.model =
+        clean(body.model);
+    }
+
+    if (
+      body.variant !==
+      undefined
+    ) {
+      data.variant =
+        nullableString(
+          body.variant
+        );
+    }
+
+    if (
+      body.year !== undefined
+    ) {
+      data.year =
+        nullableNumber(
+          body.year
+        );
+    }
+
+    if (
+      body.color !==
+      undefined
+    ) {
+      data.color =
+        nullableString(
+          body.color
+        );
+    }
+
+    if (
+      body.category !==
+      undefined
+    ) {
+      if (
+        !isEnumValue(
+          VehicleCategory,
+          clean(body.category)
+        )
+      ) {
+        return failure(
+          "Invalid vehicle category.",
+          400
+        );
+      }
+
+      data.category =
+        clean(body.category);
+    }
+
+    if (
+      body.fuelType !==
+      undefined
+    ) {
+      if (
+        !isEnumValue(
+          FuelType,
+          clean(body.fuelType)
+        )
+      ) {
+        return failure(
+          "Invalid fuel type.",
+          400
+        );
+      }
+
+      data.fuelType =
+        clean(body.fuelType);
+    }
+
+    if (
+      body.transmission !==
+      undefined
+    ) {
+      if (
+        !isEnumValue(
+          TransmissionType,
+          clean(body.transmission)
+        )
+      ) {
+        return failure(
+          "Invalid transmission type.",
+          400
+        );
+      }
+
+      data.transmission =
+        clean(body.transmission);
+    }
+
+    if (
+      body.seatingCapacity !==
+      undefined
+    ) {
+      data.seatingCapacity =
+        requiredNumber(
+          body.seatingCapacity
+        );
+    }
+
+    if (
+      body.luggageCapacity !==
+      undefined
+    ) {
+      data.luggageCapacity =
+        nullableNumber(
+          body.luggageCapacity
+        );
+    }
+
+    if (
+      body.homeCity !==
+        undefined ||
+      body.city !==
+        undefined
+    ) {
+      data.homeCity =
+        clean(
+          body.homeCity ??
+            body.city
+        );
+    }
+
+    if (
+      body.status !==
+      undefined
+    ) {
+      const newStatus =
+        clean(body.status);
+
+      if (
+        !isEnumValue(
+          VehicleStatus,
+          newStatus
+        )
+      ) {
+        return failure(
+          "Invalid vehicle status.",
+          400
+        );
+      }
+
+      data.status =
+        newStatus;
+    }
+
+    if (
+      body.baseFare !==
+      undefined
+    ) {
+      data.baseFare =
+        requiredNumber(
+          body.baseFare
+        );
+    }
+
+    if (
+      body.pricePerKm !==
+      undefined
+    ) {
+      data.pricePerKm =
+        nullableNumber(
+          body.pricePerKm
+        );
+    }
+
+    if (
+      body.waitingCharge !==
+      undefined
+    ) {
+      data.waitingCharge =
+        nullableNumber(
+          body.waitingCharge
+        );
+    }
+
+    if (
+      body.nightCharge !==
+      undefined
+    ) {
+      data.nightCharge =
+        nullableNumber(
+          body.nightCharge
+        );
+    }
+
+    if (
+      body.isVerified !==
+      undefined
+    ) {
+      if (
+        typeof body.isVerified !==
+        "boolean"
+      ) {
+        return failure(
+          "Vehicle verification value must be true or false.",
+          400
+        );
+      }
+
+      data.isVerified =
+        body.isVerified;
+    }
 
     const vehicle =
-      await vehicleService.update(
-        id,
-        data
-      );
+      await prisma.vehicle.update({
+        where: { id },
 
-    return NextResponse.json({
-      success: true,
-      message:
-        "Vehicle updated successfully.",
-      data: vehicle,
-    });
-  } catch (error) {
+        data,
+
+        include: {
+          vendor: {
+            include: {
+              user: true,
+            },
+          },
+
+          driver: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      });
+
+    return success(
+      vehicleResponse(vehicle),
+      "Vehicle updated successfully."
+    );
+  } catch (error: any) {
     console.error(
-      "PATCH /api/vehicles:",
+      "PUT /api/vehicles error:",
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to update vehicle.",
-      },
-      { status: 500 }
+    if (
+      error?.code === "P2002"
+    ) {
+      return failure(
+        "A vehicle with this registration number already exists.",
+        409
+      );
+    }
+
+    return failure(
+      "Failed to update vehicle.",
+      500
     );
   }
 }
+
+/* =========================================================
+   DELETE — SOFT DELETE VEHICLE
+========================================================= */
 
 export async function DELETE(
   request: NextRequest
 ) {
   try {
+    const denied = await centralFleetAccess(request, "fleet"); if (denied) return denied;
     const { searchParams } =
       new URL(request.url);
 
-    const id = searchParams.get("id");
+    let id =
+      searchParams.get("id") ||
+      "";
 
     if (!id) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Vehicle id is required.",
-        },
-        { status: 400 }
+      try {
+        const body =
+          await request.json();
+
+        id = clean(body.id);
+      } catch {
+        // No body is acceptable.
+      }
+    }
+
+    if (!id) {
+      return failure(
+        "Vehicle ID is required.",
+        400
       );
     }
 
-    await vehicleService.delete(id);
+    const existing =
+      await prisma.vehicle.findUnique({
+        where: { id },
+      });
 
-    return NextResponse.json({
-      success: true,
-      message:
-        "Vehicle deleted successfully.",
-    });
+    if (!existing || existing.deletedAt) {
+      return failure(
+        "Vehicle not found.",
+        404
+      );
+    }
+
+    const vehicle =
+      await prisma.vehicle.update({
+        where: { id },
+
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+
+    return success(
+      {
+        id: vehicle.id,
+      },
+      "Vehicle deleted successfully."
+    );
   } catch (error) {
     console.error(
-      "DELETE /api/vehicles:",
+      "DELETE /api/vehicles error:",
       error
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to delete vehicle.",
-      },
-      { status: 500 }
+    return failure(
+      "Failed to delete vehicle.",
+      500
     );
   }
 }

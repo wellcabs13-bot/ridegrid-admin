@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "RideGrid Driver",
+    "slug": "ridegrid-driver",
+    "scheme": "ridegrid-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "bundleIdentifier": "com.ridegrid.driver",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.ridegrid.driver",
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"]
+    },
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0C"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "RideGrid uses your location only while this app is open to share your active trip position with your customer."
+        }
+      ]
+    ]
+  }
+}

@@ -24,6 +24,19 @@ export interface AutomationExecutionRequest {
   trigger: AutomationTrigger;
 
   context: AutomationContext;
+
+  // Rules that already ran for this event (set on retry so they do not run twice).
+  completedRuleIds?: string[];
+}
+
+export interface AutomationRuleResult {
+  ruleId: string;
+
+  status: "EXECUTED" | "FAILED" | "SKIPPED_DISABLED" | "ALREADY_COMPLETED";
+
+  notified?: number;
+
+  error?: string;
 }
 
 export interface AutomationExecutionResponse {
@@ -32,6 +45,8 @@ export interface AutomationExecutionResponse {
   executedRules: number;
 
   actions: AutomationAction[];
+
+  results: AutomationRuleResult[];
 
   message: string;
 }

@@ -1,8 +1,11 @@
+import { requestPermission, bookingScope } from "@/lib/request-access";
+import { Permission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   try {
+    const access = await requestPermission(req, Permission.BOOKING_VIEW); if (access.denied) return access.denied;
     const bookingId = req.nextUrl.searchParams.get("bookingId");
 
     if (!bookingId) {
@@ -17,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     const history = await prisma.bookingStatusHistory.findMany({
       where: {
-        bookingId,
+        bookingId, booking: { deletedAt: null, ...bookingScope(access.user!) },
       },
       orderBy: {
         createdAt: "desc",

@@ -1,0 +1,17 @@
+{
+  "files": [
+    {
+      "name": "RideGrid_Launch_Phase1_Travel_Demand_Report_v2.xlsx",
+      "sha256": "a14559ad53b6f9b9df3054a441e7cc65df080b3f383cbe6a8ffd27c1e85a96ac"
+    },
+    {
+      "name": "RideGrid_Phase1_SEO_Keyword_Map_v1.xlsx",
+      "sha256": "c6559a40c824550899ea62c7b3e138c49481eadbf1906e05f91789117998f479"
+    },
+    {
+      "name": "RideGrid_Phase1_SEO_Keyword_Map_v1.json",
+      "sha256": "a11a02d0140f5d1f5ee38369010e7587dcb2b09a3568a4c47f94e6493cc431bf"
+    }
+  ],
+  "keywordWorkbookMatches": true
+}

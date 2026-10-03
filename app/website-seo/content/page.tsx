@@ -1,0 +1,2 @@
+import { redirect } from "next/navigation";
+export default function ContentPage() { redirect("/website-seo/website/pages"); }

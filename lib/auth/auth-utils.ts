@@ -48,7 +48,7 @@ export function getDashboardRoute(
       return "/";
 
     case SecurityRole.CORPORATE_ADMIN:
-      return "/corporate";
+      return "/corporate-admin";
 
     case SecurityRole.CORPORATE_EMPLOYEE:
       return "/corporate";
