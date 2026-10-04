@@ -13,6 +13,7 @@ import {
   State,
 } from "../src/components/ui";
 import { api } from "../src/services/api";
+import { DateField } from "../src/components/DateField";
 import { assertOnline } from "../src/utils/offline";
 import { useApp } from "../src/state/Providers";
 export default function Upload() {
@@ -79,10 +80,11 @@ export default function Upload() {
           value={type}
           onChange={setType}
         />
-        <Field
-          label="Expiry date (YYYY-MM-DD, optional)"
+        <DateField
+          label="Expiry date (optional)"
           value={expiry}
-          onChangeText={setExpiry}
+          onChange={setExpiry}
+          minimumDate={new Date()}
         />
         <Button
           title={file ? file.name : "Choose document"}

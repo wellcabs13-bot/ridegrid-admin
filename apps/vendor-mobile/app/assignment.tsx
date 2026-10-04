@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { useRows, useSave } from "../src/services/vendor";
 import { useApp } from "../src/state/Providers";
-import { Button, Card, Label, Screen, State, name } from "../src/components/ui";
+import { BottomCTA, Button, Card, Chips, Notice, Screen, State, name } from "../src/components/ui";
 import type { Driver } from "../src/types";
 export default function Assignment() {
   const { vehicleId } = useLocalSearchParams<{ vehicleId: string }>(),
@@ -10,39 +10,22 @@ export default function Assignment() {
     save = useSave("assignment"),
     { online } = useApp();
   const [driverId, setDriverId] = useState("");
+  const drivers = q.data?.pages.flatMap((p) => p.items) || [];
   return (
-    <Screen title="Align a driver">
-      <Label muted>
-        Bookings and eligibility are checked by RideGrid before any change.
-        Existing bookings require Operations to resolve first.
-      </Label>
-      <State
-        loading={q.isPending}
-        error={q.error || save.error}
-        retry={() => q.refetch()}
-      />
-      {q.data?.pages
-        .flatMap((p) => p.items)
-        .map((d) => (
-          <Button
-            key={d.id}
-            title={`${driverId === d.id ? "✓ " : ""}${name(d)}`}
-            onPress={() => setDriverId(d.id)}
-          />
-        ))}
-      {q.hasNextPage && (
-        <Button title="More drivers" onPress={() => q.fetchNextPage()} />
-      )}
-      {save.isSuccess && (
+    <Screen
+      title="Align a Driver"
+      footer={<BottomCTA title="Confirm Alignment" icon="checkmark-circle" busy={save.isPending} disabled={!driverId || !online} onPress={() => save.mutate({ vehicleId, driverId })} />}
+    >
+      <Notice tone="blue" text="Bookings and eligibility are checked by RideGrid before any change. Existing bookings require Operations to resolve first." />
+      <State loading={q.isPending} error={q.error || save.error} retry={() => q.refetch()} />
+      {!!drivers.length && (
         <Card>
-          <Label>Driver alignment saved.</Label>
+          <Chips values={drivers.map((d) => d.id)} value={driverId} onChange={setDriverId} label={(id) => name(drivers.find((d) => d.id === id))} />
         </Card>
       )}
-      <Button
-        title={save.isPending ? "Saving…" : "Confirm alignment"}
-        disabled={!driverId || !online || save.isPending}
-        onPress={() => save.mutate({ vehicleId, driverId })}
-      />
+      {!q.isPending && !q.error && !drivers.length && <State empty emptyIcon="people-outline" emptyTitle="No active drivers" emptyText="Add a driver or mark one active first." />}
+      {q.hasNextPage && <Button title="More drivers" variant="secondary" compact onPress={() => q.fetchNextPage()} />}
+      {save.isSuccess && <Notice tone="green" icon="checkmark-circle" text="Driver alignment saved." />}
     </Screen>
   );
 }

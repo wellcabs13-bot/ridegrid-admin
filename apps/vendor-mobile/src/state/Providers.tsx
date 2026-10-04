@@ -15,6 +15,7 @@ import {
   setSession,
 } from "../services/api";
 import { sessionStore } from "../storage/session";
+import { enablePush, listenForPushTaps, takePushToken } from "../notifications/push";
 import type { Session, User } from "../types";
 import { clearOffline } from "../storage/offline";
 const client = new QueryClient({
@@ -36,6 +37,7 @@ export function Providers({ children }: React.PropsWithChildren) {
   useEffect(() => {
     let previousId: string | undefined;
     const unsub = onSession((s) => {
+      if (s?.user.id && s.user.id !== previousId) void enablePush().catch(() => {});
       if (previousId && previousId !== s?.user.id)
         void clearOffline(previousId).catch(() => {});
       if (previousId !== s?.user.id || !s) client.clear();
@@ -75,6 +77,8 @@ export function Providers({ children }: React.PropsWithChildren) {
       app.remove();
     };
   }, []);
+  const signedIn = ready && !!session?.user.id;
+  useEffect(() => (signedIn ? listenForPushTaps() : undefined), [signedIn]);
   return (
     <QueryClientProvider client={client}>
       <Context.Provider value={{ session, ready, online }}>
@@ -85,8 +89,11 @@ export function Providers({ children }: React.PropsWithChildren) {
 }
 export async function logout() {
   const token = currentSession()?.refreshToken;
-  // Do not silently claim revocation if the server cannot be reached.
-  await post("/api/auth/logout", { refreshToken: token }, false);
+  // The device is signed out first (session and cached data), online or not. Server
+  // revocation is then attempted; a failure is reported, never silently claimed.
   await setSession(null);
   client.clear();
+  await post("/api/auth/logout", { refreshToken: token, pushToken: takePushToken() }, false).catch(() => {
+    throw new Error("Signed out on this device. The server session could not be revoked now and will expire on its own.");
+  });
 }

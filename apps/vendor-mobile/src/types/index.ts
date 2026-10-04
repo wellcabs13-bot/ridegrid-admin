@@ -22,6 +22,8 @@ export type Document = {
 export type DriverName = { id: string; firstName: string; lastName: string };
 export type Vehicle = {
   id: string;
+  // Detail view only: public photos counted as the marketplace selects them.
+  listingPhotos?: number;
   registrationNumber: string;
   make: string;
   model: string;
@@ -85,8 +87,13 @@ export type Notice = {
   message: string;
   readAt: string | null;
   createdAt?: string;
+  // Resolved by the server against this account's own bookings; absent when none.
+  target?: { type: "booking"; id: string; bookingNumber: string } | null;
 };
+// Account and marketplace standing computed by the server from the marketplace rules.
+export type Standing = { state: "VERIFIED" | "PENDING" | "SUSPENDED"; verifiedAt: string | null; liveVehicles: number; totalVehicles: number; reasons: string[] };
 export type Home = {
+  standing?: Standing;
   todayBookings: number;
   upcoming: number;
   active: number;
@@ -102,6 +109,7 @@ export type Home = {
   asOf: string;
 };
 export type Profile = {
+  standing?: Standing;
   id: string;
   companyName: string;
   address: string | null;

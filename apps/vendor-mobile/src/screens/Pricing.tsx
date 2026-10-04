@@ -15,6 +15,7 @@ import {
 } from "../components/ui";
 import { api } from "../services/api";
 import { useSave } from "../services/vendor";
+import { DateField } from "../components/DateField";
 import { useApp } from "../state/Providers";
 import type { Pricing as Data } from "../types";
 export default function Pricing() {
@@ -55,7 +56,7 @@ export default function Pricing() {
       !Number.isFinite(Date.parse(`${form.effectiveFrom}:00+05:30`))
     ) {
       setValidation(
-        "Enter a future start time in YYYY-MM-DDTHH:mm format (IST).",
+        "Choose a future start date and time (IST).",
       );
       return;
     }
@@ -160,10 +161,12 @@ export default function Pricing() {
                 numeric
               />
             ))}
-            <Field
-              label="Effective from (IST): YYYY-MM-DDTHH:mm"
+            <DateField
+              label="Effective from (IST)"
+              mode="datetime"
+              minimumDate={new Date()}
               value={form.effectiveFrom}
-              onChangeText={(v) => set("effectiveFrom", v)}
+              onChange={(v) => set("effectiveFrom", v)}
             />
             {!!validation && <Label>{validation}</Label>}
             <State error={save.error} />

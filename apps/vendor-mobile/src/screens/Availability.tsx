@@ -10,6 +10,8 @@ import {
   name,
 } from "../components/ui";
 import { useVendor } from "../services/vendor";
+import { DateField } from "../components/DateField";
+import { formatDate } from "../utils/when";
 type Data = {
   hasMore: boolean;
   date: string;
@@ -48,7 +50,7 @@ export default function Availability() {
         Asia/Kolkata calendar day. Reservation conflicts are checked by
         RideGrid.
       </Label>
-      <Field label="Date (YYYY-MM-DD)" value={date} onChangeText={setDate} />
+      <DateField label="Date" value={date} onChange={setDate} />
       <Button
         title="Check date"
         onPress={() => {
@@ -59,7 +61,7 @@ export default function Availability() {
       <State loading={q.isPending} error={q.error} retry={() => q.refetch()} />
       {q.data && (
         <>
-          <Label large>Vehicles · {q.data.date}</Label>
+          <Label large>Vehicles · {formatDate(q.data.date)}</Label>
           {q.data.vehicles.map((v) => (
             <Card key={v.id}>
               <Label>{v.registrationNumber}</Label>
