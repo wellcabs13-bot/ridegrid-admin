@@ -1,4 +1,5 @@
 import { FlatList, View } from "react-native";
+import { router } from "expo-router";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, EmptyState, ErrorState, LoadingState, Screen, T } from "../../src/components/ui";
 import { NotificationCard } from "../../src/components/Corporate";
@@ -18,9 +19,16 @@ export default function Notifications() {
     enabled: !!session,
   });
   const items = q.data?.pages.flatMap((p) => p.items) || [];
-  // Notifications carry no structured booking or request identifiers, so they are
-  // marked read in place rather than deep-linked to a guessed screen.
+  // The server resolves each notification's target against this employee's own trips
+  // and requests; a missing or unauthorised target opens nothing.
+  function open(n: Notice) {
+    const t = n.target;
+    if (t?.type === "booking") router.push({ pathname: "/trip", params: { id: t.id } });
+    else if (t?.type === "approvals") router.push("/approvals");
+    else if (t?.type === "reviews") router.push("/reviews");
+  }
   async function read(n: Notice) {
+    open(n);
     if (n.readAt || !online) return;
     await corpPost("notifications", { id: n.id }).catch(() => {});
     await client.invalidateQueries({ queryKey: ["notifications"] });
@@ -33,7 +41,7 @@ export default function Notifications() {
         keyExtractor={(n) => n.id}
         refreshing={q.isRefetching}
         onRefresh={() => void q.refetch()}
-        ListHeaderComponent={<View style={{ gap: 10 }}><T muted size={13}>Booking, approval and trip updates from RideGrid and your company. Tap to mark as read.</T><ErrorState error={q.error} retry={() => void q.refetch()} /></View>}
+        ListHeaderComponent={<View style={{ gap: 10 }}><T muted size={13}>Booking, approval and trip updates from RideGrid and your company. Tap one to open it.</T><ErrorState error={q.error} retry={() => void q.refetch()} /></View>}
         ListEmptyComponent={q.isPending ? <LoadingState /> : q.isError ? null : <EmptyState title="You're all caught up" body="Booking and approval updates will appear here." icon="notifications-off-outline" />}
         renderItem={({ item }) => <NotificationCard notice={item} onPress={() => void read(item)} />}
         ListFooterComponent={q.hasNextPage ? <Button title="Load more" secondary busy={q.isFetchingNextPage} onPress={() => void q.fetchNextPage()} /> : null}

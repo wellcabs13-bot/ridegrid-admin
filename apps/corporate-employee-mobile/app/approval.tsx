@@ -99,7 +99,7 @@ export default function ApprovalDetail() {
             <StatusTimeline
               items={[
                 { title: "Submitted", at: a.submittedAt, done: true },
-                ...a.steps.map((s) => ({ title: `${label(s.stage)} review: ${label(s.status)}`, at: s.actedAt, done: s.status !== "PENDING", note: s.remarks })),
+                ...a.steps.map((s) => ({ title: `${s.approver ?? label(s.stage)}: ${label(s.status)}`, at: s.actedAt, done: s.status !== "PENDING", note: s.remarks })),
                 ...(a.rawStatus === "CANCELLED" ? [{ title: "Cancelled by you", at: a.completedAt, done: true }] : []),
               ]}
             />

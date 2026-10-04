@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
+import { View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { Button, Card, Chips, EmptyState, ErrorState, Heading, LoadingState, Message, Screen, T } from "../../src/components/ui";
+import { Button, Card, Chips, Segmented, EmptyState, ErrorState, Heading, LoadingState, Message, Screen, T, colors } from "../../src/components/ui";
 import { DateField, Select } from "../../src/components/Inputs";
-import { api } from "../../src/services/api";
+import { api, corp } from "../../src/services/api";
 import { useApp } from "../../src/state/Providers";
-import type { Option, Search, Service } from "../../src/types";
+import type { Option, Profile, Search, Service } from "../../src/types";
 import { calendarDays, label, pickupISO, serviceLabel } from "../../src/utils/journey";
 
 const unique = (rows: string[]) => [...new Set(rows.filter(Boolean))].sort();
 
 // RideSearchCard: service, route, date and category from live marketplace options only.
 export default function BookRide() {
-  const { online } = useApp();
+  const { online, session } = useApp();
+  const profile = useQuery({ queryKey: ["profile", session?.user.id], queryFn: ({ signal }) => corp<Profile>("profile", "", signal), enabled: !!session });
+  const blocked = profile.data?.canBook === false;
   const params = useLocalSearchParams<Record<string, string>>();
   const q = useQuery({ queryKey: ["options"], queryFn: ({ signal }) => api<Option[]>("/api/marketplace/options", { signal }, false), staleTime: 300000 });
   const [service, setService] = useState<Service>(params.serviceType === "LOCAL" ? "LOCAL" : params.tripType === "ROUNDTRIP" ? "ROUNDTRIP" : "ONE_WAY");
@@ -86,14 +90,21 @@ export default function BookRide() {
     }
   }
   return (
-    <Screen title="Book a ride" subtitle="Every result is checked against your company travel policy." refresh={() => void q.refetch()} refreshing={q.isRefetching}>
+    <Screen title="Book a Ride" subtitle="Every result is checked against your company travel policy." refresh={() => void q.refetch()} refreshing={q.isRefetching}>
+      {!blocked && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 14, backgroundColor: "#ECFDF3", borderWidth: 1, borderColor: "#BBF7D0" }}>
+          <Ionicons name="checkmark-circle" size={24} color={colors.emerald} />
+          <View style={{ flex: 1 }}><T size={13} weight="700" color={colors.emerald}>Company travel policy applies</T><T muted size={12}>Every ride is checked against it and billed to your company.</T></View>
+        </View>
+      )}
       {q.isPending && <LoadingState />}
       <ErrorState error={q.error} retry={() => void q.refetch()} />
-      {q.isSuccess && !options.length && <EmptyState title="No rides available right now" body="Marketplace routes appear here as soon as vendors publish current prices." icon="car-outline" />}
-      {!!options.length && (
+      {blocked && <EmptyState title="Booking is not enabled for you" body="Your company has not enabled ride booking for your profile. Contact your travel administrator. Your trips and approvals remain available." icon="lock-closed-outline" />}
+      {!blocked && q.isSuccess && !options.length && <EmptyState title="No rides available right now" body="Marketplace routes appear here as soon as vendors publish current prices." icon="car-outline" />}
+      {!blocked && !!options.length && (
         <Card>
-          <Heading>Service</Heading>
-          <Chips values={services} value={service} format={serviceLabel} onChange={(v) => { setService(v as Service); reset("service"); }} />
+          
+          <Segmented values={services} value={service} format={serviceLabel} onChange={(v) => { setService(v as Service); reset("service"); }} />
           <Select label="Pickup city" values={cities} value={pickup} onChange={(v) => { setPickup(v); reset("pickup"); }} />
           {service === "ONE_WAY" && <Select label="Destination" values={destinations} value={drop} onChange={(v) => { setDrop(v); reset("route"); }} />}
           {service === "ROUNDTRIP" && <Select label="Cities to visit" multiple values={destinations} value={visits.join("|")} onChange={(v) => { setVisits(v.split("|").filter(Boolean)); reset("route"); }} />}
@@ -107,10 +118,10 @@ export default function BookRide() {
               <T muted size={13}>{duration.days ? `${duration.days} calendar days · pickup at 12:00 IST` : "Choose both dates · pickup at 12:00 IST"}</T>
             </>
           ) : (
-            <DateField label="Pickup time (24-hour, India time)" mode="time" value={time} onChange={setTime} />
+            <DateField label="Pickup time (India time)" mode="time" value={time} onChange={setTime} />
           )}
           <Message text={error} />
-          <Button title="Search rides" icon="search" disabled={!online} onPress={search} />
+          <Button title="Search Available Rides" arrow disabled={!online} onPress={search} />
           {!online && <T muted size={13}>Reconnect to search live availability.</T>}
         </Card>
       )}

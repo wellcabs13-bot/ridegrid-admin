@@ -21,22 +21,23 @@ import { useApp } from "../state/Providers";
 // web, and the customer/vendor/driver mobile apps' themes) — single source
 // of truth.
 export const colors = {
-  bg: "#0A0A0C",
-  surface: "#1C1C21",
-  raised: "#26262C",
-  border: "#2A2A30",
-  text: "#F5F5F7",
-  muted: "#9A9AA2",
-  brand: "#EF4444",
+  bg: "#F4F5F7",
+  surface: "#FFFFFF",
+  raised: "#F3F4F6",
+  border: "#E5E7EB",
+  text: "#111827",
+  muted: "#6B7280",
+  brand: "#E31B23",
   brandDark: "#B91C1C",
-  blue: "#3B82F6",
-  purple: "#A78BFA",
-  emerald: "#34D399",
-  amber: "#FBBF24",
-  red: "#F87171",
+  brandSoft: "#FDECEC",
+  blue: "#2563EB",
+  purple: "#7C3AED",
+  emerald: "#16A34A",
+  amber: "#D97706",
+  red: "#DC2626",
 };
 type Icon = React.ComponentProps<typeof Ionicons>["name"];
-const TABS = ["/", "/book", "/trips", "/notifications", "/account", "/login"];
+const TABS = ["/", "/trips", "/book", "/approvals", "/account", "/notifications", "/login"];
 
 export function T({ children, muted, size = 15, weight = "400", color, center }: React.PropsWithChildren<{ muted?: boolean; size?: number; weight?: "400" | "600" | "700" | "800"; color?: string; center?: boolean }>) {
   return (
@@ -60,23 +61,25 @@ export function OfflineBanner() {
 }
 
 // CorporateScreen: the shared frame with header, back navigation and offline state.
-export function Screen({ title, subtitle, children, refresh, refreshing = false, scroll = true }: React.PropsWithChildren<{ title: string; subtitle?: string; refresh?: () => void; refreshing?: boolean; scroll?: boolean }>) {
+export function Screen({ title, subtitle, children, refresh, refreshing = false, scroll = true, action }: React.PropsWithChildren<{ title: string; subtitle?: string; refresh?: () => void; refreshing?: boolean; scroll?: boolean; action?: React.ReactNode }>) {
   const pathname = usePathname();
   const back = !TABS.includes(pathname);
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={s.screen}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={s.header}>
-          {back && (
-            <Pressable accessibilityRole="button" accessibilityLabel="Back" style={s.iconButton} onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}>
-              <Ionicons name="chevron-back" size={22} color={colors.brand} />
-            </Pressable>
-          )}
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={s.brand}>RIDEGRID / CORPORATE</Text>
-            <Title>{title}</Title>
-            {!!subtitle && <T muted size={13}>{subtitle}</T>}
+          <View style={{ width: 44 }}>
+            {back && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Back" style={s.iconButton} onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}>
+                <Ionicons name="chevron-back" size={24} color={colors.text} />
+              </Pressable>
+            )}
           </View>
+          <View style={{ flex: 1, alignItems: "center", gap: 2 }}>
+            <Text style={s.headerTitle} numberOfLines={1}>{title}</Text>
+            {!!subtitle && <Text style={s.headerSub} numberOfLines={2}>{subtitle}</Text>}
+          </View>
+          <View style={{ width: 44, alignItems: "flex-end" }}>{action}</View>
         </View>
         <OfflineBanner />
         {scroll ? (
@@ -100,9 +103,9 @@ export function Card({ children, tone }: React.PropsWithChildren<{ tone?: string
 export function Row({ children }: React.PropsWithChildren) {
   return <View style={s.row}>{children}</View>;
 }
-export function Button({ title, onPress, disabled, busy, secondary, danger, icon }: { title: string; onPress: () => void; disabled?: boolean; busy?: boolean; secondary?: boolean; danger?: boolean; icon?: Icon }) {
+export function Button({ title, onPress, disabled, busy, secondary, danger, icon, arrow }: { title: string; onPress: () => void; disabled?: boolean; busy?: boolean; secondary?: boolean; danger?: boolean; icon?: Icon; arrow?: boolean }) {
   const off = disabled || busy;
-  const fg = secondary ? colors.brand : colors.bg;
+  const fg = secondary ? colors.brand : "#FFFFFF";
   return (
     <Pressable
       accessibilityRole="button"
@@ -114,26 +117,42 @@ export function Button({ title, onPress, disabled, busy, secondary, danger, icon
     >
       {busy ? <ActivityIndicator color={fg} /> : icon ? <Ionicons name={icon} size={18} color={fg} /> : null}
       <Text style={[s.buttonText, { color: fg }]}>{title}</Text>
+      {arrow && !busy && <Ionicons name="arrow-forward" size={18} color={fg} />}
     </Pressable>
   );
 }
-export function Field({ label, value, onChangeText, secret, multiline, placeholder, email }: { label: string; value: string; onChangeText: (v: string) => void; secret?: boolean; multiline?: boolean; placeholder?: string; email?: boolean }) {
+export function Field({ label, value, onChangeText, secret, multiline, placeholder, email, icon }: { label: string; value: string; onChangeText: (v: string) => void; secret?: boolean; multiline?: boolean; placeholder?: string; email?: boolean; icon?: Icon }) {
+  const [shown, setShown] = React.useState(false);
   return (
     <View style={{ gap: 6 }}>
       <T muted size={13}>{label}</T>
-      <TextInput
-        accessibilityLabel={label}
-        value={value}
-        onChangeText={onChangeText}
-        secureTextEntry={secret}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType={email ? "email-address" : "default"}
-        multiline={multiline}
-        placeholder={placeholder}
-        placeholderTextColor={colors.muted}
-        style={[s.input, multiline ? { minHeight: 84, textAlignVertical: "top" } : null]}
-      />
+      <View style={{ justifyContent: "center" }}>
+        {icon && <Ionicons name={icon} size={19} color={colors.muted} style={{ position: "absolute", left: 14, zIndex: 1 }} />}
+        <TextInput
+          accessibilityLabel={label}
+          value={value}
+          onChangeText={onChangeText}
+          secureTextEntry={secret && !shown}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType={email ? "email-address" : "default"}
+          multiline={multiline}
+          placeholder={placeholder}
+          placeholderTextColor={colors.muted}
+          style={[s.input, multiline ? { minHeight: 84, textAlignVertical: "top" } : null, secret ? { paddingRight: 52 } : null, icon ? { paddingLeft: 44 } : null]}
+        />
+        {secret && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={shown ? "Hide password" : "Show password"}
+            onPress={() => setShown((v) => !v)}
+            hitSlop={8}
+            style={{ position: "absolute", right: 6, width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+          >
+            <Ionicons name={shown ? "eye-off-outline" : "eye-outline"} size={20} color={colors.muted} />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -141,16 +160,31 @@ export function Chips({ values, value, onChange, format = (v: string) => v.repla
   return (
     <View style={s.wrap}>
       {values.map((v) => (
-        <Pressable key={v} accessibilityRole="button" accessibilityState={{ selected: v === value }} onPress={() => onChange(v)} style={[s.chip, v === value && { borderColor: colors.brand, backgroundColor: "rgba(239,68,68,0.18)" }]}>
+        <Pressable key={v} accessibilityRole="button" accessibilityState={{ selected: v === value }} onPress={() => onChange(v)} style={[s.chip, v === value && { borderColor: colors.brand, backgroundColor: "colors.brandSoft" }]}>
           <Text style={{ color: v === value ? colors.brand : colors.muted, fontSize: 13, fontWeight: "700" }}>{format(v)}</Text>
         </Pressable>
       ))}
     </View>
   );
 }
+// Segmented: the red-filled tab strip used for service type and list filters.
+export function Segmented({ values, value, onChange, format = (v: string) => v.replaceAll("_", " ") }: { values: string[]; value: string; onChange: (v: string) => void; format?: (v: string) => string }) {
+  return (
+    <View style={s.segment}>
+      {values.map((v) => {
+        const on = v === value;
+        return (
+          <Pressable key={v} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => onChange(v)} style={[s.segmentItem, on && { backgroundColor: colors.brand }]}>
+            <Text numberOfLines={1} style={{ color: on ? "#FFFFFF" : colors.muted, fontSize: 13, fontWeight: "700" }}>{format(v)}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 export function Pill({ text, color, icon }: { text: string; color: string; icon?: Icon }) {
   return (
-    <View style={[s.pill, { borderColor: color }]}>
+    <View style={[s.pill, { borderColor: color + "55", backgroundColor: color + "14" }]}>
       {icon && <Ionicons name={icon} size={13} color={color} />}
       <Text style={{ color, fontSize: 12, fontWeight: "800" }}>{text}</Text>
     </View>
@@ -202,7 +236,9 @@ export function Message({ text, tone = colors.red }: { text?: string; tone?: str
 export function MenuRow({ icon, title, subtitle, onPress }: { icon: Icon; title: string; subtitle?: string; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={s.menu}>
-      <Ionicons name={icon} size={20} color={colors.brand} />
+      <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name={icon} size={20} color={colors.brand} />
+      </View>
       <View style={{ flex: 1 }}>
         <T weight="600">{title}</T>
         {!!subtitle && <T muted size={13}>{subtitle}</T>}
@@ -236,22 +272,25 @@ export function ConfirmationSheet({ visible, title, body, confirm, onConfirm, on
 }
 export const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, flexDirection: "row", gap: 10, alignItems: "center" },
-  brand: { color: colors.brand, fontSize: 10, fontWeight: "800", letterSpacing: 2 },
-  iconButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: colors.surface },
+  header: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, flexDirection: "row", gap: 4, alignItems: "center", backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerTitle: { color: colors.text, fontSize: 17, fontWeight: "800", textAlign: "center" },
+  headerSub: { color: colors.muted, fontSize: 12, textAlign: "center" },
+  iconButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 14 },
   body: { padding: 16, paddingBottom: 40, gap: 14 },
-  card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 18, padding: 16, gap: 10 },
+  card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 16, gap: 10, shadowColor: "#111827", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  segment: { flexDirection: "row", backgroundColor: colors.raised, borderRadius: 12, padding: 3, gap: 3 },
+  segmentItem: { flex: 1, minHeight: 38, borderRadius: 10, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
   row: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
-  button: { minHeight: 52, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", gap: 8, justifyContent: "center", alignItems: "center" },
-  secondary: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.raised },
+  button: { minHeight: 52, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", gap: 8, justifyContent: "center", alignItems: "center" },
+  secondary: { borderWidth: 1.5, borderColor: colors.brand, backgroundColor: colors.surface },
   buttonText: { fontWeight: "800", textAlign: "center", fontSize: 15, flexShrink: 1 },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, backgroundColor: colors.raised, minHeight: 50, fontSize: 16 },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: colors.text, backgroundColor: colors.surface, minHeight: 50, fontSize: 16 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10, minHeight: 44, justifyContent: "center" },
   pill: { flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: "flex-start" },
-  banner: { flexDirection: "row", gap: 8, alignItems: "center", backgroundColor: "#3A2E12", paddingHorizontal: 16, paddingVertical: 10 },
+  banner: { flexDirection: "row", gap: 8, alignItems: "center", backgroundColor: "#FEF3C7", paddingHorizontal: 16, paddingVertical: 10 },
   menu: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 56, paddingVertical: 8 },
   kv: { flexDirection: "row", justifyContent: "space-between", gap: 12, alignItems: "flex-start" },
-  scrim: { flex: 1, backgroundColor: "#000A", justifyContent: "flex-end" },
+  scrim: { flex: 1, backgroundColor: "#0008",justifyContent: "flex-end" },
   sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, paddingBottom: 32, gap: 12, borderWidth: 1, borderColor: colors.border },
 });

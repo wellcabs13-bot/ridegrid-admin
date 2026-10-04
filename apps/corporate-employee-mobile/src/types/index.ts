@@ -47,31 +47,38 @@ export type Approval = {
     vehicle: { make: string; model: string; category: string }; vendorName: string;
     fare: { vendorFare: string; platformFee: string; taxAmount: string; finalPayable: string }; policyReasons: string[]; note: string;
   } | null;
-  steps: { level: number; stage: string; status: string; actedAt: string | null; remarks: string | null }[];
+  steps: { level: number; stage: string; approver?: string | null; status: string; actedAt: string | null; remarks: string | null }[];
   decisionNote: string | null;
   booking: { id: string; bookingNumber: string; status: string } | null;
 };
 export type Profile = {
   id: string; name: string; employeeCode: string; email: string; mobile: string; designation: string; grade: string | null;
-  managerName: string | null; isApprover: boolean; status: string; defaultPickupAddress: string | null;
+  managerName: string | null; isApprover: boolean; canBook: boolean; status: string; defaultPickupAddress: string | null;
   company: { name: string; approvalFlow: string; billingCycle: string };
   branch: { name: string; city: string | null } | null; department: string | null; costCenter: string | null;
 };
 export type BudgetPeriod = { limit: string; used: string; remaining: string; periodStart: string; periodEnd: string };
-export type Budget = { visible: false } | { visible: true; monthly: BudgetPeriod | null; yearly: BudgetPeriod | null; basis: string };
+export type AssignedBudget = BudgetPeriod & { name: string };
+export type Budget = { visible: false } | { visible: true; monthly: BudgetPeriod | null; yearly: BudgetPeriod | null; assigned?: AssignedBudget[]; basis: string };
 export type TravelPolicy = {
   name: string; maxTripAmount: string | null; allowedCategories: string[]; advanceBookingHours: number | null;
   nightTravelAllowed: boolean; outstationAllowed: boolean; airportTravelAllowed: boolean; approvalRequired: boolean;
+  // Present on servers with scoped policies; older responses omit them.
+  description?: string | null; scope?: "COMPANY" | "BRANCH" | "DEPARTMENT" | "ASSIGNED";
+  localAllowed?: boolean; roundTripAllowed?: boolean; weekendTravelAllowed?: boolean;
+  bookingStartHour?: number | null; bookingEndHour?: number | null; blockAboveAmount?: string | null; allowedCities?: string[];
 };
 export type PolicySummary = {
   policy: TravelPolicy | null; approvalStages: { level: number; approver: string; maxAmount: number | null }[];
   approvalFlow: string; employeeLimits: { monthly: string | null; yearly: string | null };
 };
 export type Home = {
-  profile: Profile; upcoming: Trip | null; activeTrips: number; pendingApprovals: number; approvedToBook: number; unread: number;
+  profile: Profile; upcoming: Trip | null; activeTrips: number; pendingApprovals: number; approvedToBook: number; awaitingMyDecision?: number; unread: number;
   policy: TravelPolicy | null; budget: Budget; asOf: string;
 };
-export type Notice = { id: string; title: string; message: string; readAt: string | null; createdAt: string };
+// Where a notification opens, resolved by the server against the employee's own records.
+export type NoticeTarget = { type: "booking"; id: string; bookingNumber: string } | { type: "approvals" } | { type: "reviews" };
+export type Notice = { id: string; title: string; message: string; readAt: string | null; createdAt: string; target?: NoticeTarget | null };
 export type Config = {
   support: { name: string; phoneHref: string; emailHref: string; whatsapp: string };
   paymentMethod: "CORPORATE_CREDIT"; paymentAvailable: boolean; services: Service[]; profileEdit: boolean; pushRegistration: boolean; rebook: boolean;
@@ -81,3 +88,5 @@ export type TripStatus = {
   status: string; trip: { status: string; driverAssignedAt: string | null; arrivedPickupAt: string | null; tripStartedAt: string | null; tripCompletedAt: string | null } | null;
   liveTracking: boolean; location: { latitude: number; longitude: number; accuracy: number | null; recordedAt: string } | null;
 };
+// A request waiting for this employee's decision as the assigned approver.
+export type Review = Approval & { employee: { name: string; code: string; department: string | null } };

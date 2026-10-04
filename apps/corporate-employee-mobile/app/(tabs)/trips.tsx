@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FlatList, View } from "react-native";
 import { router } from "expo-router";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Button, Card, Chips, EmptyState, ErrorState, LoadingState, MenuRow, Row, Screen, T } from "../../src/components/ui";
+import { Button, Card, Segmented, EmptyState, ErrorState, LoadingState, Row, Screen, T } from "../../src/components/ui";
 import { StatusBadge, TripCard } from "../../src/components/Corporate";
 import { corp } from "../../src/services/api";
 import { useApp } from "../../src/state/Providers";
@@ -36,8 +36,8 @@ export default function Trips() {
         removeClippedSubviews
         ListHeaderComponent={
           <View style={{ gap: 12 }}>
-            <MenuRow icon="shield-checkmark-outline" title="Approval requests" subtitle="Pending, approved and past decisions" onPress={() => router.push("/approvals")} />
-            <Chips values={FILTERS} value={filter} format={label} onChange={setFilter} />
+            
+            <Segmented values={FILTERS} value={filter} format={label} onChange={setFilter} />
             <ErrorState error={showSaved ? null : q.error} retry={() => void q.refetch()} />
             {showSaved && (
               <Card>

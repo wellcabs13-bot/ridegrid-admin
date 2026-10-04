@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Crypto from "expo-crypto";
 import { Button, Card, ConfirmationSheet, EmptyState, Field, Heading, KeyValue, Message, Screen, T, colors } from "../src/components/ui";
-import { FareBreakdown, PolicyBadge, PolicyReasons, decisionColor } from "../src/components/Corporate";
+import { FareBreakdown, ListingSummary, PolicyBadge, PolicyReasons, decisionColor } from "../src/components/Corporate";
 import { corp, corpPost } from "../src/services/api";
 import { uncertain } from "../src/services/errors";
 import { useApp } from "../src/state/Providers";
@@ -100,14 +100,14 @@ export default function Ride() {
     ? "Billed to your company's corporate credit account."
     : "Corporate credit is unavailable. Contact your Corporate Administrator.";
   return (
-    <Screen title={`${listing.vehicle.make} ${listing.vehicle.model}`} subtitle={`${label(listing.vehicle.category)} · ${listing.vendor?.companyName || "Vendor"}`}>
+    <Screen title="Ride Details" subtitle={`${label(listing.vehicle.category)} · ${listing.vendor?.companyName || "Vendor"}`}>
+      <ListingSummary listing={listing} />
       <Card>
-        <KeyValue k="Route" v={`${search.pickupCity}${search.dropCity ? ` to ${search.dropCity.replaceAll("|", ", ")}` : ""}`} />
+        <Heading>Trip Details</Heading>
+        <KeyValue k="Route" v={`${search.pickupCity}${search.dropCity ? ` → ${search.dropCity.replaceAll("|", ", ")}` : ""}`} />
         {!!listing.pricing.packageName && <KeyValue k="Package" v={listing.pricing.packageName} />}
         <KeyValue k="Pickup" v={dateTime(quote?.fare.tripDateTime || pickupISO(search))} />
         {search.tripType === "ROUNDTRIP" && <KeyValue k="Duration" v={`${search.days} day(s)`} />}
-        <KeyValue k="Vehicle" v={`${listing.vehicle.seatingCapacity} seats · ${label(listing.vehicle.fuelType)} · ${label(listing.vehicle.transmission)}`} />
-        {listing.driver && <KeyValue k="Driver" v={`${listing.driver.name}${listing.driver.verified ? " (verified)" : ""}`} />}
         {listing.pricing.includedKm != null && <KeyValue k="Included" v={`${listing.pricing.includedKm} km${listing.pricing.includedHours ? ` / ${listing.pricing.includedHours} hr` : ""}`} />}
       </Card>
       {!quote && busy === "quote" && <Card><T muted>Getting a fresh price and policy check...</T></Card>}
@@ -131,7 +131,7 @@ export default function Ride() {
       )}
       {quote && decision !== "NOT_ALLOWED" && (
         <Card>
-          <Heading>Trip details</Heading>
+          <Heading>Pickup and drop addresses</Heading>
           <Field label="Pickup address" value={pickupAddress} onChangeText={setPickup} placeholder="Building, street, landmark" />
           <Field label="Drop address" value={dropAddress} onChangeText={setDrop} placeholder="Building, street, landmark" />
           {decision === "APPROVAL_REQUIRED" && <Field label="Note for your approver (optional)" value={note} onChangeText={setNote} multiline />}
@@ -143,8 +143,9 @@ export default function Ride() {
           <Message text={error} />
           {interrupted && <Message tone={colors.amber} text="The response was interrupted. Your request may already be saved. Check again safely with the same quote before starting a new one." />}
           <Button
-            title={decision === "ALLOWED" ? "Confirm ride" : "Submit for approval"}
-            icon={decision === "ALLOWED" ? "checkmark-circle-outline" : "send-outline"}
+            title={decision === "ALLOWED" ? "Book This Ride" : "Submit for approval"}
+            arrow
+            
             disabled={!online || !ready || !config.data || (decision === "ALLOWED" && !config.data.paymentAvailable)}
             busy={busy === "submit"}
             onPress={() => (interrupted ? void submit() : setConfirming(true))}

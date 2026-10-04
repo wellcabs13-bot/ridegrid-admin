@@ -4,6 +4,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { QueryClient, QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
 import { api, currentSession, onSession, post, setSession } from "../services/api";
 import { sessionStore } from "../storage/session";
+import { enablePush, listenForPushTaps, takePushToken } from "../notifications/push";
 import { clearOffline } from "../storage/offline";
 import type { Listing, Quote, Search, Session, User } from "../types";
 
@@ -28,6 +29,7 @@ export function Providers({ children }: React.PropsWithChildren) {
   useEffect(() => {
     let previousId: string | undefined;
     const unsub = onSession((s) => {
+      if (s?.user.id && s.user.id !== previousId) void enablePush().catch(() => {});
       if (previousId && previousId !== s?.user.id) void clearOffline(previousId).catch(() => {});
       if (previousId !== s?.user.id || !s) {
         client.clear();
@@ -69,6 +71,8 @@ export function Providers({ children }: React.PropsWithChildren) {
       app.remove();
     };
   }, []);
+  const signedIn = ready && !!session?.user.id;
+  useEffect(() => (signedIn ? listenForPushTaps() : undefined), [signedIn]);
   return (
     <QueryClientProvider client={client}>
       <Context.Provider value={{ session, ready, online, journey, setJourney }}>{children}</Context.Provider>
@@ -81,5 +85,5 @@ export async function logout() {
   await setSession(null);
   client.clear();
   // Revocation is attempted; the local session is already gone either way.
-  await post("/api/auth/logout", { refreshToken: token }, false).catch(() => {});
+  await post("/api/auth/logout", { refreshToken: token, pushToken: takePushToken() }, false).catch(() => {});
 }

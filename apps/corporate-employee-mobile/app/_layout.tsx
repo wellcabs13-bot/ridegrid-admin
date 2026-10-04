@@ -23,7 +23,7 @@ export default function Layout() {
   return (
     <SafeAreaProvider>
       <Providers>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <Routes />
       </Providers>
     </SafeAreaProvider>

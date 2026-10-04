@@ -1,3 +1,4 @@
+import { formatDateTime } from "./when";
 import type { Approval, Decision, Listing, Quote, RouteDraft, Search } from "../types";
 
 function day(value: string) {
@@ -75,7 +76,7 @@ export const money = (v: string | number | null | undefined) =>
   v == null || v === "" ? "Not available" : `₹${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 export const dateTime = (v: string | null | undefined) =>
   v
-    ? new Date(v).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) + " IST"
+    ? `${formatDateTime(v)} IST`
     : "Not recorded";
 export function tripGroup(status: string) {
   return status === "CANCELLED" ? "CANCELLED" : status === "TRIP_COMPLETED" ? "COMPLETED" : status === "TRIP_STARTED" ? "ACTIVE" : "UPCOMING";

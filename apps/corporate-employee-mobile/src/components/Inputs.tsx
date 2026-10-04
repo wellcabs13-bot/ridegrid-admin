@@ -3,8 +3,10 @@ import { FlatList, Modal, Platform, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Button, Field, Heading, T, colors, s } from "./ui";
+import { formatDate, formatTime } from "../utils/when";
 
 // Picker values are calendar fields, not instants; the server interprets them in India time.
+// The value stays "YYYY-MM-DD" / "HH:MM"; it is shown as "05 Oct 2026" / "04:30 PM".
 export function DateField({ label, value, onChange, mode = "date" }: { label: string; value: string; onChange: (v: string) => void; mode?: "date" | "time" }) {
   const [open, setOpen] = useState(false);
   const parsed = mode === "date" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date();
@@ -13,17 +15,23 @@ export function DateField({ label, value, onChange, mode = "date" }: { label: st
     parsed.setHours(h, m);
   }
   const pad = (n: number) => String(n).padStart(2, "0");
+  // Browsers have no native picker here: keep a typed field on web only.
+  if (Platform.OS === "web") return <Field label={label} value={value} onChangeText={onChange} placeholder={mode === "date" ? "YYYY-MM-DD" : "HH:MM"} />;
+  const shown = value ? (mode === "date" ? formatDate(value) : formatTime(value)) : "";
   return (
-    <View style={{ gap: 8 }}>
-      <Field label={label} value={value} onChangeText={onChange} placeholder={mode === "date" ? "YYYY-MM-DD" : "HH:MM"} />
-      {Platform.OS !== "web" && <Button title={mode === "date" ? "Choose date" : "Choose time"} secondary onPress={() => setOpen(true)} />}
-      {open && Platform.OS !== "web" && (
+    <View style={{ gap: 6 }}>
+      <T muted size={13}>{label}</T>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${shown || "not selected"}`} onPress={() => setOpen(true)} style={[s.input, { justifyContent: "center" }]}>
+        <T muted={!shown}>{shown || (mode === "date" ? "Select date" : "Select time")}</T>
+      </Pressable>
+      {open && (
         <>
           <DateTimePicker
             value={Number.isFinite(parsed.getTime()) ? parsed : new Date()}
             mode={mode}
-            themeVariant="dark"
-            is24Hour
+            themeVariant="light"
+            is24Hour={false}
+            minimumDate={mode === "date" ? new Date() : undefined}
             display={Platform.OS === "ios" ? "spinner" : "default"}
             onChange={(event, date) => {
               if (Platform.OS !== "ios") setOpen(false);

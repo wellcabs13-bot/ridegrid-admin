@@ -50,6 +50,7 @@ export default function Results() {
         ListEmptyComponent={q.isPending ? <LoadingState rows={3} /> : q.isError ? null : <EmptyState title="No rides found" body="Try another date, route or category. Availability changes as bookings are confirmed." icon="car-outline" />}
         renderItem={({ item }) => (
           <MarketplaceListingCard
+            recommended={item.id === listings.find((l) => l.policy.decision === "ALLOWED")?.id}
             listing={item}
             disabled={!online}
             onPress={() => {
