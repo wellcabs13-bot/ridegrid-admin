@@ -674,24 +674,31 @@ export function CarThumb({ size = 64 }: { size?: number }) {
 }
 const Chevron = () => <Ionicons name="chevron-forward" size={18} color={colors.faint} />;
 
-// Compact booking row: status chip, car visual, number, route, date, earning, chevron.
+// Title + status chip on one line; the title truncates first so the chip never wraps.
+function TitleRow({ title, chip }: { title: string; chip: React.ReactNode }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+      <Text style={[s.rowTitle, { flex: 1 }]} numberOfLines={1}>{title}</Text>
+      <View style={{ flexShrink: 0 }}>{chip}</View>
+    </View>
+  );
+}
+
+// Compact booking row: car visual, number + status, route, date, vehicle/driver and earning.
 export function BookingCard({ booking: b }: { booking: Booking }) {
   const when = istParts(b.pickupDateTime), status = bookingStatus(b);
   return (
     <Card onPress={() => router.push({ pathname: "/booking", params: { id: b.id } })} accessibilityLabel={`Booking ${b.bookingNumber}, ${statusLabel(status)}`} style={s.rowCard}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <CarThumb size={58} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={s.rowTitle} numberOfLines={1}>{b.bookingNumber}</Text>
-          </View>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <CarThumb size={54} />
+        <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+          <TitleRow title={b.bookingNumber} chip={<Badge value={status} />} />
           <Text style={s.rowRoute} numberOfLines={1}>{shortPlace(b.pickupLocation)} → {shortPlace(b.dropLocation)}</Text>
           <Text style={s.rowMeta} numberOfLines={1}>{when ? `${when.date}, ${when.time}` : "Time not recorded"}</Text>
-          <Text style={s.rowMeta} numberOfLines={1}>{b.vehicle?.registrationNumber}{b.driver ? ` • ${name(b.driver)}` : ""}</Text>
-        </View>
-        <View style={{ alignItems: "flex-end", gap: 8, maxWidth: 120 }}>
-          <Badge value={status} />
-          {b.vendorEarning != null && <Text style={s.rowAmount}>{money(b.vendorEarning)}</Text>}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={[s.rowMeta, { flex: 1 }]} numberOfLines={1}>{b.vehicle?.registrationNumber}{b.driver ? ` • ${name(b.driver)}` : ""}</Text>
+            {b.vendorEarning != null && <Text style={s.rowAmount}>{money(b.vendorEarning)}</Text>}
+          </View>
         </View>
         <Chevron />
       </View>
@@ -706,21 +713,19 @@ export function VehicleCard({ vehicle: v }: { vehicle: Vehicle }) {
   const due = alerts(v.documents);
   return (
     <Card onPress={() => router.push({ pathname: "/vehicle", params: { id: v.id } })} accessibilityLabel={`${v.make} ${v.model} ${v.registrationNumber}`} style={s.rowCard}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <CarThumb size={70} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={s.rowTitle} numberOfLines={1}>{v.make} {v.model}</Text>
-          <Text style={[s.rowRoute, { letterSpacing: 0.6 }]}>{v.registrationNumber}</Text>
-          <Text style={s.rowMeta} numberOfLines={1}>{[statusLabel(v.category), v.seatingCapacity ? `${v.seatingCapacity} Seater` : ""].filter(Boolean).join(" • ")}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <CarThumb size={62} />
+        <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+          <TitleRow title={`${v.make} ${v.model}`} chip={<Badge value={v.status} />} />
+          <Text style={[s.rowRoute, { letterSpacing: 0.6 }]} numberOfLines={1}>{v.registrationNumber}</Text>
+          <Text style={s.rowMeta} numberOfLines={1}>
+            {[statusLabel(v.category), v.seatingCapacity ? `${v.seatingCapacity} Seater` : "", v.isVerified ? "" : "Unverified"].filter(Boolean).join(" • ")}
+          </Text>
           {due > 0 ? (
-            <Text style={[s.rowMeta, { color: colors.brand, fontWeight: "800" }]}>{due} document{due === 1 ? "" : "s"} need attention</Text>
+            <Text style={[s.rowMeta, { color: colors.brand, fontWeight: "800" }]} numberOfLines={1}>{due} document{due === 1 ? "" : "s"} need attention</Text>
           ) : (
             <Text style={s.rowMeta} numberOfLines={1}>{v.driver ? name(v.driver) : "No driver aligned"}</Text>
           )}
-        </View>
-        <View style={{ alignItems: "flex-end", gap: 8 }}>
-          <Badge value={v.status} />
-          {!v.isVerified && <StatusChip label="Unverified" tone="amber" />}
         </View>
         <Chevron />
       </View>
@@ -731,19 +736,18 @@ export function DriverCard({ driver: d }: { driver: Driver }) {
   const due = alerts(d.documents);
   return (
     <Card onPress={() => router.push({ pathname: "/driver", params: { id: d.id } })} accessibilityLabel={name(d)} style={s.rowCard}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <Avatar name={name(d)} size={52} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={s.rowTitle} numberOfLines={1}>{name(d)}</Text>
-          <Text style={s.rowMeta}>ID {shortId(d.id)}</Text>
-          {!!d.user?.mobile && <Text style={s.rowRoute}>{d.user.mobile}</Text>}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <Avatar name={name(d)} size={50} />
+        <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
+          <TitleRow title={name(d)} chip={<Badge value={d.status} />} />
+          <Text style={s.rowMeta} numberOfLines={1}>ID {shortId(d.id)}{d.city ? ` • ${d.city}` : ""}</Text>
+          {!!d.user?.mobile && <Text style={s.rowRoute} numberOfLines={1}>{d.user.mobile}</Text>}
           {due > 0 ? (
-            <Text style={[s.rowMeta, { color: colors.brand, fontWeight: "800" }]}>{due} document{due === 1 ? "" : "s"} need attention</Text>
+            <Text style={[s.rowMeta, { color: colors.brand, fontWeight: "800" }]} numberOfLines={1}>{due} document{due === 1 ? "" : "s"} need attention</Text>
           ) : (
             <Text style={s.rowMeta} numberOfLines={1}>{d.vehicles?.length ? d.vehicles.map((v) => v.registrationNumber).join(", ") : "No vehicle aligned"}</Text>
           )}
         </View>
-        <Badge value={d.status} />
         <Chevron />
       </View>
     </Card>

@@ -7,7 +7,7 @@ import { Avatar, BookingCard, Card, colors, EmptyState, FadeIn, ListRow, Menu, m
 import { useVendor } from "../services/vendor";
 import { useApp } from "../state/Providers";
 import { statusTone } from "../utils/status";
-import type { Driver, Home as HomeData, Page, Profile } from "../types";
+import type { Home as HomeData, Profile } from "../types";
 
 type Earnings = { wallet: { balance: string } | null; totals: { settlementStatus: string; _sum: { netAmount: string | null } }[] };
 function greeting(now = new Date()) {
@@ -74,22 +74,20 @@ function FinanceHero({ e }: { e?: Earnings }) {
 export default function Home() {
   const q = useVendor<HomeData>("home"), p = useVendor<Profile>("profile"), e = useVendor<Earnings>("earnings", "?page=1");
   const n = useVendor<{ unread: number }>("notifications", "?page=1");
-  const drivers = useVendor<Page<Driver>>("drivers", "?page=1");
   const { session } = useApp();
   const d = q.data;
   const company = p.data?.companyName || session?.user.name || "Your business";
-  const driverCount = drivers.data ? `${drivers.data.items.length}${drivers.data.hasMore ? "+" : ""}` : "—";
   return (
     <Screen
       header={<Header company={company} vendorId={p.data?.id} unread={n.data?.unread || 0} />}
-      refresh={() => { void q.refetch(); void p.refetch(); void e.refetch(); void n.refetch(); void drivers.refetch(); }}
+      refresh={() => { void q.refetch(); void p.refetch(); void e.refetch(); void n.refetch(); }}
       refreshing={q.isRefetching}
     >
       <FadeIn><FinanceHero e={e.data} /></FadeIn>
       <FadeIn delay={50} style={{ flexDirection: "row", gap: 8 }}>
         <StatCard label="Vehicles" value={d?.standing?.totalVehicles ?? "—"} icon="car-sport" tone="green" onPress={() => router.push("/fleet")} />
-        <StatCard label="Drivers" value={driverCount} icon="person" tone="red" onPress={() => router.push("/drivers")} />
-        <StatCard label="Today's Bookings" value={d?.todayBookings ?? "—"} icon="calendar" tone="blue" onPress={() => router.push("/bookings")} />
+        <StatCard label="Today's Bookings" value={d?.todayBookings ?? "—"} icon="calendar" tone="red" onPress={() => router.push("/bookings")} />
+        <StatCard label="Upcoming" value={d?.upcoming ?? "—"} icon="time" tone="blue" onPress={() => router.push("/bookings")} />
         <StatCard label="Live Vehicles" value={d?.standing?.liveVehicles ?? "—"} icon="storefront" tone="amber" onPress={() => router.push("/fleet")} />
       </FadeIn>
       <State loading={q.isPending} error={q.error} retry={() => q.refetch()} />
