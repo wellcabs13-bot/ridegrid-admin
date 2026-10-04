@@ -11,7 +11,7 @@ export type Booking = {
   trip: { id: string; status: string; driverAssignedAt: string | null; arrivedPickupAt: string | null; tripStartedAt: string | null; tripCompletedAt: string | null } | null;
   statusHistory?: { id: string; currentStatus: string; remarks: string | null; changedAt: string }[];
 };
-export type Notice = { id: string; title: string; message: string; readAt: string | null; createdAt: string };
+export type Notice = { id: string; title: string; message: string; readAt: string | null; createdAt: string; target?: { type: "booking"; id: string; bookingNumber: string } | null };
 export type Profile = DriverName & { status: string; city: string | null; licenseNumber: string; user: User & { isVerified: boolean }; vehicles: Vehicle[]; documents: Document[] };
 export type Home = { today: Booking[]; next: Booking | null; active: Booking[]; unread: number; expiringDocuments: number; asOf: string };
 export type Config = { support: { phoneHref: string; emailHref: string; whatsapp: string }; emergencyPhone: string | null; documentUpload: boolean; profileEdit: boolean; backgroundLocation: boolean; pushRegistration: boolean; payoutHistory: boolean };

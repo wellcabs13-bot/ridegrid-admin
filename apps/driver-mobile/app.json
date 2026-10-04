@@ -5,20 +5,27 @@
     "scheme": "ridegrid-driver",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.ridegrid.driver",
       "supportsTablet": true
     },
     "android": {
       "package": "com.ridegrid.driver",
-      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"]
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0A0A0C"
+      "backgroundColor": "#FFFFFF"
     },
     "web": {
       "bundler": "metro",
@@ -32,7 +39,15 @@
         {
           "locationWhenInUsePermission": "RideGrid uses your location only while this app is open to share your active trip position with your customer."
         }
-      ]
-    ]
+      ],
+      "expo-notifications"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c2542c8c-d834-4d1c-972b-8409f7e96ca1"
+      }
+    },
+    "owner": "ridegrid_wellcabs"
   }
 }

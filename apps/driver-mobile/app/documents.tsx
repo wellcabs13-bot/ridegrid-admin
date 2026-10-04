@@ -1,1 +1,1 @@
-export { DocumentsScreen as default } from '../src/screens/Operations';
+export { DocumentsScreen as default } from '../src/screens/Account';

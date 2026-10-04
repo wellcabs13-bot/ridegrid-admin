@@ -1,1 +1,2 @@
-import { SafetyScreen } from "../src/screens/Operations"; export default function Support() { return <SafetyScreen supportOnly />; }
+import { SafetyScreen } from "../src/screens/Account";
+export default function Support() { return <SafetyScreen supportOnly />; }

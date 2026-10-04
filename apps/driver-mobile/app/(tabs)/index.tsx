@@ -1,1 +1,1 @@
-export { HomeScreen as default } from '../../src/screens/Operations';
+export { HomeScreen as default } from '../../src/screens/Home';

@@ -1,1 +1,1 @@
-export { TripsScreen as default } from '../../src/screens/Operations';
+export { TripsScreen as default } from '../../src/screens/Trips';

@@ -1,1 +1,1 @@
-export { SafetyScreen as default } from '../src/screens/Operations';
+export { SafetyScreen as default } from '../src/screens/Account';

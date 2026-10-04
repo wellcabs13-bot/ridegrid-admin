@@ -31,7 +31,7 @@ export default function Layout() {
   return (
     <SafeAreaProvider>
       <Providers>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <Tracking><Routes /></Tracking>
       </Providers>
     </SafeAreaProvider>

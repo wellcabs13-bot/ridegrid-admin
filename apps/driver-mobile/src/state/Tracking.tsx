@@ -31,7 +31,13 @@ export function Tracking({ children }: React.PropsWithChildren) {
         if (point.mocked) throw new Error("Mocked location cannot be uploaded.");
         await api("/api/driver/location", { method: "POST", signal: controller.signal, body: JSON.stringify({ tripId, latitude: point.coords.latitude, longitude: point.coords.longitude, accuracy: point.coords.accuracy, speed: point.coords.speed != null && point.coords.speed >= 0 ? point.coords.speed : null, heading: point.coords.heading != null && point.coords.heading >= 0 ? point.coords.heading : null }) });
         if (live) setMessage(`Location received by RideGrid at ${new Date().toLocaleTimeString()}.`);
-      } catch (e) { if (live) setMessage(e instanceof Error ? e.message : "Location update failed. Retrying while this trip is active."); }
+      } catch (e) {
+        // Server refusals (ApiError, e.g. rate limit or trip state) and the mock check are
+        // shown as written; device GPS errors get a plain explanation.
+        const status = (e as { status?: number } | null)?.status;
+        const text = e instanceof Error ? e.message : "";
+        if (live) setMessage(status !== undefined || text.startsWith("Mocked") ? text : "Waiting for a GPS signal. Check that location is turned on. Retrying while this trip is active.");
+      }
       finally { busy = false; }
     }
     void upload(); const timer = setInterval(() => void upload(), 30000);
