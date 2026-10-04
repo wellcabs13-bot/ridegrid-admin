@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FlatList, View } from "react-native";
 import { router } from "expo-router";
-import { Badge, BookingCard, Button, Card, Chips, DriverCard, Field, Label, Pills, PrimaryCTA, Screen, State, VehicleCard } from "../components/ui";
+import { Badge, BookingCard, Button, Card, DriverCard, Field, Label, Pills, Screen, State, VehicleCard } from "../components/ui";
 import { useRows } from "../services/vendor";
 import type { Booking, Vehicle, Driver } from "../types";
 import { useApp } from "../state/Providers";
@@ -62,17 +62,18 @@ export default function Lists({ section }: { section: "bookings" | "fleet" | "dr
         data={rows}
         keyExtractor={(i) => i.id}
         renderItem={({ item }) => render(item)}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         refreshing={q.isRefetching}
         onRefresh={() => q.refetch()}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
-          <View style={{ gap: 12, marginBottom: 14 }}>
+          <View style={{ gap: 12, marginBottom: 12 }}>
+            <Pills options={STATUSES[section].map((v) => ({ value: v, label: v ? statusLabel(v) : "All" }))} value={status} onChange={setStatus} />
             {section !== "bookings" && (
               <>
-                <PrimaryCTA
+                <Button
                   title={section === "fleet" ? "Add Vehicle" : "Add Driver"}
-                  icon="add-circle"
+                  icon="add"
                   onPress={() => router.push(section === "fleet" ? "/edit-vehicle" : "/edit-driver")}
                 />
                 <Field
@@ -84,9 +85,8 @@ export default function Lists({ section }: { section: "bookings" | "fleet" | "dr
                 />
               </>
             )}
-            <Pills options={STATUSES[section].map((v) => ({ value: v, label: v ? statusLabel(v) : "All" }))} value={status} onChange={setStatus} />
             {section === "drivers" && status === "AVAILABLE" && <Label small muted>Available for today's Asia/Kolkata reservation window.</Label>}
-            {section === "fleet" && <Chips values={CATEGORIES} value={category} onChange={setCategory} />}
+            {section === "fleet" && <Pills options={CATEGORIES.map((v) => ({ value: v, label: v ? statusLabel(v) : "All types" }))} value={category} onChange={setCategory} />}
             <State loading={q.isPending} error={q.error} retry={() => q.refetch()} />
           </View>
         }

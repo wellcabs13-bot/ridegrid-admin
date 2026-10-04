@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Text, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Avatar,
@@ -9,10 +8,10 @@ import {
   BookingCard,
   Button,
   Card,
+  CarThumb,
   colors,
   Documents,
   FadeIn,
-  gradients,
   IconTile,
   Label,
   ListRow,
@@ -22,6 +21,7 @@ import {
   RouteBlock,
   Screen,
   SectionTitle,
+  shadow,
   shortId,
   State,
   StatCard,
@@ -36,9 +36,9 @@ import type { Booking, Driver, Vehicle } from "../types";
 
 function Hero({ children }: React.PropsWithChildren) {
   return (
-    <LinearGradient colors={gradients.blush} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 22, padding: 16, gap: 12, borderWidth: 1, borderColor: colors.border }}>
+    <View style={{ backgroundColor: colors.surface, borderRadius: 20, padding: 16, gap: 12, borderWidth: 1, borderColor: "#F0F1F5", ...shadow }}>
       {children}
-    </LinearGradient>
+    </View>
   );
 }
 function InfoRow({ icon, label, value }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; value: string }) {
@@ -91,9 +91,7 @@ export default function Details({ kind }: { kind: "booking" | "vehicle" | "drive
           <FadeIn>
             <Hero>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                <LinearGradient colors={["#FFFFFF", "#F1F2F6"]} style={{ width: 72, height: 72, borderRadius: 20, alignItems: "center", justifyContent: "center" }}>
-                  <Ionicons name="car-sport" size={40} color={colors.text} />
-                </LinearGradient>
+                <CarThumb size={96} />
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={{ fontSize: 21, fontWeight: "900", color: colors.text }}>{d.make} {d.model}</Text>
                   <View style={{ alignSelf: "flex-start", borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 6, backgroundColor: colors.surface }}>
@@ -112,6 +110,7 @@ export default function Details({ kind }: { kind: "booking" | "vehicle" | "drive
             <StatCard label="Seats" value={d.seatingCapacity} icon="people-outline" tone="green" />
             <StatCard label="Fuel" value={statusLabel(d.fuelType)} icon="flash-outline" tone="amber" />
           </View>
+          <Documents items={d.documents} />
           <Card style={{ gap: 0 }}>
             <InfoRow icon="settings-outline" label="Transmission" value={statusLabel(d.transmission)} />
             <InfoRow icon="location-outline" label="Home city" value={d.homeCity || "Not recorded"} />
@@ -145,7 +144,6 @@ export default function Details({ kind }: { kind: "booking" | "vehicle" | "drive
             <ListRow icon="today-outline" tone="grey" title="Date availability" onPress={() => router.push("/availability")} />
             <ListRow icon="cloud-upload-outline" tone="green" title="Upload document" last onPress={() => router.push(`/document-upload?entity=vehicle&entityId=${d.id}`)} />
           </Menu>
-          <Documents items={d.documents} />
         </>
       )}
       {d && kind === "driver" && (
@@ -167,6 +165,7 @@ export default function Details({ kind }: { kind: "booking" | "vehicle" | "drive
             <InfoRow icon="card-outline" label="Licence" value={d.licenseNumber} />
             <InfoRow icon="location-outline" label="City" value={d.city || "City not recorded"} />
           </Card>
+          <Documents items={d.documents} />
           <SectionTitle title="Vehicles" icon="car-sport-outline" tone="blue" />
           {d.vehicles.length ? (
             <Menu>
@@ -189,7 +188,6 @@ export default function Details({ kind }: { kind: "booking" | "vehicle" | "drive
             <ListRow icon="today-outline" title="Date availability" onPress={() => router.push("/availability")} />
             <ListRow icon="cloud-upload-outline" tone="green" title="Upload document" last onPress={() => router.push(`/document-upload?entity=driver&entityId=${d.id}`)} />
           </Menu>
-          <Documents items={d.documents} />
           <SectionTitle title="Upcoming assignments" icon="calendar-outline" tone="amber" />
           {d.bookings.map((b) => <BookingCard key={b.id} booking={b} />)}
           {!d.bookings.length && <Card><State empty emptyIcon="calendar-outline" emptyTitle="No upcoming assignments" emptyText="Bookings for this driver appear here." /></Card>}

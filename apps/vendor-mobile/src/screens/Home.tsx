@@ -3,12 +3,13 @@ import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { Avatar, BookingCard, Card, colors, FadeIn, gradients, Label, ListRow, Menu, money, Notice, Pulse, Screen, SectionTitle, shadow, shortId, StandingCard, State, StatCard } from "../components/ui";
+import { Avatar, BookingCard, Card, colors, EmptyState, FadeIn, ListRow, Menu, money, Screen, SectionTitle, shadow, shortId, StandingCard, State, StatCard } from "../components/ui";
 import { useVendor } from "../services/vendor";
 import { useApp } from "../state/Providers";
-import type { Home as HomeData, Profile } from "../types";
+import { statusTone } from "../utils/status";
+import type { Driver, Home as HomeData, Page, Profile } from "../types";
 
-type Earnings = { wallet: { balance: string } | null };
+type Earnings = { wallet: { balance: string } | null; totals: { settlementStatus: string; _sum: { netAmount: string | null } }[] };
 function greeting(now = new Date()) {
   const h = new Date(now.getTime() + 19800000).getUTCHours();
   return h < 12 ? "Good Morning" : h < 17 ? "Good Afternoon" : "Good Evening";
@@ -16,116 +17,100 @@ function greeting(now = new Date()) {
 
 function Header({ company, vendorId, unread }: { company: string; vendorId?: string; unread: number }) {
   return (
-    <LinearGradient colors={gradients.soft} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16 }}>
-      <Avatar name={company} size={52} ring />
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: colors.surface }}>
+      <Avatar name={company} size={46} />
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14, color: colors.muted, fontWeight: "700" }}>{greeting()},</Text>
-        <Text style={{ fontSize: 21, fontWeight: "900", color: colors.text, letterSpacing: -0.4 }} numberOfLines={1}>{company}</Text>
-        {!!vendorId && <Text style={{ fontSize: 12.5, color: colors.muted, fontWeight: "700" }}>Vendor ID · {shortId(vendorId)}</Text>}
+        <Text style={{ fontSize: 13, color: colors.muted, fontWeight: "600" }}>{greeting()},</Text>
+        <Text style={{ fontSize: 17, fontWeight: "900", color: colors.text, letterSpacing: -0.2 }} numberOfLines={1}>{company}</Text>
+        {!!vendorId && <Text style={{ fontSize: 12, color: colors.muted, fontWeight: "600" }}>Vendor ID: {shortId(vendorId)}</Text>}
       </View>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={unread ? `Notifications, ${unread} unread` : "Notifications"}
         onPress={() => router.push("/notifications")}
-        style={({ pressed }) => [{ width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }, pressed && { transform: [{ scale: 0.94 }] }]}
+        hitSlop={6}
+        style={({ pressed }) => [{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" }, pressed && { backgroundColor: colors.greySoft }]}
       >
-        <Ionicons name="notifications-outline" size={25} color={colors.text} />
+        <Ionicons name="notifications" size={25} color={colors.text} />
         {unread > 0 && (
-          <View style={{ position: "absolute", top: 4, right: 3, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", paddingHorizontal: 5, borderWidth: 2, borderColor: colors.surface }}>
-            <Text style={{ color: "#FFFFFF", fontSize: 10.5, fontWeight: "900" }}>{unread > 99 ? "99+" : unread}</Text>
+          <View style={{ position: "absolute", top: 5, right: 4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, borderWidth: 2, borderColor: colors.surface }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 9.5, fontWeight: "900" }}>{unread > 99 ? "99+" : unread}</Text>
           </View>
         )}
       </Pressable>
-    </LinearGradient>
+    </View>
+  );
+}
+
+// Red finance hero: the wallet balance when provisioned, otherwise settled earnings.
+function FinanceHero({ e }: { e?: Earnings }) {
+  const settled = (e?.totals || []).filter((t) => ["green", "blue"].includes(statusTone(t.settlementStatus))).reduce((sum, t) => sum + Number(t._sum.netAmount || 0), 0);
+  const wallet = e?.wallet;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel="Open earnings" onPress={() => router.push("/earnings")} style={({ pressed }) => pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }}>
+      <LinearGradient colors={["#F2453F", "#E0302B", "#C2201C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 20, paddingVertical: 18, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", overflow: "hidden", ...shadow }}>
+        <View style={{ position: "absolute", right: -30, top: -50, width: 150, height: 150, borderRadius: 75, backgroundColor: "#FFFFFF12" }} />
+        <View style={{ position: "absolute", right: 60, bottom: -70, width: 130, height: 130, borderRadius: 65, backgroundColor: "#FFFFFF0D" }} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ color: "#FFFFFFE6", fontWeight: "700", fontSize: 13.5 }}>{wallet ? "Available Balance" : "Settled Earnings"}</Text>
+          <Text style={{ color: "#FFFFFF", fontSize: 32, fontWeight: "900", letterSpacing: -0.8 }} numberOfLines={1} adjustsFontSizeToFit>
+            {e ? money(wallet ? wallet.balance : settled) : "—"}
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: "#FFFFFF33", alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+            </View>
+            <Text style={{ color: "#FFFFFFD9", fontSize: 12.5, fontWeight: "600" }}>{wallet ? "Vendor wallet" : "Recorded by RideGrid Finance"}</Text>
+          </View>
+        </View>
+        <View style={{ width: 54, height: 54, borderRadius: 16, backgroundColor: "#FFFFFF26", alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name="stats-chart" size={26} color="#FFFFFF" />
+        </View>
+      </LinearGradient>
+    </Pressable>
   );
 }
 
 export default function Home() {
   const q = useVendor<HomeData>("home"), p = useVendor<Profile>("profile"), e = useVendor<Earnings>("earnings", "?page=1");
   const n = useVendor<{ unread: number }>("notifications", "?page=1");
+  const drivers = useVendor<Page<Driver>>("drivers", "?page=1");
   const { session } = useApp();
   const d = q.data;
   const company = p.data?.companyName || session?.user.name || "Your business";
+  const driverCount = drivers.data ? `${drivers.data.items.length}${drivers.data.hasMore ? "+" : ""}` : "—";
   return (
     <Screen
       header={<Header company={company} vendorId={p.data?.id} unread={n.data?.unread || 0} />}
-      refresh={() => { void q.refetch(); void p.refetch(); void e.refetch(); void n.refetch(); }}
+      refresh={() => { void q.refetch(); void p.refetch(); void e.refetch(); void n.refetch(); void drivers.refetch(); }}
       refreshing={q.isRefetching}
     >
+      <FadeIn><FinanceHero e={e.data} /></FadeIn>
+      <FadeIn delay={50} style={{ flexDirection: "row", gap: 8 }}>
+        <StatCard label="Vehicles" value={d?.standing?.totalVehicles ?? "—"} icon="car-sport" tone="green" onPress={() => router.push("/fleet")} />
+        <StatCard label="Drivers" value={driverCount} icon="person" tone="red" onPress={() => router.push("/drivers")} />
+        <StatCard label="Today's Bookings" value={d?.todayBookings ?? "—"} icon="calendar" tone="blue" onPress={() => router.push("/bookings")} />
+        <StatCard label="Live Vehicles" value={d?.standing?.liveVehicles ?? "—"} icon="storefront" tone="amber" onPress={() => router.push("/fleet")} />
+      </FadeIn>
       <State loading={q.isPending} error={q.error} retry={() => q.refetch()} />
       {d && (
         <>
-          {e.data?.wallet && (
-            <FadeIn>
-              <Pressable accessibilityRole="button" accessibilityLabel="Open earnings" onPress={() => router.push("/earnings")} style={({ pressed }) => pressed && { opacity: 0.92 }}>
-                <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 24, padding: 20, gap: 4, overflow: "hidden", ...shadow }}>
-                  <View style={{ position: "absolute", right: -40, top: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: "#FFFFFF14" }} />
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Ionicons name="wallet" size={18} color="#FFFFFFCC" />
-                    <Text style={{ color: "#FFFFFFCC", fontWeight: "800", fontSize: 13, letterSpacing: 0.6 }}>WALLET BALANCE</Text>
-                  </View>
-                  <Text style={{ color: "#FFFFFF", fontSize: 36, fontWeight: "900", letterSpacing: -1 }} numberOfLines={1} adjustsFontSizeToFit>{money(e.data.wallet.balance)}</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text style={{ color: "#FFFFFFD9", fontSize: 14, fontWeight: "700" }}>View earnings & settlements</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#FFFFFFD9" />
-                  </View>
-                </LinearGradient>
-              </Pressable>
-            </FadeIn>
-          )}
-          <FadeIn delay={60} style={{ gap: 10 }}>
-            {d.standing && (
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <StatCard label="Vehicles in fleet" value={d.standing.totalVehicles} icon="car-sport" tone="red" onPress={() => router.push("/fleet")} />
-                <StatCard label="Live in marketplace" value={d.standing.liveVehicles} icon="storefront" tone="green" onPress={() => router.push("/fleet")} />
-              </View>
-            )}
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <StatCard label="Today's bookings" value={d.todayBookings} icon="calendar" tone="blue" onPress={() => router.push("/bookings")} />
-              <StatCard label="Upcoming" value={d.upcoming} icon="time" tone="amber" onPress={() => router.push("/bookings")} />
-              <StatCard label="Ongoing" value={d.active} icon="navigate" tone="green" onPress={() => router.push("/bookings")} />
-            </View>
-          </FadeIn>
-          {d.pending > 0 && (
-            <Pulse>
-              <Notice tone="red" icon="person-add" title={`${d.pending} booking${d.pending === 1 ? "" : "s"} need a driver`} text="Align a driver to the vehicle, then confirm on the booking." onPress={() => router.push("/bookings")} />
-            </Pulse>
-          )}
-          {d.attentionVehicles > 0 && <Notice tone="amber" icon="construct" title="Vehicles need attention" text={`${d.attentionVehicles} vehicle${d.attentionVehicles === 1 ? " is" : "s are"} in maintenance or blocked.`} onPress={() => router.push("/fleet")} />}
-          {d.expiringDocuments > 0 && <Notice tone="red" icon="document-text" title="Documents expiring" text={`${d.expiringDocuments} vehicle document${d.expiringDocuments === 1 ? "" : "s"} expire within 30 days or have expired.`} onPress={() => router.push("/fleet")} />}
-          {d.standing && <StandingCard standing={d.standing} />}
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <StatCard label="Free vehicles today" value={d.availableVehicles} icon="checkmark-circle" tone="green" onPress={() => router.push("/fleet")} />
-            <StatCard label="Free drivers today" value={d.availableDrivers} icon="person-circle" tone="blue" onPress={() => router.push("/drivers")} />
-            <StatCard label="Reserved drivers" value={d.assignedDrivers} icon="people" tone="amber" onPress={() => router.push("/drivers")} />
-          </View>
-          <SectionTitle title="Next Trips" sub="Today and upcoming" icon="calendar-outline" tone="red" action="View All" onAction={() => router.push("/bookings")} />
+          <SectionTitle title="Recent Bookings" action="View All" onAction={() => router.push("/bookings")} />
           {d.nextTrips.length ? (
-            d.nextTrips.map((b, i) => <FadeIn key={b.id} delay={i * 50}><BookingCard booking={b} /></FadeIn>)
+            <View style={{ gap: 10 }}>
+              {d.nextTrips.slice(0, 4).map((b, i) => <FadeIn key={b.id} delay={80 + i * 40}><BookingCard booking={b} /></FadeIn>)}
+            </View>
           ) : (
-            <Card><State empty emptyIcon="calendar-outline" emptyTitle="No upcoming trips" emptyText="New bookings will appear here." /></Card>
+            <Card style={{ paddingVertical: 4 }}><EmptyState icon="calendar-outline" tone="blue" title="No recent bookings yet" text="New bookings for your fleet will appear here." /></Card>
           )}
-          <Menu>
-            <ListRow icon="today-outline" tone="blue" title="Check availability" subtitle="Vehicles and drivers by date" onPress={() => router.push("/availability")} />
-            <ListRow icon="wallet-outline" tone="green" title="Earnings & settlements" subtitle="Wallet, settlements and trip earnings" last onPress={() => router.push("/earnings")} />
-          </Menu>
-          <SectionTitle title="Latest Updates" icon="notifications-outline" tone="amber" action="See all" onAction={() => router.push("/notifications")} />
-          {d.notifications.length ? (
-            <Card style={{ gap: 0, paddingVertical: 4 }}>
-              {d.notifications.map((x, i) => (
-                <View key={x.id} style={{ flexDirection: "row", gap: 12, paddingVertical: 12, borderBottomWidth: i < d.notifications.length - 1 ? 1 : 0, borderBottomColor: colors.border }}>
-                  <View style={{ width: 10, height: 10, borderRadius: 5, marginTop: 6, backgroundColor: x.readAt ? colors.border : colors.brand }} />
-                  <View style={{ flex: 1 }}>
-                    <Label bold>{x.title}</Label>
-                    <Label small muted lines={2}>{x.message}</Label>
-                  </View>
-                </View>
-              ))}
-            </Card>
-          ) : (
-            <Card><State empty emptyIcon="notifications-off-outline" emptyTitle="You're all caught up" emptyText="No recent notifications." /></Card>
+          {d.standing && <StandingCard standing={d.standing} />}
+          {(d.pending > 0 || d.attentionVehicles > 0 || d.expiringDocuments > 0) && (
+            <Menu>
+              {d.pending > 0 && <ListRow icon="person-add-outline" tone="red" title={`${d.pending} booking${d.pending === 1 ? "" : "s"} need a driver`} subtitle="Align a driver, then confirm" last={!d.attentionVehicles && !d.expiringDocuments} onPress={() => router.push("/bookings")} />}
+              {d.attentionVehicles > 0 && <ListRow icon="construct-outline" tone="amber" title={`${d.attentionVehicles} vehicle${d.attentionVehicles === 1 ? "" : "s"} need attention`} subtitle="Maintenance or blocked" last={!d.expiringDocuments} onPress={() => router.push("/fleet")} />}
+              {d.expiringDocuments > 0 && <ListRow icon="document-text-outline" tone="red" title={`${d.expiringDocuments} document${d.expiringDocuments === 1 ? "" : "s"} expiring`} subtitle="Expired or due within 30 days" last onPress={() => router.push("/fleet")} />}
+            </Menu>
           )}
-          <Label small muted center>Asia/Kolkata · updated {new Date(d.asOf).toLocaleTimeString()}</Label>
         </>
       )}
     </Screen>

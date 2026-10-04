@@ -416,10 +416,10 @@ function Pill({ on, label, icon, onPress }: { on: boolean; label: string; icon?:
   }, [on, v]);
   return (
     <Animated.View style={press.style}>
-      <Pressable accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={onPress} onPressIn={press.onPressIn} onPressOut={press.onPressOut}>
-        <Animated.View style={[s.pill, { backgroundColor: v.interpolate({ inputRange: [0, 1], outputRange: ["#FFFFFF00", colors.brand] }) }]}>
-          {icon && <Ionicons name={icon} size={16} color={on ? "#FFFFFF" : colors.muted} />}
-          <Text style={{ color: on ? "#FFFFFF" : colors.text, fontWeight: "700", fontSize: 14.5 }}>{label}</Text>
+      <Pressable accessibilityRole="tab" accessibilityState={{ selected: on }} hitSlop={{ top: 6, bottom: 6 }} onPress={onPress} onPressIn={press.onPressIn} onPressOut={press.onPressOut}>
+        <Animated.View style={[s.pill, { backgroundColor: v.interpolate({ inputRange: [0, 1], outputRange: [colors.greySoft, colors.brand] }) }, on && shadow]}>
+          {icon && <Ionicons name={icon} size={15} color={on ? "#FFFFFF" : colors.muted} />}
+          <Text style={{ color: on ? "#FFFFFF" : colors.grey, fontWeight: "700", fontSize: 13.5 }}>{label}</Text>
         </Animated.View>
       </Pressable>
     </Animated.View>
@@ -448,16 +448,13 @@ export function IconTile({ icon, tone = "grey", size = 44, solid = false }: { ic
     </View>
   );
 }
+// Compact centred KPI tile on a pale tint: icon, number, label (reference proportions).
 export function StatCard({ label, value, icon, tone = "grey", onPress }: { label: string; value: string | number; icon?: Icon; tone?: Tone; onPress?: () => void }) {
   const t = tones[tone], press = usePressScale(0.96);
   const body = (
     <View style={[s.statCard, { backgroundColor: t.bg }]}>
-      {icon && (
-        <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: "#FFFFFFCC", alignItems: "center", justifyContent: "center" }}>
-          <Ionicons name={icon} size={18} color={t.fg} />
-        </View>
-      )}
-      <Text style={[s.statValue, { color: tone === "grey" ? colors.text : t.fg }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{value}</Text>
+      {icon && <Ionicons name={icon} size={22} color={t.fg} />}
+      <Text style={[s.statValue, { color: tone === "grey" ? colors.text : t.fg }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{value}</Text>
       <Text style={s.statLabel} numberOfLines={2}>{label}</Text>
     </View>
   );
@@ -667,66 +664,65 @@ export const money = (v: string | number | null | undefined) =>
 export const dateTime = (v: string | null | undefined) => (v ? `${formatDateTime(v)} IST` : "Not recorded");
 export const shortId = (id: string) => id.slice(-6).toUpperCase();
 
-function Meta({ icon, text }: { icon: Icon; text: string }) {
+// Vehicle visual: the app has no vehicle photos, so a polished silhouette tile.
+export function CarThumb({ size = 64 }: { size?: number }) {
   return (
-    <View style={s.metaItem}>
-      <Ionicons name={icon} size={15} color={colors.muted} />
-      <Text style={s.metaText} numberOfLines={1}>{text}</Text>
-    </View>
+    <LinearGradient colors={["#F4F5F9", "#E4E7EF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size, height: size * 0.78, borderRadius: 14, alignItems: "center", justifyContent: "center" }}>
+      <Ionicons name="car-sport" size={size * 0.56} color="#3A3F4B" />
+    </LinearGradient>
   );
 }
+const Chevron = () => <Ionicons name="chevron-forward" size={18} color={colors.faint} />;
 
+// Compact booking row: status chip, car visual, number, route, date, earning, chevron.
 export function BookingCard({ booking: b }: { booking: Booking }) {
-  const when = istParts(b.pickupDateTime), status = bookingStatus(b), tone = statusTone(status);
+  const when = istParts(b.pickupDateTime), status = bookingStatus(b);
   return (
-    <Card onPress={() => router.push({ pathname: "/booking", params: { id: b.id } })} accessibilityLabel={`Booking ${b.bookingNumber}, ${statusLabel(status)}`} style={{ borderLeftWidth: 4, borderLeftColor: tones[tone].fg }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-        <View style={{ flexShrink: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "900", color: colors.text }}>{b.bookingNumber}</Text>
-          <Text style={{ fontSize: 13, color: colors.muted, fontWeight: "600" }}>{when ? `${when.date} · ${when.time}` : "Time not recorded"}</Text>
-        </View>
-        <Badge value={status} large />
-      </View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <View style={{ flex: 1 }}><RouteBlock pickup={b.pickupLocation} drop={b.dropLocation} compact /></View>
-        {b.vendorEarning != null && (
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>{money(b.vendorEarning)}</Text>
-            <Text style={{ fontSize: 11.5, color: colors.muted, fontWeight: "700" }}>Your earning</Text>
+    <Card onPress={() => router.push({ pathname: "/booking", params: { id: b.id } })} accessibilityLabel={`Booking ${b.bookingNumber}, ${statusLabel(status)}`} style={s.rowCard}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <CarThumb size={58} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={s.rowTitle} numberOfLines={1}>{b.bookingNumber}</Text>
           </View>
-        )}
-      </View>
-      <View style={s.tripMeta}>
-        <Meta icon="car-outline" text={b.vehicle?.registrationNumber || "No vehicle"} />
-        <Meta icon="person-outline" text={name(b.driver)} />
+          <Text style={s.rowRoute} numberOfLines={1}>{shortPlace(b.pickupLocation)} → {shortPlace(b.dropLocation)}</Text>
+          <Text style={s.rowMeta} numberOfLines={1}>{when ? `${when.date}, ${when.time}` : "Time not recorded"}</Text>
+          <Text style={s.rowMeta} numberOfLines={1}>{b.vehicle?.registrationNumber}{b.driver ? ` • ${name(b.driver)}` : ""}</Text>
+        </View>
+        <View style={{ alignItems: "flex-end", gap: 8, maxWidth: 120 }}>
+          <Badge value={status} />
+          {b.vendorEarning != null && <Text style={s.rowAmount}>{money(b.vendorEarning)}</Text>}
+        </View>
+        <Chevron />
       </View>
     </Card>
   );
 }
+// First part of an address ("Pune Airport, Lohegaon, Pune" → "Pune Airport").
+export const shortPlace = (place: string) => (place || "").split(",")[0].trim() || place;
 
 const alerts = (docs: Document[] | undefined) => (docs || []).filter((d) => documentAlert(d) || /REJECT|EXPIRE/.test(d.status)).length;
 export function VehicleCard({ vehicle: v }: { vehicle: Vehicle }) {
   const due = alerts(v.documents);
   return (
-    <Card onPress={() => router.push({ pathname: "/vehicle", params: { id: v.id } })} accessibilityLabel={`${v.make} ${v.model} ${v.registrationNumber}`}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-        <LinearGradient colors={["#F3F4F8", "#E7E9F0"]} style={{ width: 64, height: 64, borderRadius: 18, alignItems: "center", justifyContent: "center" }}>
-          <Ionicons name="car-sport" size={34} color={colors.text} />
-        </LinearGradient>
-        <View style={{ flex: 1, gap: 3 }}>
-          <Text style={{ fontSize: 16.5, fontWeight: "800", color: colors.text }} numberOfLines={1}>{v.make} {v.model}</Text>
-          <View style={s.plate}><Text style={s.plateText}>{v.registrationNumber}</Text></View>
-          <Label small muted lines={1}>{[statusLabel(v.category), v.seatingCapacity ? `${v.seatingCapacity} seater` : "", statusLabel(v.fuelType)].filter(Boolean).join(" • ")}</Label>
+    <Card onPress={() => router.push({ pathname: "/vehicle", params: { id: v.id } })} accessibilityLabel={`${v.make} ${v.model} ${v.registrationNumber}`} style={s.rowCard}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <CarThumb size={70} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={s.rowTitle} numberOfLines={1}>{v.make} {v.model}</Text>
+          <Text style={[s.rowRoute, { letterSpacing: 0.6 }]}>{v.registrationNumber}</Text>
+          <Text style={s.rowMeta} numberOfLines={1}>{[statusLabel(v.category), v.seatingCapacity ? `${v.seatingCapacity} Seater` : ""].filter(Boolean).join(" • ")}</Text>
+          {due > 0 ? (
+            <Text style={[s.rowMeta, { color: colors.brand, fontWeight: "800" }]}>{due} document{due === 1 ? "" : "s"} need attention</Text>
+          ) : (
+            <Text style={s.rowMeta} numberOfLines={1}>{v.driver ? name(v.driver) : "No driver aligned"}</Text>
+          )}
         </View>
         <View style={{ alignItems: "flex-end", gap: 8 }}>
           <Badge value={v.status} />
-          <Ionicons name="chevron-forward" size={18} color={colors.faint} />
+          {!v.isVerified && <StatusChip label="Unverified" tone="amber" />}
         </View>
-      </View>
-      <View style={s.tripMeta}>
-        <Meta icon="person-outline" text={v.driver ? name(v.driver) : "No driver aligned"} />
-        {v.isVerified ? <Meta icon="shield-checkmark-outline" text="Verified" /> : <Meta icon="time-outline" text="Verification pending" />}
-        {due > 0 && <StatusChip label={`${due} document${due === 1 ? "" : "s"} due`} tone="red" icon="warning-outline" />}
+        <Chevron />
       </View>
     </Card>
   );
@@ -734,82 +730,95 @@ export function VehicleCard({ vehicle: v }: { vehicle: Vehicle }) {
 export function DriverCard({ driver: d }: { driver: Driver }) {
   const due = alerts(d.documents);
   return (
-    <Card onPress={() => router.push({ pathname: "/driver", params: { id: d.id } })} accessibilityLabel={name(d)}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-        <Avatar name={name(d)} size={54} />
+    <Card onPress={() => router.push({ pathname: "/driver", params: { id: d.id } })} accessibilityLabel={name(d)} style={s.rowCard}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <Avatar name={name(d)} size={52} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={{ fontSize: 16.5, fontWeight: "800", color: colors.text }} numberOfLines={1}>{name(d)}</Text>
-          <Text style={{ fontSize: 13, color: colors.muted, fontWeight: "700" }}>ID {shortId(d.id)}{d.city ? ` · ${d.city}` : ""}</Text>
-          {!!d.user?.mobile && <Text style={{ fontSize: 13.5, color: colors.text, fontWeight: "600" }}>{d.user.mobile}</Text>}
+          <Text style={s.rowTitle} numberOfLines={1}>{name(d)}</Text>
+          <Text style={s.rowMeta}>ID {shortId(d.id)}</Text>
+          {!!d.user?.mobile && <Text style={s.rowRoute}>{d.user.mobile}</Text>}
+          {due > 0 ? (
+            <Text style={[s.rowMeta, { color: colors.brand, fontWeight: "800" }]}>{due} document{due === 1 ? "" : "s"} need attention</Text>
+          ) : (
+            <Text style={s.rowMeta} numberOfLines={1}>{d.vehicles?.length ? d.vehicles.map((v) => v.registrationNumber).join(", ") : "No vehicle aligned"}</Text>
+          )}
         </View>
-        <View style={{ alignItems: "flex-end", gap: 8 }}>
-          <Badge value={d.status} />
-          <Ionicons name="chevron-forward" size={18} color={colors.faint} />
-        </View>
-      </View>
-      <View style={s.tripMeta}>
-        <Meta icon="car-outline" text={d.vehicles?.length ? d.vehicles.map((v) => v.registrationNumber).join(", ") : "No vehicle"} />
-        <Meta icon="calendar-outline" text={`${d.bookings?.length ?? 0}${d.bookings?.length === 5 ? "+" : ""} upcoming`} />
-        {due > 0 && <StatusChip label={`${due} document${due === 1 ? "" : "s"} due`} tone="red" icon="warning-outline" />}
+        <Badge value={d.status} />
+        <Chevron />
       </View>
     </Card>
   );
 }
-export function DocumentCard({ doc: d }: { doc: Document }) {
+const DOC_ICONS: Record<string, Icon> = {
+  RC: "document-text-outline",
+  INSURANCE: "shield-checkmark-outline",
+  PERMIT: "ribbon-outline",
+  FITNESS: "fitness-outline",
+  POLLUTION: "leaf-outline",
+  TAX: "receipt-outline",
+  DRIVING_LICENSE: "card-outline",
+  AADHAAR: "finger-print-outline",
+  PAN: "card-outline",
+  GST: "business-outline",
+  UDYAM: "briefcase-outline",
+};
+// One document line: coloured icon, name, validity, status chip.
+export function DocumentRow({ doc: d, last = false }: { doc: Document; last?: boolean }) {
   const alert = documentAlert(d);
-  const tone = alert ? (alert === "EXPIRED" ? "red" : "amber") : statusTone(d.status);
+  const tone: Tone = alert ? (alert === "EXPIRED" ? "red" : "amber") : statusTone(d.status);
   return (
-    <Card style={[{ flexDirection: "row", alignItems: "center", gap: 14, borderLeftWidth: 4, borderLeftColor: tones[tone].fg }, alert === "EXPIRED" ? { backgroundColor: colors.brandTint } : null]}>
-      <IconTile icon={alert ? "warning" : tone === "green" ? "document-text" : "document-text-outline"} tone={tone} size={48} />
-      <View style={{ flex: 1, gap: 5 }}>
-        <Text style={{ fontSize: 15.5, fontWeight: "800", color: colors.text }}>{d.documentType.replaceAll("_", " ")}</Text>
-        <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
-          <Ionicons name="calendar-outline" size={14} color={alert ? tones[tone].fg : colors.muted} />
-          <Text style={{ flex: 1, fontSize: 13.5, color: alert ? tones[tone].fg : colors.muted, fontWeight: alert ? "800" : "500" }}>{d.expiryDate ? `Valid till ${dateTime(d.expiryDate)}` : "No expiry recorded"}</Text>
-        </View>
-        <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-          <Badge value={d.status} />
-          {alert && <Badge value={alert} />}
-        </View>
+    <View style={[{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, minHeight: 64 }, !last && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+      <IconTile icon={DOC_ICONS[d.documentType] || "document-text-outline"} tone={tone} size={40} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.text }} numberOfLines={1}>{statusLabel(d.documentType)}</Text>
+        <Text style={{ fontSize: 12.5, color: alert ? tones[tone].fg : colors.muted, fontWeight: alert ? "800" : "500" }}>
+          {d.expiryDate ? `Valid till ${istParts(d.expiryDate)?.date ?? dateTime(d.expiryDate)}` : "No expiry recorded"}
+        </Text>
       </View>
-    </Card>
+      <Badge value={alert || d.status} />
+    </View>
   );
 }
+export const DocumentCard = ({ doc }: { doc: Document }) => <Card style={{ paddingVertical: 4 }}><DocumentRow doc={doc} last /></Card>;
 export function Documents({ items }: { items: Document[] }) {
   return (
-    <View style={{ gap: 12 }}>
+    <View style={{ gap: 10 }}>
       <SectionTitle title="Documents" sub={`${items.length} recorded`} icon="document-text-outline" tone="blue" />
-      {!items.length && <Card><EmptyState icon="document-text-outline" title="No documents recorded" text="Upload a document for RideGrid verification." /></Card>}
-      {items.map((d) => <DocumentCard key={d.id} doc={d} />)}
+      {items.length ? (
+        <Card style={{ gap: 0, paddingVertical: 4 }}>{items.map((d, i) => <DocumentRow key={d.id} doc={d} last={i === items.length - 1} />)}</Card>
+      ) : (
+        <Card><EmptyState icon="document-text-outline" title="No documents recorded" text="Upload a document for RideGrid verification." /></Card>
+      )}
     </View>
   );
 }
 
-// Marketplace standing computed by the server.
+// Marketplace standing computed by the server: compact status strip.
 export function StandingCard({ standing: st }: { standing: Standing }) {
   const listed = st.state === "VERIFIED" && st.liveVehicles > 0;
   const tone: Tone = st.state === "SUSPENDED" ? "red" : listed ? "green" : "amber";
   return (
-    <LinearGradient colors={tone === "green" ? gradients.mint : tone === "red" ? gradients.blush : ["#FFF6E6", "#FFFFFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 20, padding: 16, gap: 10, borderWidth: 1, borderColor: colors.border }}>
+    <View style={[s.card, { gap: 8, paddingVertical: 14, borderLeftWidth: 4, borderLeftColor: tones[tone].fg }]}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <IconTile icon={listed ? "storefront" : st.state === "SUSPENDED" ? "ban" : "hourglass"} tone={tone} size={46} />
+        <IconTile icon={listed ? "storefront" : st.state === "SUSPENDED" ? "ban" : "hourglass"} tone={tone} size={40} />
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16.5, fontWeight: "900", color: colors.text }}>
+          <Text style={{ fontSize: 12, color: colors.muted, fontWeight: "800", letterSpacing: 0.6 }}>MARKETPLACE STATUS</Text>
+          <Text style={{ fontSize: 15.5, fontWeight: "800", color: colors.text }}>
             {listed ? `${st.liveVehicles} of ${st.totalVehicles} vehicle${st.totalVehicles === 1 ? "" : "s"} live` : "Not visible to customers yet"}
           </Text>
-          <View style={{ flexDirection: "row", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-            <Badge value={st.state === "PENDING" ? "VERIFICATION_PENDING" : st.state} />
-            <Badge value={listed ? "LISTED" : "NOT_LISTED"} />
-          </View>
+        </View>
+        <View style={{ gap: 4, alignItems: "flex-end" }}>
+          <Badge value={st.state === "PENDING" ? "VERIFICATION_PENDING" : st.state} />
+          <Badge value={listed ? "LISTED" : "NOT_LISTED"} />
         </View>
       </View>
       {st.reasons.map((r) => (
-        <View key={r} style={{ flexDirection: "row", gap: 8 }}>
-          <Ionicons name="alert-circle-outline" size={16} color={tones[tone].fg} />
-          <Label small>{r}</Label>
+        <View key={r} style={{ flexDirection: "row", gap: 6, paddingLeft: 52 }}>
+          <Ionicons name="alert-circle-outline" size={15} color={tones[tone].fg} />
+          <Text style={{ flex: 1, fontSize: 13, color: colors.muted }}>{r}</Text>
         </View>
       ))}
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -830,11 +839,16 @@ export const s = StyleSheet.create({
   input: { borderWidth: 1.5, borderColor: colors.border, borderRadius: 16, paddingHorizontal: 14, backgroundColor: colors.surface, minHeight: 54 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, paddingHorizontal: 14, minHeight: 44, justifyContent: "center" },
-  pillTrack: { gap: 6, padding: 5, backgroundColor: colors.surface, borderRadius: 999, borderWidth: 1, borderColor: colors.border },
-  pill: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 999, paddingHorizontal: 15, minHeight: 44, justifyContent: "center" },
-  statCard: { borderRadius: 18, padding: 12, gap: 6, minHeight: 108 },
-  statValue: { fontSize: 23, fontWeight: "900", letterSpacing: -0.3 },
-  statLabel: { fontSize: 12.5, color: colors.muted, fontWeight: "700" },
+  pillTrack: { gap: 8, paddingVertical: 2 },
+  pill: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 999, paddingHorizontal: 14, minHeight: 36, justifyContent: "center" },
+  statCard: { borderRadius: 16, paddingVertical: 12, paddingHorizontal: 6, gap: 3, minHeight: 92, alignItems: "center", justifyContent: "center" },
+  statValue: { fontSize: 21, fontWeight: "900", letterSpacing: -0.3 },
+  statLabel: { fontSize: 11.5, color: colors.muted, fontWeight: "700", textAlign: "center" },
+  rowCard: { paddingVertical: 12, paddingHorizontal: 12, borderRadius: 18 },
+  rowTitle: { fontSize: 15.5, fontWeight: "800", color: colors.text, flexShrink: 1 },
+  rowRoute: { fontSize: 14, fontWeight: "700", color: colors.text },
+  rowMeta: { fontSize: 12.5, color: colors.muted, fontWeight: "500" },
+  rowAmount: { fontSize: 16, fontWeight: "900", color: colors.text },
   routeRow: { flexDirection: "row", gap: 10, alignItems: "center" },
   routeLine: { width: 28, alignItems: "center", gap: 3, paddingVertical: 3 },
   routeDash: { width: 2, height: 4, borderRadius: 1, backgroundColor: "#CFD2DA" },
