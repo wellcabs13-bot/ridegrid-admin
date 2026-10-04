@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Animated, Easing, Pressable, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { Badge, BottomCTA, Card, colors, CustomerCard, dateTime, ListRow, Label, Notice, RecordBadge, RouteBlock, Screen, SectionTitle, StateView, StatTiles, StatusBadge, VehicleRow } from "../components/ui";
+import { Badge, BottomCTA, Card, colors, CustomerCard, dateTime, FadeIn, gradients, IconTile, ListRow, Label, Notice, RecordBadge, RouteBlock, Screen, SectionTitle, shadow, StateView, StatCard, StatusBadge, useReducedMotion, VehicleRow, type Icon } from "../components/ui";
 import { useDriver } from "../services/driver";
 import { post } from "../services/api";
 import { useApp } from "../state/Providers";
@@ -60,17 +61,18 @@ function TripMore({ b }: { b: Booking }) {
   const events = ([["Driver assigned", b.trip?.driverAssignedAt], ["Arrived at pickup", b.trip?.arrivedPickupAt], ["Trip started", b.trip?.tripStartedAt], ["Trip completed", b.trip?.tripCompletedAt]] as const).filter(([, at]) => at);
   return (
     <>
-      <SectionTitle title="Vehicle" />
+      <SectionTitle title="Vehicle" sub="Assigned for this trip" icon="car-sport-outline" tone="grey" />
       <Card><VehicleRow vehicle={b.vehicle} /></Card>
-      <Card style={{ gap: 0, paddingVertical: 4 }}>
-        <ListRow icon="pricetag-outline" title={(b.pricingPackage?.packageType || "Service not recorded").replaceAll("_", " ")} subtitle={b.tripType === "ROUNDTRIP" ? "Round trip" : "One way"} />
+      <SectionTitle title="Trip details" sub={`Trip ID ${b.bookingNumber}`} icon="document-text-outline" tone="blue" />
+      <Card style={{ gap: 0, paddingVertical: 6 }}>
+        <ListRow icon="pricetag-outline" tone="blue" title={(b.pricingPackage?.packageType || "Service not recorded").replaceAll("_", " ")} subtitle={b.tripType === "ROUNDTRIP" ? "Round trip" : "One way"} />
         <ListRow icon="business-outline" title={b.vendor.companyName} subtitle="Partner" />
-        <ListRow icon="time-outline" title="Trip timeline" subtitle={`${events.length + (b.statusHistory?.length || 0)} updates`} onPress={() => setOpenTimeline((v) => !v)} />
+        <ListRow icon="time-outline" tone="amber" title="Trip timeline" subtitle={`${events.length + (b.statusHistory?.length || 0)} updates`} right={<Ionicons name={openTimeline ? "chevron-up" : "chevron-down"} size={18} color={colors.faint} />} onPress={() => setOpenTimeline((v) => !v)} last={!openTimeline} />
         {openTimeline && (
-          <View style={{ gap: 10, paddingVertical: 10 }}>
+          <FadeIn style={{ gap: 12, paddingVertical: 12, paddingLeft: 8 }}>
             {events.map(([label, at]) => (
               <View key={label} style={{ flexDirection: "row", gap: 10 }}>
-                <Ionicons name="checkmark-circle" size={18} color={colors.green} />
+                <Ionicons name="checkmark-circle" size={20} color={colors.green} />
                 <View style={{ flex: 1 }}><Label bold>{label}</Label><Label small muted>{dateTime(at)}</Label></View>
               </View>
             ))}
@@ -80,37 +82,91 @@ function TripMore({ b }: { b: Booking }) {
                 <Label small muted>{h.remarks || "Status updated"} · {dateTime(h.changedAt)}</Label>
               </View>
             ))}
-          </View>
+          </FadeIn>
         )}
-        <ListRow icon="map-outline" title="Preview full route" onPress={() => void open(routeUrl(b.pickupLocation, b.dropLocation))} />
-        <ListRow icon="headset-outline" title="Contact support" onPress={() => router.push({ pathname: "/support", params: { id: b.id } })} />
+      </Card>
+      <SectionTitle title="Help" sub="Support and safety for this trip" icon="headset-outline" tone="green" />
+      <Card style={{ gap: 0, paddingVertical: 6 }}>
+        <ListRow icon="map-outline" tone="blue" title="Preview full route" onPress={() => void open(routeUrl(b.pickupLocation, b.dropLocation))} />
+        <ListRow icon="headset-outline" tone="green" title="Contact support" onPress={() => router.push({ pathname: "/support", params: { id: b.id } })} />
         <ListRow icon="shield-outline" title="SOS / Safety" tone="red" last onPress={() => router.push({ pathname: "/safety", params: { id: b.id } })} />
       </Card>
     </>
   );
 }
 
-function Header({ b }: { b: Booking }) {
-  const when = istParts(b.pickupDateTime);
+function StatusHeader({ b }: { b: Booking }) {
+  const when = istParts(b.pickupDateTime), phase = tripPhase(b);
   return (
-    <View style={{ gap: 8 }}>
+    <LinearGradient colors={phase === "cancelled" ? ["#F4F5F8", "#FFFFFF"] : gradients.blush} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 20, padding: 16, gap: 10, borderWidth: 1, borderColor: colors.border }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <StatusBadge booking={b} />
-        <Label small muted>Trip ID: {b.bookingNumber}</Label>
+        <StatusBadge booking={b} large />
+        <Text style={{ fontSize: 13, color: colors.muted, fontWeight: "700" }}>Trip ID {b.bookingNumber}</Text>
       </View>
-      <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text }}>{when ? `${when.date}, ${when.time}` : "Pickup time not recorded"}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <IconTile icon="calendar" tone="red" size={46} solid />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 24, fontWeight: "900", color: colors.text, letterSpacing: -0.4 }}>{when?.time || "—"}</Text>
+          <Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}>{when?.date || "Pickup time not recorded"}{phase !== "cancelled" && phase !== "completed" ? ` · pickup ${relative(b.pickupDateTime)}` : ""}</Text>
+        </View>
+      </View>
+    </LinearGradient>
+  );
+}
+
+// Big circular icon that pops in; `confetti` adds a few lightweight static dots.
+function Hero({ icon, bg, fg, title, sub, confetti = false }: { icon: Icon; bg: string; fg: string; title: string; sub: string; confetti?: boolean }) {
+  const still = useReducedMotion();
+  const v = React.useRef(new Animated.Value(still ? 1 : 0)).current;
+  React.useEffect(() => {
+    if (still) { v.setValue(1); return; }
+    Animated.spring(v, { toValue: 1, useNativeDriver: true, speed: 9, bounciness: 12 }).start();
+  }, [still, v]);
+  const dots = ["#E53935", "#1F9D55", "#2F6FED", "#F5A623", "#E53935", "#1F9D55", "#F5A623", "#2F6FED"];
+  return (
+    <View style={{ alignItems: "center", gap: 8, paddingVertical: 10 }}>
+      <View style={{ width: 220, height: 150, alignItems: "center", justifyContent: "center" }}>
+        {confetti && dots.map((c, i) => {
+          const angle = (i / dots.length) * Math.PI * 2;
+          return (
+            <Animated.View
+              key={i}
+              style={{ position: "absolute", width: i % 2 ? 8 : 10, height: i % 2 ? 8 : 4, borderRadius: 3, backgroundColor: c, opacity: v, transform: [{ translateX: Math.cos(angle) * 92 }, { translateY: Math.sin(angle) * 62 }, { rotate: `${i * 40}deg` }, { scale: v }] }}
+            />
+          );
+        })}
+        <Animated.View style={{ transform: [{ scale: v }] }}>
+          <View style={{ width: 132, height: 132, borderRadius: 66, backgroundColor: bg, alignItems: "center", justifyContent: "center" }}>
+            <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: fg, alignItems: "center", justifyContent: "center", ...shadow }}>
+              <Ionicons name={icon} size={54} color="#FFFFFF" />
+            </View>
+          </View>
+        </Animated.View>
+      </View>
+      <Text style={{ fontSize: 28, fontWeight: "900", color: colors.text, textAlign: "center", letterSpacing: -0.5 }}>{title}</Text>
+      <Label muted center>{sub}</Label>
     </View>
   );
 }
 
-function Hero({ icon, bg, fg, title, sub }: { icon: React.ComponentProps<typeof Ionicons>["name"]; bg: string; fg: string; title: string; sub: string }) {
+// Live "on trip" clock, ticking each minute from the server's start time.
+function useNow(every = 30000) {
+  const [now, set] = useState(Date.now());
+  React.useEffect(() => { const t = setInterval(() => set(Date.now()), every); return () => clearInterval(t); }, [every]);
+  return now;
+}
+function LiveDot() {
+  const still = useReducedMotion(), v = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    if (still) return;
+    const loop = Animated.loop(Animated.timing(v, { toValue: 1, duration: 1500, easing: Easing.out(Easing.quad), useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [still, v]);
   return (
-    <View style={{ alignItems: "center", gap: 8, paddingVertical: 12 }}>
-      <View style={{ width: 112, height: 112, borderRadius: 56, backgroundColor: bg, alignItems: "center", justifyContent: "center" }}>
-        <Ionicons name={icon} size={60} color={fg} />
-      </View>
-      <Text style={{ fontSize: 26, fontWeight: "900", color: colors.text, textAlign: "center" }}>{title}</Text>
-      <Label muted center>{sub}</Label>
+    <View style={{ width: 16, height: 16, alignItems: "center", justifyContent: "center" }}>
+      {!still && <Animated.View style={{ position: "absolute", width: 16, height: 16, borderRadius: 8, backgroundColor: "#FFFFFF", opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] }), transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 2.4] }) }] }} />}
+      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#FFFFFF" }} />
     </View>
   );
 }
@@ -118,6 +174,7 @@ function Hero({ icon, bg, fg, title, sub }: { icon: React.ComponentProps<typeof 
 export function TripScreen() {
   const { id = "" } = useLocalSearchParams<{ id: string }>(), q = useDriver<Booking>("trips", `?id=${encodeURIComponent(id)}`, true);
   const t = useTransition(id, () => void q.refetch());
+  const now = useNow();
   const b = q.data, phase = b ? tripPhase(b) : null, allowed = b ? driverAction(b) : null;
   const titles = { scheduled: "Trip Details", upcoming: "Trip Details", arrived: "Arrived at Pickup", inProgress: "Trip in Progress", completed: "Trip Completed", cancelled: "Trip Details" } as const;
   // One primary action per phase. Upcoming opens the Go to Pickup screen (navigation
@@ -139,74 +196,74 @@ export function TripScreen() {
       {!!t.error && <Notice tone="red" icon="alert-circle-outline" text={t.error} />}
       {b && phase === "completed" && (
         <>
-          <Hero icon="checkmark" bg={colors.greenSoft} fg={colors.green} title="Great job!" sub="Trip completed successfully." />
-          <Card>
-            <RouteBlock pickup={b.pickupLocation} drop={b.dropLocation} />
-            <StatTiles
-              tinted
-              items={[
-                { label: "Completed", value: istParts(b.trip?.tripCompletedAt || "")?.time || "—", tone: "green" },
-                { label: "Duration", value: duration(b.trip?.tripStartedAt, b.trip?.tripCompletedAt) || "—", tone: "blue" },
-              ]}
-            />
-            <Label small muted>Trip ID {b.bookingNumber} · Earnings for this trip appear under Earnings once recorded.</Label>
-          </Card>
+          <Hero icon="checkmark" bg={colors.greenSoft} fg={colors.green} title="Trip Completed" sub="Great job! The trip was completed successfully." confetti />
+          <FadeIn delay={150} style={{ gap: 14 }}>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <StatCard label="Completed at" value={istParts(b.trip?.tripCompletedAt || "")?.time || "—"} icon="flag" tone="green" />
+              <StatCard label="Trip duration" value={duration(b.trip?.tripStartedAt, b.trip?.tripCompletedAt) || "—"} icon="timer" tone="blue" />
+            </View>
+            <Card>
+              <RouteBlock pickup={b.pickupLocation} drop={b.dropLocation} />
+              <Notice tone="green" icon="wallet-outline" text="Your allocation for this trip appears under Earnings once recorded." onPress={() => router.push("/earnings")} />
+            </Card>
+          </FadeIn>
           <TripMore b={b} />
         </>
       )}
       {b && phase === "arrived" && (
         <>
           <Hero icon="location" bg={colors.brandSoft} fg={colors.brand} title="You have arrived!" sub={b.pickupLocation} />
-          <Card><Customer b={b} live /></Card>
-          <Notice tone="red" icon="time-outline" text="Please wait for the customer to board the vehicle." />
-          {activeLocation(b) && <LocationCard />}
-          <Card><RouteBlock pickup={b.pickupLocation} drop={b.dropLocation} onOpenMap={() => void open(navigationUrl(b.dropLocation))} /></Card>
+          <FadeIn delay={100} style={{ gap: 14 }}>
+            <Card><Customer b={b} live /></Card>
+            <Notice tone="blue" icon="time-outline" title="Waiting for customer" text="Please wait for the customer to board the vehicle, then start the trip." />
+            {activeLocation(b) && <LocationCard />}
+            <SectionTitle title="Route" sub="Pickup to drop" icon="git-commit-outline" tone="red" />
+            <Card><RouteBlock pickup={b.pickupLocation} drop={b.dropLocation} onOpenMap={() => void open(navigationUrl(b.dropLocation))} /></Card>
+          </FadeIn>
           <TripMore b={b} />
         </>
       )}
       {b && phase === "inProgress" && (
         <>
-          <Card>
-            <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: colors.green, marginTop: 5 }} />
-              <View style={{ flex: 1 }}>
-                <Label small muted>Heading to</Label>
-                <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text }}>{b.dropLocation}</Text>
-              </View>
+          <LinearGradient colors={gradients.nav} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 22, padding: 18, gap: 14, ...shadow }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <LiveDot />
+              <Text style={{ color: "#FFFFFF", fontWeight: "800", fontSize: 14, letterSpacing: 0.6 }}>TRIP IN PROGRESS</Text>
             </View>
-            <StatTiles
-              tinted
-              items={[
-                { label: "Started", value: istParts(b.trip?.tripStartedAt || "")?.time || "—", tone: "green" },
-                { label: "On trip", value: duration(b.trip?.tripStartedAt, new Date().toISOString()) || "—", tone: "red" },
-              ]}
-            />
+            <View>
+              <Text style={{ color: "#FFFFFFCC", fontWeight: "700", fontSize: 14 }}>Heading to</Text>
+              <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "900", letterSpacing: -0.3 }} numberOfLines={3}>{b.dropLocation}</Text>
+            </View>
             <Pressable
               accessibilityRole="button"
               onPress={() => void open(navigationUrl(b.dropLocation))}
-              style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.blueSoft, borderRadius: 14, padding: 14 }}
+              style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#FFFFFF", borderRadius: 14, paddingHorizontal: 14, minHeight: 52 }, pressed && { opacity: 0.85 }]}
             >
-              <Ionicons name="navigate" size={22} color={colors.blue} />
-              <Text style={{ flex: 1, color: colors.blue, fontWeight: "800", fontSize: 16 }}>Navigate to destination</Text>
-              <Ionicons name="open-outline" size={18} color={colors.blue} />
+              <Ionicons name="navigate" size={22} color={colors.green} />
+              <Text style={{ flex: 1, color: colors.greenDark, fontWeight: "900", fontSize: 16 }}>Navigate to destination</Text>
+              <Ionicons name="open-outline" size={18} color={colors.greenDark} />
             </Pressable>
-          </Card>
+          </LinearGradient>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <StatCard label="Started at" value={istParts(b.trip?.tripStartedAt || "")?.time || "—"} icon="play-circle" tone="green" />
+            <StatCard label="On trip" value={duration(b.trip?.tripStartedAt, new Date(now).toISOString()) || "—"} icon="timer" tone="red" />
+          </View>
+          <SectionTitle title="Customer" icon="person-outline" tone="red" />
           <Card><Customer b={b} live /></Card>
           {activeLocation(b) && <LocationCard />}
+          <SectionTitle title="Route" sub="Pickup to drop" icon="git-commit-outline" tone="red" />
           <Card><RouteBlock pickup={b.pickupLocation} drop={b.dropLocation} /></Card>
           <TripMore b={b} />
         </>
       )}
       {b && (phase === "upcoming" || phase === "scheduled" || phase === "cancelled") && (
         <>
-          <Card>
-            <Header b={b} />
-            <RouteBlock pickup={b.pickupLocation} drop={b.dropLocation} onOpenMap={phase === "cancelled" ? undefined : () => void open(routeUrl(b.pickupLocation, b.dropLocation))} />
-            {phase !== "cancelled" && <Label small muted>Pickup {relative(b.pickupDateTime)}</Label>}
-          </Card>
+          <FadeIn><StatusHeader b={b} /></FadeIn>
           {phase === "scheduled" && <Notice tone="blue" text="This trip is scheduled. Trip actions unlock once dispatch confirms your assignment." />}
           {phase === "cancelled" && <Notice tone="red" icon="close-circle-outline" text="This trip was cancelled. No action is needed." />}
-          <SectionTitle title="Customer" />
+          <SectionTitle title="Route" sub="Pickup to drop" icon="git-commit-outline" tone="red" />
+          <Card><RouteBlock pickup={b.pickupLocation} drop={b.dropLocation} onOpenMap={phase === "cancelled" ? undefined : () => void open(routeUrl(b.pickupLocation, b.dropLocation))} /></Card>
+          <SectionTitle title="Customer" icon="person-outline" tone="red" />
           <Card><Customer b={b} live={phase !== "cancelled"} /></Card>
           <TripMore b={b} />
         </>
@@ -216,7 +273,16 @@ export function TripScreen() {
   );
 }
 
+function MapControl({ icon, label, onPress }: { icon: Icon; label: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", ...shadow }, pressed && { transform: [{ scale: 0.92 }] }]}>
+      <Ionicons name={icon} size={22} color={colors.text} />
+    </Pressable>
+  );
+}
+
 // Go to Pickup: hand-off to turn-by-turn navigation in Google Maps, then "I Have Arrived".
+// No embedded map or distance feed exists, so none is drawn or estimated here.
 export function PickupScreen() {
   const { id = "" } = useLocalSearchParams<{ id: string }>(), q = useDriver<Booking>("trips", `?id=${encodeURIComponent(id)}`, true);
   const t = useTransition(id, () => void q.refetch(), () => router.replace({ pathname: "/trip", params: { id } }));
@@ -233,13 +299,7 @@ export function PickupScreen() {
       refreshing={q.isRefetching}
       footer={
         b ? (
-          <BottomCTA
-            title="I Have Arrived"
-            icon="location"
-            disabled={!t.online || allowed !== "ARRIVED"}
-            note={!t.online ? "Reconnect to confirm arrival." : undefined}
-            onPress={() => t.setAction("ARRIVED")}
-          />
+          <BottomCTA title="I Have Arrived" icon="location" disabled={!t.online || allowed !== "ARRIVED"} note={!t.online ? "Reconnect to confirm arrival." : undefined} onPress={() => t.setAction("ARRIVED")} />
         ) : undefined
       }
     >
@@ -247,36 +307,53 @@ export function PickupScreen() {
       {!!t.error && <Notice tone="red" icon="alert-circle-outline" text={t.error} />}
       {b && (
         <>
-          <View style={{ backgroundColor: colors.greenDark, borderRadius: 18, padding: 18, flexDirection: "row", gap: 14, alignItems: "center" }}>
-            <Ionicons name="arrow-redo" size={40} color="#FFFFFF" />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: "#FFFFFFCC", fontWeight: "700" }}>Go to Pickup</Text>
-              <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "800" }} numberOfLines={3}>{b.pickupLocation}</Text>
-            </View>
+          <FadeIn>
+            <LinearGradient colors={gradients.nav} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 22, padding: 18, flexDirection: "row", gap: 14, alignItems: "center", ...shadow }}>
+              <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: "#FFFFFF26", alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="arrow-redo" size={32} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#FFFFFFCC", fontWeight: "800", fontSize: 13, letterSpacing: 0.6 }}>GO TO PICKUP</Text>
+                <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "900" }} numberOfLines={3}>{b.pickupLocation}</Text>
+              </View>
+            </LinearGradient>
+          </FadeIn>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <StatCard label="Pickup time" value={when?.time || "—"} icon="time" tone="red" />
+            <StatCard label="Time to pickup" value={relative(b.pickupDateTime) || "—"} icon="hourglass" tone="blue" />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Start navigation in Google Maps"
-            onPress={() => void open(navigationUrl(b.pickupLocation))}
-            style={{ height: 190, borderRadius: 18, backgroundColor: "#E8EEF3", alignItems: "center", justifyContent: "center", gap: 10, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}
-          >
-            <View style={{ position: "absolute", left: 40, top: 30, width: 200, height: 4, backgroundColor: "#D3DCE4", transform: [{ rotate: "-20deg" }] }} />
-            <View style={{ position: "absolute", right: 30, bottom: 40, width: 220, height: 4, backgroundColor: "#D3DCE4", transform: [{ rotate: "15deg" }] }} />
-            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.blue, alignItems: "center", justifyContent: "center" }}>
-              <Ionicons name="navigate" size={32} color="#FFFFFF" />
-            </View>
-            <Text style={{ fontSize: 17, fontWeight: "800", color: colors.text }}>Start navigation</Text>
-            <Label small muted>Opens Google Maps with directions to pickup</Label>
-          </Pressable>
+          <View style={{ height: 210, borderRadius: 22, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>
+            <LinearGradient colors={["#EAF1FE", "#F4F8FF", "#EEF7F2"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Start navigation in Google Maps"
+                onPress={() => void open(navigationUrl(b.pickupLocation))}
+                style={({ pressed }) => [{ alignItems: "center", gap: 10 }, pressed && { opacity: 0.85 }]}
+              >
+                <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: colors.blue, alignItems: "center", justifyContent: "center", ...shadow }}>
+                  <Ionicons name="navigate" size={36} color="#FFFFFF" />
+                </View>
+                <Text style={{ fontSize: 18, fontWeight: "900", color: colors.text }}>Start navigation</Text>
+                <Label small muted>Opens Google Maps with live directions</Label>
+              </Pressable>
+              <View style={{ position: "absolute", right: 12, top: 12, gap: 10 }}>
+                <MapControl icon="map-outline" label="Preview full route" onPress={() => void open(routeUrl(b.pickupLocation, b.dropLocation))} />
+                <MapControl icon="headset-outline" label="Contact support" onPress={() => router.push({ pathname: "/support", params: { id: b.id } })} />
+              </View>
+            </LinearGradient>
+          </View>
           <Card>
-            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-              <Text style={{ fontSize: 22, fontWeight: "800", color: colors.text }}>{when?.time || "—"}</Text>
-              <Label muted>pickup · {relative(b.pickupDateTime)}</Label>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <IconTile icon="location" tone="red" size={40} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 12, color: colors.muted, fontWeight: "800", letterSpacing: 0.6 }}>PICKUP</Text>
+                <Label bold>{b.pickupLocation}</Label>
+              </View>
             </View>
-            <Label muted>{b.pickupLocation}</Label>
-            <Badge label={`Trip ID ${b.bookingNumber}`} tone="grey" />
+            <Badge label={`Trip ID ${b.bookingNumber}`} tone="grey" icon="pricetag-outline" />
+            <View style={{ height: 1, backgroundColor: colors.border }} />
+            <Customer b={b} live />
           </Card>
-          <Card><Customer b={b} live /></Card>
         </>
       )}
       <ConfirmSheet action={t.action} busy={t.busy} close={() => { if (!t.busy) t.setAction(null); }} confirm={() => void t.confirm()} />

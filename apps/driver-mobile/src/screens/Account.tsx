@@ -4,7 +4,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { Avatar, Badge, Button, Card, colors, dateTime, Label, ListRow, Notice, RecordBadge, Screen, SectionTitle, StateView, VehicleRow } from "../components/ui";
+import { LinearGradient } from "expo-linear-gradient";
+import { Avatar, Badge, Button, Card, colors, dateTime, FadeIn, gradients, IconTile, Label, ListRow, Notice, RecordBadge, recordTone, Screen, SectionTitle, shadow, StateView, StatCard, tones, VehicleRow } from "../components/ui";
 import { useDriver } from "../services/driver";
 import { api, post } from "../services/api";
 import { useApp, logout } from "../state/Providers";
@@ -22,47 +23,76 @@ export function MoreScreen() {
   const docs = p?.documents || [];
   const docsOk = docs.length > 0 && docs.every((d) => d.status === "VERIFIED" && !docState(d));
   const docsAlert = docs.some((d) => docState(d));
+  const vehicle = p?.vehicles[0];
   async function signOut() {
     setBusy(true);
     await logout().catch(() => setError("Signed out on this device. Server session revocation could not be confirmed."));
     setBusy(false);
   }
+  const details: [React.ComponentProps<typeof Ionicons>["name"], string][] = p
+    ? [
+        ["call-outline", p.user.mobile || "Mobile not recorded"],
+        ["mail-outline", p.user.email],
+        ["card-outline", `Licence ${p.licenseNumber}${p.city ? ` · ${p.city}` : ""}`],
+        ...(vehicle ? [["car-sport-outline", `${vehicle.make} ${vehicle.model} · ${vehicle.registrationNumber}`] as [React.ComponentProps<typeof Ionicons>["name"], string]] : []),
+      ]
+    : [];
   return (
     <Screen title="Profile" refresh={() => void q.refetch()} refreshing={q.isRefetching}>
       <StateView loading={q.isPending} error={q.error} retry={() => void q.refetch()} />
       {p && (
-        <Card style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-          <Avatar name={`${p.firstName} ${p.lastName}`} size={64} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text }}>{p.firstName} {p.lastName}</Text>
-            <Label small muted>{p.user.mobile || p.user.email}</Label>
-            <Label small muted>Licence {p.licenseNumber}{p.city ? ` · ${p.city}` : ""}</Label>
-            <View style={{ flexDirection: "row", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-              <RecordBadge value={p.status} />
-              <Badge label={p.user.isVerified ? "Verified" : "Verification pending"} tone={p.user.isVerified ? "green" : "amber"} />
+        <FadeIn>
+          <LinearGradient colors={gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 24, padding: 18, gap: 14, borderWidth: 1, borderColor: colors.border, ...shadow }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+              <Avatar name={`${p.firstName} ${p.lastName}`} size={70} ring />
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={{ fontSize: 22, fontWeight: "900", color: colors.text, letterSpacing: -0.3 }} numberOfLines={1}>{p.firstName} {p.lastName}</Text>
+                <Text style={{ fontSize: 13, color: colors.muted, fontWeight: "700" }}>Driver ID · {p.id.slice(-8).toUpperCase()}</Text>
+                <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                  <RecordBadge value={p.status} />
+                  <Badge label={p.user.isVerified ? "Verified" : "Verification pending"} tone={p.user.isVerified ? "green" : "amber"} icon={p.user.isVerified ? "shield-checkmark" : "time-outline"} />
+                </View>
+              </View>
             </View>
-          </View>
-        </Card>
+            <View style={{ backgroundColor: "#FFFFFFCC", borderRadius: 16, padding: 12, gap: 8 }}>
+              {details.map(([icon, text]) => (
+                <View key={icon} style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                  <Ionicons name={icon} size={17} color={colors.muted} />
+                  <Text style={{ flex: 1, fontSize: 14, color: colors.text, fontWeight: "600" }} numberOfLines={1}>{text}</Text>
+                </View>
+              ))}
+            </View>
+          </LinearGradient>
+        </FadeIn>
       )}
-      <Card style={{ gap: 0, paddingVertical: 4 }}>
-        <ListRow icon="car-outline" title="My Vehicle" onPress={() => router.push("/vehicle")} />
+      <SectionTitle title="Operations" icon="briefcase-outline" tone="red" />
+      <Card style={{ gap: 0, paddingVertical: 6 }}>
+        <ListRow icon="car-sport-outline" tone="blue" title="My Vehicle" subtitle={vehicle ? vehicle.registrationNumber : "Assigned vehicle"} onPress={() => router.push("/vehicle")} />
         <ListRow
           icon="document-text-outline"
+          tone={docsAlert ? "red" : "green"}
           title="My Documents"
-          right={docsAlert ? <Badge label="Action needed" tone="red" /> : docsOk ? <Badge label="Verified" tone="green" /> : undefined}
+          subtitle="Status and expiry dates"
+          right={docsAlert ? <Badge label="Action needed" tone="red" /> : docsOk ? <Badge label="Verified" tone="green" icon="checkmark" /> : undefined}
           onPress={() => router.push("/documents")}
         />
-        <ListRow icon="wallet-outline" title="Earnings" onPress={() => router.push("/earnings")} />
-        <ListRow icon="notifications-outline" title="Notifications" onPress={() => router.push("/notifications")} />
-        <ListRow icon="lock-closed-outline" title="Security & Password" last onPress={() => router.push("/security")} />
+        <ListRow icon="wallet-outline" tone="green" title="Earnings" subtitle="Trips, payouts and incentives" onPress={() => router.push("/earnings")} />
+        <ListRow icon="shield-checkmark-outline" tone="red" title="Safety" subtitle="Emergency and sharing tools" last onPress={() => router.push("/safety")} />
       </Card>
-      <Card style={{ gap: 0, paddingVertical: 4 }}>
-        <ListRow icon="shield-checkmark-outline" title="Safety" tone="red" onPress={() => router.push("/safety")} />
-        <ListRow icon="headset-outline" title="Help & Support" last onPress={() => router.push("/support")} />
+      <SectionTitle title="Account" icon="person-circle-outline" tone="blue" />
+      <Card style={{ gap: 0, paddingVertical: 6 }}>
+        <ListRow icon="notifications-outline" tone="amber" title="Notifications" subtitle="Trip and account updates" onPress={() => router.push("/notifications")} />
+        <ListRow icon="lock-closed-outline" title="Security & Password" subtitle="Password reset and sessions" last onPress={() => router.push("/security")} />
+      </Card>
+      <SectionTitle title="Support" icon="headset-outline" tone="green" />
+      <Card style={{ gap: 0, paddingVertical: 6 }}>
+        <ListRow icon="help-buoy-outline" tone="green" title="Help & Support" subtitle="Call or email RideGrid Operations" last onPress={() => router.push("/support")} />
       </Card>
       <Label small muted center>Contact Operations to update your profile or licence details.</Label>
       {!!error && <Notice tone="amber" text={error} />}
-      <Button title="Log Out" icon="log-out-outline" variant="secondary" busy={busy} onPress={() => void signOut()} />
+      <View style={{ marginTop: 6 }}>
+        <Button title="Log Out" icon="log-out-outline" variant="outline" busy={busy} onPress={() => void signOut()} />
+      </View>
     </Screen>
   );
 }
@@ -140,28 +170,40 @@ export function VehicleScreen() {
 
 export function DocumentsScreen() {
   const q = useDriver<Document[]>("documents");
+  const count = (fn: (d: Document) => boolean) => (q.data || []).filter(fn).length;
   return (
     <Screen title="My Documents" refresh={() => void q.refetch()} refreshing={q.isRefetching}>
       <StateView loading={q.isPending} error={q.error} empty={q.data?.length === 0} emptyIcon="document-text-outline" emptyTitle="No documents recorded" emptyText="Your partner or Operations records your documents." retry={() => void q.refetch()} />
-      {q.data?.map((d) => {
+      {!!q.data?.length && (
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <StatCard label="Verified" value={String(count((d) => d.status === "VERIFIED" && !docState(d)))} icon="shield-checkmark" tone="green" />
+          <StatCard label="Pending" value={String(count((d) => !docState(d) && recordTone(d.status) === "amber"))} icon="time" tone="amber" />
+          <StatCard label="Need attention" value={String(count((d) => !!docState(d) || recordTone(d.status) === "red"))} icon="alert-circle" tone="red" />
+        </View>
+      )}
+      {q.data?.map((d, i) => {
         const alert = docState(d);
+        const tone = alert ? "red" : recordTone(d.status);
         return (
-          <Card key={d.id} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: alert ? colors.brandSoft : colors.greySoft, alignItems: "center", justifyContent: "center" }}>
-              <Ionicons name="document-text-outline" size={22} color={alert ? colors.brand : colors.text} />
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Label bold>{d.documentType.replaceAll("_", " ")}</Label>
-              <Label small muted>{d.expiryDate ? `Expires ${dateTime(d.expiryDate)}` : "No expiry recorded"}</Label>
-              <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-                <RecordBadge value={d.status} />
-                {alert && <RecordBadge value={alert} />}
+          <FadeIn key={d.id} delay={i * 40}>
+            <Card style={[{ flexDirection: "row", alignItems: "center", gap: 14, borderLeftWidth: 4, borderLeftColor: tones[tone].fg }, alert ? { backgroundColor: colors.brandTint } : null]}>
+              <IconTile icon={alert ? "warning" : tone === "green" ? "document-text" : "document-text-outline"} tone={tone} size={50} />
+              <View style={{ flex: 1, gap: 5 }}>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text }}>{d.documentType.replaceAll("_", " ")}</Text>
+                <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+                  <Ionicons name="calendar-outline" size={14} color={alert ? colors.brand : colors.muted} />
+                  <Text style={{ flex: 1, fontSize: 13.5, color: alert ? colors.brand : colors.muted, fontWeight: alert ? "800" : "500" }}>{d.expiryDate ? `Expires ${dateTime(d.expiryDate)}` : "No expiry recorded"}</Text>
+                </View>
+                <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                  <RecordBadge value={d.status} />
+                  {alert && <RecordBadge value={alert} />}
+                </View>
               </View>
-            </View>
-          </Card>
+            </Card>
+          </FadeIn>
         );
       })}
-      <Notice tone="grey" text="Document submissions and updates are handled by your partner or Operations. Full ID numbers and document files are not displayed here." onPress={() => router.push("/support")} />
+      <Notice tone="grey" title="Need a change?" text="Document submissions and updates are handled by your partner or Operations. Full ID numbers and document files are not displayed here." onPress={() => router.push("/support")} />
     </Screen>
   );
 }

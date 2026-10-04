@@ -8,10 +8,10 @@ import { istParts } from "../utils/when";
 import type { Booking, Page } from "../types";
 
 const FILTERS = [
-  { value: "UPCOMING", label: "Upcoming" },
-  { value: "ACTIVE", label: "Active" },
-  { value: "COMPLETED", label: "Completed" },
-  { value: "CANCELLED", label: "Cancelled" },
+  { value: "UPCOMING", label: "Upcoming", icon: "calendar-outline" as const },
+  { value: "ACTIVE", label: "Active", icon: "navigate-outline" as const },
+  { value: "COMPLETED", label: "Completed", icon: "checkmark-circle-outline" as const },
+  { value: "CANCELLED", label: "Cancelled", icon: "close-circle-outline" as const },
 ];
 const EMPTY: Record<string, string> = {
   UPCOMING: "No upcoming trips assigned to you.",
@@ -58,8 +58,8 @@ export function TripsScreen() {
         sections={byDay(q.data?.items || [])}
         keyExtractor={(b) => b.id}
         stickySectionHeadersEnabled={false}
-        contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 12, paddingBottom: 30 }}
-        renderSectionHeader={({ section }) => <Text style={{ fontSize: 16, fontWeight: "800", color: colors.text, marginTop: 8 }}>{section.title}</Text>}
+        contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 14, paddingBottom: 36 }}
+        renderSectionHeader={({ section }) => <Text style={{ fontSize: 17, fontWeight: "900", color: colors.text, marginTop: 10, letterSpacing: -0.2 }}>{section.title}</Text>}
         renderItem={({ item }) => <TripCard booking={item} />}
         refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={colors.brand} colors={[colors.brand]} />}
         ListEmptyComponent={!q.isPending && !q.error ? <StateView empty emptyIcon="car-outline" emptyTitle="No trips" emptyText={EMPTY[filter]} /> : null}
