@@ -1,5 +1,7 @@
 "use client";
 
+import { CarFront } from "lucide-react";
+import { Pill } from "@/components/admin/kit";
 import { Vehicle } from "../../data/vehicles";
 
 interface VehicleRowProps {
@@ -11,6 +13,13 @@ interface VehicleRowProps {
   isVerified?: boolean;
 }
 
+const STATUS_PILL: Record<string, string> = {
+  Available: "ACTIVE",
+  "On Trip": "TRIP_STARTED",
+  Maintenance: "PENDING",
+  Inactive: "INACTIVE",
+};
+
 export default function VehicleRow({
   vehicle,
   onView,
@@ -19,107 +28,71 @@ export default function VehicleRow({
   onVerify,
   isVerified = false,
 }: VehicleRowProps) {
-  const statusColor: Record<string, string> = {
-    Available: "bg-green-100 text-green-700",
-    "On Trip": "bg-blue-100 text-blue-700",
-    Maintenance: "bg-orange-100 text-orange-700",
-    Inactive: "bg-red-100 text-red-700",
-  };
-
-  const availabilityColor: Record<string, string> = {
-    Available: "bg-green-100 text-green-700",
-    Booked: "bg-indigo-100 text-indigo-700",
-    Blocked: "bg-red-100 text-red-700",
-  };
-
   return (
-    <tr className="border-b transition hover:bg-slate-50">
-      <td className="px-4 py-4 font-semibold">
-        {vehicle.registrationNo}
-      </td>
+    <tr className="cursor-pointer" onClick={() => onView?.(vehicle)}>
+      <td>
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500">
+            <CarFront size={18} />
+          </span>
 
-      <td className="px-4 py-4">
-        <div className="font-semibold">
-          {vehicle.vehicleName}
+          <div className="min-w-0">
+            <p className="font-semibold">{vehicle.registrationNo}</p>
+
+            <p className="truncate text-xs text-neutral-500">
+              {vehicle.brand} {vehicle.model}
+            </p>
+          </div>
         </div>
-        <div className="text-sm text-slate-500">
-          {vehicle.brand} • {vehicle.model}
-        </div>
       </td>
 
-      <td className="px-4 py-4">
-        {vehicle.vendorName || "-"}
+      <td className="text-[13px]">{vehicle.category || "-"}</td>
+
+      <td>{vehicle.vendorName || "-"}</td>
+
+      <td>{vehicle.driverName || "-"}</td>
+
+      <td>{vehicle.city || "-"}</td>
+
+      <td className="text-right">{vehicle.totalTrips}</td>
+
+      <td>
+        <Pill
+          value={STATUS_PILL[vehicle.status] ?? "PENDING"}
+          label={vehicle.status}
+        />
       </td>
 
-      <td className="px-4 py-4">
-        {vehicle.driverName || "-"}
+      <td>
+        {isVerified ? (
+          <Pill value="VERIFIED" label="Verified" />
+        ) : (
+          <Pill value="UNVERIFIED" label="Not verified" />
+        )}
       </td>
 
-      <td className="px-4 py-4">
-        {vehicle.city || "-"}
-      </td>
-
-      <td className="px-4 py-4 text-center">
-        {vehicle.totalTrips}
-      </td>
-
-      <td className="px-4 py-4 font-semibold text-green-600">
-        {vehicle.earnings}
-      </td>
-
-      <td className="whitespace-nowrap px-4 py-4">
-        {vehicle.insuranceExpiry || "-"}
-      </td>
-
-      <td className="px-4 py-4">
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            statusColor[vehicle.status] ||
-            "bg-slate-100 text-slate-700"
-          }`}
+      <td>
+        <div
+          className="flex flex-wrap items-center justify-end gap-2"
+          onClick={(event) => event.stopPropagation()}
         >
-          {vehicle.status}
-        </span>
-      </td>
-
-      <td className="px-4 py-4">
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            availabilityColor[vehicle.availability] ||
-            "bg-slate-100 text-slate-700"
-          }`}
-        >
-          {vehicle.availability}
-        </span>
-      </td>
-
-      <td className="px-4 py-4">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => onView?.(vehicle)}
-            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
+          <button type="button" onClick={() => onView?.(vehicle)} className="rg-outline">
             View
           </button>
 
           <button
             type="button"
             onClick={() => onEdit?.(vehicle)}
-            className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600"
+            className="rg-secondary !px-3 !py-1 !text-xs"
           >
             Edit
           </button>
 
-          {isVerified ? (
-            <span className="rounded-lg bg-green-100 px-3 py-2 text-sm font-semibold text-green-700">
-              Verified
-            </span>
-          ) : (
+          {!isVerified && (
             <button
               type="button"
               onClick={() => onVerify?.(vehicle)}
-              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              className="rg-secondary !px-3 !py-1 !text-xs"
             >
               Verify
             </button>
@@ -128,7 +101,7 @@ export default function VehicleRow({
           <button
             type="button"
             onClick={() => onDelete?.(vehicle)}
-            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
+            className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
           >
             Delete
           </button>

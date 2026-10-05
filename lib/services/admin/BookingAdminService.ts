@@ -5,7 +5,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/services/admin/AccountLifecycleService";
 import { findBookingConflict, reservationWindowFromPickup } from "@/lib/services/marketplace/BookingAvailabilityService";
-import { notifyAssignedDriver } from "@/lib/services/booking/DriverNotification";
+import { notifyAssignedDriver, pushAssignedDriver } from "@/lib/services/booking/DriverNotification";
 import { emitRideGridEvent } from "@/lib/events/event-dispatcher";
 import { AutomationTrigger } from "@/types/automation";
 
@@ -25,6 +25,8 @@ export type BookingFilters = {
   source?: string; status?: string; paymentStatus?: string; segment?: string;
   corporateId?: string; vendorId?: string; vehicleId?: string; driverId?: string; customer?: string;
   archived?: boolean; page?: number; pageSize?: number;
+  // Opt-in: also return a per-status count of the other active filters (for the status tabs).
+  withStatusCounts?: boolean;
 };
 
 export function bookingWhere(f: BookingFilters): Prisma.BookingWhereInput {
@@ -105,11 +107,13 @@ export async function listBookings(f: BookingFilters) {
   const pageSize = Math.min(Math.max(f.pageSize || 25, 5), 5000);
   const page = Math.max(f.page || 1, 1);
   const where = bookingWhere(f);
-  const [total, rows] = await Promise.all([
+  const [total, rows, grouped] = await Promise.all([
     prisma.booking.count({ where }),
     prisma.booking.findMany({ where, select: listSelect, orderBy: f.dateField === "created" ? { createdAt: "desc" } : { pickupDateTime: "desc" }, skip: (page - 1) * pageSize, take: pageSize }),
+    f.withStatusCounts ? prisma.booking.groupBy({ by: ["status"], where: bookingWhere({ ...f, status: undefined }), _count: { _all: true } }) : Promise.resolve(null),
   ]);
-  return { rows: rows.map(serializeRow), total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+  const statusCounts = grouped ? Object.fromEntries(grouped.map(g => [g.status, g._count._all])) as Record<string, number> : undefined;
+  return { rows: rows.map(serializeRow), total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)), ...(statusCounts ? { statusCounts } : {}) };
 }
 
 export async function bookingFilterOptions() {
@@ -259,7 +263,7 @@ export async function updateBooking(id: string, input: BookingUpdate, actorId: s
     if (driverChanged) await notifyAssignedDriver(tx, b.id, "Trip assigned to you");
     return { id: b.id, bookingNumber: b.bookingNumber, driverChanged };
   }, { isolationLevel: "Serializable" });
-  if (result.driverChanged) await emit(AutomationTrigger.DRIVER_ASSIGNED, result.id, actorId);
+  if (result.driverChanged) { await pushAssignedDriver(result.id, "Trip assigned to you"); await emit(AutomationTrigger.DRIVER_ASSIGNED, result.id, actorId); }
   return result;
 }
 
@@ -318,6 +322,7 @@ export async function cancelBooking(id: string, actorId: string, reasonInput: st
     await audit(tx, { actorId, action: AuditAction.UPDATE, entityName: "Booking", entityId: b.id, oldValue: { status: b.status }, newValue: { status: BookingStatus.CANCELLED, reason, refundState, refundAmount } });
     return { id: b.id, bookingNumber: b.bookingNumber, refundState, refundAmount };
   }, { isolationLevel: "Serializable" });
+  await pushAssignedDriver(result.id, "Booking cancelled");
   await emit(AutomationTrigger.BOOKING_CANCELLED, result.id, actorId, { refundState: result.refundState });
   if (result.refundState === "REFUND_DUE")
     await emit(AutomationTrigger.REFUND_DUE, result.id, actorId, { refundAmount: result.refundAmount });

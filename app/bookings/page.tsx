@@ -5,7 +5,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { PageHeading } from "@/components/admin/Primitives";
 import { Confirm, Drawer, Empty, Field, Notice, Pager, Pill, Rows, Section, Select, inr, send, when, words } from "@/components/admin/kit";
 import { useAuth } from "@/contexts/AuthContext";
-import { RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { Plus, RefreshCw, Search, SlidersHorizontal } from "lucide-react";
 
 type Row = {
   id: string; bookingNumber: string; source: string; sourceLabel: string; status: string; tripType: string;
@@ -16,7 +17,9 @@ type Row = {
   fare: { total: number; gst: number | null; platformFee: number | null; vendorAmount: number | null };
   payment: { method: string; status: string; amount: number; reference: string | null; gateway: string | null } | null;
 };
-type ListResult = { rows: Row[]; total: number; page: number; pageSize: number; totalPages: number };
+type ListResult = { rows: Row[]; total: number; page: number; pageSize: number; totalPages: number; statusCounts?: Record<string, number> };
+// Status tabs; the remaining statuses (Pending, Awaiting payment) stay in the status select.
+const TABS: [string, string][] = [["", "All"], ["CONFIRMED", "Confirmed"], ["DRIVER_ASSIGNED", "Driver assigned"], ["TRIP_STARTED", "Ongoing"], ["TRIP_COMPLETED", "Completed"], ["CANCELLED", "Cancelled"]];
 type Option = { id: string; label: string };
 type Options = { vendors: Option[]; corporates: Option[]; vehicles: Option[]; drivers: Option[] };
 
@@ -38,6 +41,7 @@ export default function BookingsPage() {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const url = new URLSearchParams(window.location.search);
@@ -70,49 +74,51 @@ export default function BookingsPage() {
   const apply = () => { setPage(1); setApplied({ ...filters }); };
   const reset = () => { setFilters(EMPTY); setPage(1); setApplied(EMPTY); };
   const opt = (list?: Option[]) => (list ?? []).map(o => ({ value: o.id, label: o.label }));
+  const pick = (status: string) => { const next = { ...(applied ?? filters), status }; setFilters(f => ({ ...f, status })); setApplied(next); setPage(1); };
+  const advanced = (["source", "paymentStatus", "segment", "corporateId", "vendorId", "vehicleId", "driverId", "customer", "archived"] as const).filter(k => applied?.[k]).length;
+  const counts = data?.statusCounts;
+  const countFor = (v: string) => (counts ? (v ? counts[v] ?? 0 : Object.values(counts).reduce((a, b) => a + b, 0)) : null);
 
   return <DashboardLayout><div className="mx-auto max-w-[1600px] space-y-5">
-    <PageHeading title="Bookings" description="Every retail and corporate booking from the central booking table. Cancel, correct and archive through controlled, audited actions.">
-      <button className="rg-secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={15} className={loading ? "animate-spin" : ""} />Refresh</button>
+    <PageHeading title="Bookings Management" description="Every retail and corporate booking from the central booking table. Cancel, correct and archive through controlled, audited actions.">
+      <button className="rg-secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={14} className={loading ? "animate-spin" : ""} />Refresh</button>
+      <Link href="/marketplace/booking" className="rg-primary"><Plus size={15} />New Booking</Link>
     </PageHeading>
     {notice && <Notice tone="success" onClose={() => setNotice("")}>{notice}</Notice>}
 
-    <section className="rg-card p-4">
-      <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6" onSubmit={e => { e.preventDefault(); apply(); }}>
-        <Field label="Booking no. / route / reg."><input className="rg-input" value={filters.q} onChange={e => set("q", e.target.value)} placeholder="WC-…" /></Field>
-        <Field label="Customer (name, email, mobile)"><input className="rg-input" value={filters.customer} onChange={e => set("customer", e.target.value)} /></Field>
-        <Field label="From"><input type="date" className="rg-input" value={filters.from} onChange={e => set("from", e.target.value)} /></Field>
-        <Field label="To"><input type="date" className="rg-input" value={filters.to} onChange={e => set("to", e.target.value)} /></Field>
-        <Field label="Date applies to"><select className="rg-input" value={filters.dateField} onChange={e => set("dateField", e.target.value)}><option value="">Pickup date</option><option value="created">Booked on</option></select></Field>
-        <Field label="Status"><Select value={filters.status} onChange={v => set("status", v)} options={STATUSES.map(s => ({ value: s, label: words(s) }))} /></Field>
-        <Field label="Payment"><Select value={filters.paymentStatus} onChange={v => set("paymentStatus", v)} options={PAYMENTS.map(s => ({ value: s, label: words(s) }))} /></Field>
-        <Field label="Source"><Select value={filters.source} onChange={v => set("source", v)} options={SOURCES} /></Field>
-        <Field label="Retail / Corporate"><Select value={filters.segment} onChange={v => set("segment", v)} options={[{ value: "RETAIL", label: "Retail" }, { value: "CORPORATE", label: "Corporate" }]} /></Field>
-        <Field label="Company"><Select value={filters.corporateId} onChange={v => set("corporateId", v)} options={opt(options?.corporates)} /></Field>
-        <Field label="Vendor"><Select value={filters.vendorId} onChange={v => set("vendorId", v)} options={opt(options?.vendors)} /></Field>
-        <Field label="Vehicle"><Select value={filters.vehicleId} onChange={v => set("vehicleId", v)} options={opt(options?.vehicles)} /></Field>
-        <Field label="Driver"><Select value={filters.driverId} onChange={v => set("driverId", v)} options={opt(options?.drivers)} /></Field>
-        <Field label="View"><select className="rg-input" value={filters.archived} onChange={e => set("archived", e.target.value)}><option value="">Active records</option><option value="1">Archived records</option></select></Field>
-        <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2"><button type="submit" className="rg-primary">Apply filters</button><button type="button" className="rg-secondary" onClick={reset}>Reset</button></div>
-      </form>
+    <section className="rg-card">
+      <div role="tablist" aria-label="Booking status" className="flex gap-1 overflow-x-auto border-b border-neutral-100 p-2">
+        {TABS.map(([v, l]) => { const on = (applied?.status ?? "") === v; const c = countFor(v); return <button key={v || "all"} role="tab" aria-selected={on} onClick={() => pick(v)} className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-[13px] font-semibold transition ${on ? "bg-red-600 !text-white shadow-sm" : "text-neutral-600 hover:bg-neutral-100"}`}>{l}{c !== null && <span className={`ml-1.5 text-xs font-medium ${on ? "text-red-100" : "text-neutral-400"}`}>({c.toLocaleString("en-IN")})</span>}</button>; })}
+      </div>
+      <div className="space-y-4 p-4">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <label className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 focus-within:border-red-500"><Search size={15} className="text-neutral-400" /><input aria-label="Search bookings" className="!min-h-0 !border-0 !bg-transparent !p-0 !py-2 min-w-0 w-full" value={filters.q} onChange={e => set("q", e.target.value)} onKeyDown={e => { if (e.key === "Enter") apply(); }} placeholder="Search booking no., route or vehicle…" /></label>
+          <span className="flex items-center gap-2 text-xs font-medium text-neutral-500"><input aria-label="From date" type="date" className="rg-input !w-auto" value={filters.from} onChange={e => set("from", e.target.value)} />–<input aria-label="To date" type="date" className="rg-input !w-auto" value={filters.to} onChange={e => set("to", e.target.value)} /></span>
+          <select aria-label="Date applies to" className="rg-input !w-auto" value={filters.dateField} onChange={e => set("dateField", e.target.value)}><option value="">Pickup date</option><option value="created">Booked on</option></select>
+          <select aria-label="Status" className="rg-input !w-auto" value={filters.status} onChange={e => set("status", e.target.value)}><option value="">All statuses</option>{STATUSES.map(s => <option key={s} value={s}>{words(s)}</option>)}</select>
+          <button type="button" className="rg-secondary" aria-expanded={showFilters} aria-controls="booking-filters" onClick={() => setShowFilters(v => !v)}><SlidersHorizontal size={14} />Filters{advanced > 0 && <span className="rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">{advanced}</span>}</button>
+          <button type="button" className="rg-primary" onClick={apply}>Apply</button>
+          <button type="button" className="rg-secondary" onClick={reset}>Reset</button>
+        </div>
+        {showFilters && <form id="booking-filters" className="grid gap-3 border-t border-neutral-100 pt-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6" onSubmit={e => { e.preventDefault(); apply(); }}> <Field label="Customer (name, email, mobile)"><input className="rg-input" value={filters.customer} onChange={e => set("customer", e.target.value)} /></Field> <Field label="Payment"><Select value={filters.paymentStatus} onChange={v => set("paymentStatus", v)} options={PAYMENTS.map(s => ({ value: s, label: words(s) }))} /></Field> <Field label="Source"><Select value={filters.source} onChange={v => set("source", v)} options={SOURCES} /></Field> <Field label="Retail / Corporate"><Select value={filters.segment} onChange={v => set("segment", v)} options={[{ value: "RETAIL", label: "Retail" }, { value: "CORPORATE", label: "Corporate" }]} /></Field> <Field label="Company"><Select value={filters.corporateId} onChange={v => set("corporateId", v)} options={opt(options?.corporates)} /></Field> <Field label="Vendor"><Select value={filters.vendorId} onChange={v => set("vendorId", v)} options={opt(options?.vendors)} /></Field> <Field label="Vehicle"><Select value={filters.vehicleId} onChange={v => set("vehicleId", v)} options={opt(options?.vehicles)} /></Field> <Field label="Driver"><Select value={filters.driverId} onChange={v => set("driverId", v)} options={opt(options?.drivers)} /></Field> <Field label="View"><select className="rg-input" value={filters.archived} onChange={e => set("archived", e.target.value)}><option value="">Active records</option><option value="1">Archived records</option></select></Field> <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2"><button type="submit" className="rg-primary">Apply filters</button><button type="button" className="rg-secondary" onClick={reset}>Reset</button></div> </form>}
+      </div>
     </section>
 
     {error ? <Notice tone="error">{error} <button className="ml-2 underline" onClick={() => void load()}>Retry</button></Notice> :
       <section className="rg-card">
         {loading && !data ? <p className="p-10 text-center text-sm text-neutral-500">Loading bookings…</p> :
           !data?.rows.length ? <Empty title="No bookings match these filters" text="Adjust or reset the filters. New bookings appear here as soon as they are created." /> :
-            <div className="overflow-x-auto"><table className="rg-table min-w-[1350px]">
-              <thead><tr><th>Booking</th><th>Source</th><th>Customer / Company</th><th>Vendor · Vehicle · Driver</th><th>Trip</th><th>Pickup</th><th>Status</th><th>Payment</th><th className="text-right">Fare</th></tr></thead>
+            <div className="overflow-x-auto"><table className="rg-table min-w-[1080px]">
+              <thead><tr><th>Booking</th><th>Customer</th><th>Route</th><th>Vendor · Vehicle · Driver</th><th>Pickup</th><th>Status</th><th className="text-right">Amount</th><th className="text-right">Action</th></tr></thead>
               <tbody>{data.rows.map(b => <tr key={b.id} className="cursor-pointer" onClick={() => setSelected(b.id)}>
-                <td><button className="font-semibold text-red-700 hover:underline" onClick={e => { e.stopPropagation(); setSelected(b.id); }}>{b.bookingNumber}</button><p className="text-[11px] text-neutral-500">Booked {when(b.createdAt, false)}</p></td>
-                <td><Pill value={b.source} label={b.sourceLabel} /></td>
-                <td><p className="font-medium">{b.customer.name}</p><p className="text-xs text-neutral-500">{b.corporate ? b.corporate.companyName : b.customer.mobile || b.customer.email}</p></td>
+                <td><button className="font-semibold text-red-600 hover:underline" onClick={e => { e.stopPropagation(); setSelected(b.id); }}>{b.bookingNumber}</button><p className="text-[11px] text-neutral-500">{b.sourceLabel} · {words(b.tripType)}</p></td>
+                <td><div className="flex items-center gap-2.5"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-bold text-neutral-600">{b.customer.name.slice(0, 1).toUpperCase() || "?"}</span><div className="min-w-0"><p className="truncate font-medium">{b.customer.name}</p><p className="truncate text-xs text-neutral-500">{b.corporate ? b.corporate.companyName : b.customer.mobile || b.customer.email}</p></div></div></td>
+                <td className="max-w-[240px]"><p className="truncate" title={b.pickupLocation}>{b.pickupLocation}</p><p className="truncate text-xs text-neutral-500" title={b.dropLocation}>→ {b.dropLocation}</p></td>
                 <td><p>{b.vendor.companyName}</p><p className="text-xs text-neutral-500">{b.vehicle.label} · {b.vehicle.registrationNumber}</p><p className="text-xs text-neutral-500">{b.driver?.name ?? "No driver"}</p></td>
-                <td className="max-w-[260px]"><p className="truncate" title={b.pickupLocation}>{b.pickupLocation}</p><p className="truncate text-xs text-neutral-500" title={b.dropLocation}>→ {b.dropLocation}</p><p className="text-[11px] text-neutral-500">{words(b.tripType)}</p></td>
-                <td className="whitespace-nowrap">{when(b.pickupDateTime)}</td>
-                <td><Pill value={b.status} />{b.holdExpired && <p className="mt-1 text-[11px] text-neutral-500">Hold expired</p>}</td>
-                <td>{b.payment ? <><Pill value={b.payment.status} /><p className="mt-1 text-[11px] text-neutral-500">{b.payment.method === "CORPORATE_CREDIT" ? "Corporate Credit" : b.payment.gateway === "PAYU" ? `PayU · ${words(b.payment.method)}` : words(b.payment.method)}</p></> : <span className="text-xs text-neutral-500">No payment record</span>}</td>
-                <td className="text-right"><p className="font-semibold">{inr(b.fare.total)}</p><p className="text-[11px] text-neutral-500">GST {inr(b.fare.gst)}</p></td>
+                <td className="whitespace-nowrap text-[13px]">{when(b.pickupDateTime)}<p className="text-[11px] text-neutral-500">Booked {when(b.createdAt, false)}</p></td>
+                <td><Pill value={b.status} />{b.holdExpired && <p className="mt-1 text-[11px] text-neutral-500">Hold expired</p>}<p className="mt-1 text-[11px] text-neutral-500">{b.payment ? <>{words(b.payment.status)} · {b.payment.method === "CORPORATE_CREDIT" ? "Corporate Credit" : b.payment.gateway === "PAYU" ? `PayU · ${words(b.payment.method)}` : words(b.payment.method)}</> : "No payment record"}</p></td>
+                <td className="text-right"><p className="font-bold">{inr(b.fare.total)}</p><p className="text-[11px] text-neutral-500">GST {inr(b.fare.gst)}</p></td>
+                <td className="text-right"><button className="rg-outline" onClick={e => { e.stopPropagation(); setSelected(b.id); }}>View</button></td>
               </tr>)}</tbody>
             </table></div>}
         {data && data.rows.length > 0 && <Pager page={data.page} totalPages={data.totalPages} total={data.total} onPage={setPage} />}

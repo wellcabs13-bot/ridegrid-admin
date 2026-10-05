@@ -428,22 +428,6 @@ export default function VehiclesPage() {
       city,
     ]);
 
-  const totalRevenue =
-    vehicles.reduce(
-      (sum, vehicle) => {
-        const value =
-          Number(
-            vehicle.earnings.replace(
-              /[₹,]/g,
-              ""
-            )
-          ) || 0;
-
-        return sum + value;
-      },
-      0
-    );
-
   const totalVehicles =
     vehicles.length;
 
@@ -918,7 +902,6 @@ export default function VehiclesPage() {
         maintenance={
           maintenanceVehicles
         }
-        revenue={`₹${totalRevenue.toLocaleString()}`}
       />
 
       <VehicleFilters

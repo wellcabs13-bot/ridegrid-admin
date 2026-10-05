@@ -7,7 +7,11 @@ const PAGES = new Set([
   "/accessibility", "/disclaimer", "/business-travel-terms", "/payment-refund-information", "/account-deletion",
 ]);
 
+// "/vehicles" itself is the Super Admin fleet page (app/vehicles); only "/vehicles/<slug>" is public.
+const ADMIN_INDEX_PAGES = new Set(["/vehicles"]);
+
 export function isPublicWebsitePath(pathname: string) {
   const path = pathname.replace(/\/+$/, "") || "/";
+  if (ADMIN_INDEX_PAGES.has(path)) return false;
   return PAGES.has(path) || PREFIXES.some((p) => path === p.replace(/\/$/, "") || path.startsWith(p.endsWith("/") ? p : `${p}/`));
 }

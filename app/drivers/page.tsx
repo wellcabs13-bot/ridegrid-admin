@@ -240,11 +240,7 @@ export default function DriversPage() {
         }
       />
 
-      <DriverStats
-        totalDrivers={
-          driverList.length
-        }
-      />
+      <DriverStats drivers={driverList} />
 
       <DriverFilters
         search={search}

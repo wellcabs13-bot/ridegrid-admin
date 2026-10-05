@@ -76,8 +76,9 @@ describe("anonymous public pages skip the session probe", () => {
     const { isPublicWebsitePath } = await import("../../lib/website-public/public-paths");
     const { INFO_PAGES } = await import("../../lib/website-public/info");
     for (const page of INFO_PAGES) expect(isPublicWebsitePath(`/${page.slug}`)).toBe(true);
-    for (const p of ["/", "/marketplace", "/marketplace/results", "/routes/pune-to-mumbai-cab", "/cities/pune", "/corporate-travel", "/corporate-login"]) expect(isPublicWebsitePath(p)).toBe(true);
-    for (const p of ["/admin", "/corporate-admin", "/corporate-admin/billing", "/corporate", "/bookings", "/website-seo", "/login", "/marketplaces"]) expect(isPublicWebsitePath(p)).toBe(false);
+    for (const p of ["/", "/marketplace", "/marketplace/results", "/routes/pune-to-mumbai-cab", "/vehicles/innova-crysta", "/cities/pune", "/corporate-travel", "/corporate-login"]) expect(isPublicWebsitePath(p)).toBe(true);
+    // "/vehicles" is the Super Admin fleet page: a hard reload must still verify the session.
+    for (const p of ["/admin", "/corporate-admin", "/corporate-admin/billing", "/corporate", "/bookings", "/vehicles", "/website-seo", "/login", "/marketplaces"]) expect(isPublicWebsitePath(p)).toBe(false);
   });
 });
 

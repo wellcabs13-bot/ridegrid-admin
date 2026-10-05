@@ -5,6 +5,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import DashboardLayout from "@/components/DashboardLayout";
 import { DataState, PageHeading, useAdminData } from "@/components/admin/Primitives";
 import { Empty, Kpi, Section, inr, num, words } from "@/components/admin/kit";
+import { chart } from "@/components/admin/chart-theme";
 
 type Rank = { bookings: number; value: number };
 type Data = {
@@ -19,10 +20,9 @@ type Data = {
   conversion: null;
 };
 
-// Validated dark-surface categorical slots 1-2 (see dataviz reference palette).
-const RETAIL = "#3987e5", CORPORATE = "#d95926";
-const axis = { stroke: "#8a8a92", fontSize: 11 };
-const tooltip = { contentStyle: { background: "#1a1a19", border: "1px solid #3a3a40", borderRadius: 8, fontSize: 12 }, labelStyle: { color: "#fff" }, itemStyle: { color: "#c3c2b7" }, cursor: { fill: "rgba(255,255,255,0.05)" } };
+const RETAIL = chart.red, CORPORATE = chart.blue;
+const axis = chart.axis;
+const tooltip = chart.tooltip;
 
 function RankTable({ rows, label }: { rows: (Rank & Record<string, unknown>)[]; label: string }) {
   if (!rows.length) return <Empty title="No data for this period" />;
@@ -52,14 +52,14 @@ export default function AnalyticsPage() {
       </div>
       <Section title="Daily bookings · retail vs corporate" description="Confirmed-or-later bookings by booking date (IST)">
         {hasTrend ? <div className="h-72 p-4" role="img" aria-label="Daily retail and corporate bookings"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.series} barGap={2}>
-          <CartesianGrid vertical={false} stroke="#2a2a30" /><XAxis dataKey="day" tick={axis} tickLine={false} axisLine={false} tickFormatter={d => d.slice(5)} minTickGap={16} /><YAxis allowDecimals={false} tick={axis} tickLine={false} axisLine={false} width={32} />
-          <Tooltip {...tooltip} /><Legend wrapperStyle={{ fontSize: 12, color: "#c3c2b7" }} />
-          <Bar dataKey="retail" name="Retail" stackId="b" fill={RETAIL} stroke="#1a1a19" strokeWidth={2} /><Bar dataKey="corporate" name="Corporate" stackId="b" fill={CORPORATE} stroke="#1a1a19" strokeWidth={2} radius={[4, 4, 0, 0]} />
+          <CartesianGrid vertical={false} stroke={chart.grid} /><XAxis dataKey="day" tick={axis} tickLine={false} axisLine={false} tickFormatter={d => d.slice(5)} minTickGap={16} /><YAxis allowDecimals={false} tick={axis} tickLine={false} axisLine={false} width={32} />
+          <Tooltip {...tooltip} /><Legend wrapperStyle={chart.legend} />
+          <Bar dataKey="retail" name="Retail" stackId="b" fill={RETAIL} /><Bar dataKey="corporate" name="Corporate" stackId="b" fill={CORPORATE} radius={[4, 4, 0, 0]} />
         </BarChart></ResponsiveContainer></div> : <Empty title="No bookings in this period" />}
       </Section>
       <Section title="Daily booking value" description="Sum of booking totals incl. GST">
         {hasTrend ? <div className="h-64 p-4" role="img" aria-label="Daily booking value"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.series}>
-          <CartesianGrid vertical={false} stroke="#2a2a30" /><XAxis dataKey="day" tick={axis} tickLine={false} axisLine={false} tickFormatter={d => d.slice(5)} minTickGap={16} /><YAxis tick={axis} tickLine={false} axisLine={false} width={56} tickFormatter={v => `₹${Number(v).toLocaleString("en-IN", { notation: "compact" })}`} />
+          <CartesianGrid vertical={false} stroke={chart.grid} /><XAxis dataKey="day" tick={axis} tickLine={false} axisLine={false} tickFormatter={d => d.slice(5)} minTickGap={16} /><YAxis tick={axis} tickLine={false} axisLine={false} width={56} tickFormatter={v => `₹${Number(v).toLocaleString("en-IN", { notation: "compact" })}`} />
           <Tooltip {...tooltip} formatter={v => [inr(Number(v)), "Booking value"]} /><Bar dataKey="value" name="Booking value" fill={RETAIL} radius={[4, 4, 0, 0]} />
         </BarChart></ResponsiveContainer></div> : <Empty title="No revenue in this period" />}
       </Section>

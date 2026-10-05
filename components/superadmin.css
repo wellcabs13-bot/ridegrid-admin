@@ -1,0 +1,148 @@
+/* RideGrid Super Admin — premium light workspace with a dark navigation rail.
+   Scope: .rg-sa wraps ONLY the Super Admin shell (components/DashboardLayout.tsx).
+   The Corporate Admin portal keeps its own dark theme (components/admin.css, .rg-admin),
+   so nothing here may leak outside .rg-sa.
+
+   Every existing admin page already uses light Tailwind utilities plus the shared
+   rg-* classes, so re-declaring the rg-* tokens and primitives here re-skins all of
+   them at once without touching their logic. */
+
+.rg-sa {
+  /* Surfaces */
+  --rg-black: #f3f5f9;
+  --rg-surface: #ffffff;
+  --rg-surface-2: #f7f8fb;
+  --rg-surface-3: #eef1f6;
+  --rg-border: #e6e9f0;
+  --rg-border-strong: #d5dae4;
+  /* Brand */
+  --rg-red: #e11d2e;
+  --rg-red-dark: #be1224;
+  --rg-red-light: #f04353;
+  --rg-red-soft: #fdecee;
+  --rg-red-glow: rgba(225, 29, 46, 0.28);
+  /* Text */
+  --rg-text: #0f1423;
+  --rg-text-secondary: #3a4256;
+  --rg-text-muted: #6b7488;
+  --rg-text-dim: #98a0b1;
+  /* Status */
+  --rg-success: #16a34a;
+  --rg-warning: #d97706;
+  --rg-danger: #dc2626;
+  --rg-info: #2563eb;
+  --rg-ai: #7c3aed;
+  /* Depth */
+  --rg-shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px -12px rgba(16, 24, 40, 0.12);
+  --rg-shadow-glow: 0 8px 18px -8px var(--rg-red-glow);
+
+  color: var(--rg-text);
+  background: var(--rg-black);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Interaction ---------- */
+.rg-sa :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--rg-red); outline-offset: 2px; }
+.rg-sa button:disabled { cursor: not-allowed; opacity: 0.55; }
+.rg-sa button:hover { transform: none; }
+.rg-sa main { scrollbar-gutter: stable; }
+.rg-sa main::-webkit-scrollbar { width: 10px; height: 10px; }
+.rg-sa main::-webkit-scrollbar-thumb { background: #cfd5e1; border-radius: 8px; border: 2px solid var(--rg-black); }
+
+/* ---------- Native controls get a clean light default; explicit classes still win ---------- */
+.rg-sa main :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  max-width: 100%; border: 1px solid var(--rg-border-strong); border-radius: 10px; background: #fff; color: var(--rg-text);
+  padding: 0.5rem 0.75rem; font-size: 13px; min-height: 38px;
+}
+.rg-sa main :where(input, textarea)::placeholder { color: var(--rg-text-dim); }
+.rg-sa main :where(input, select, textarea):focus-visible { border-color: var(--rg-red); outline-offset: 0; }
+.rg-sa main :where(button:not([class])) {
+  border: 1px solid var(--rg-border-strong); border-radius: 10px; background: #fff; color: var(--rg-text);
+  padding: 0.45rem 0.85rem; font-size: 13px; font-weight: 600;
+}
+
+/* ---------- Legacy pages: unify blue/indigo solid brand buttons to RideGrid red ----------
+   Several older screens (drivers, vehicles, finance ...) still use blue-600 solid buttons.
+   Brand actions are red in the premium system; gradient banners are left alone. */
+.rg-sa main :is(.bg-blue-600,.bg-blue-500,.bg-indigo-600,.bg-indigo-500):not([class*="from-"]) { background-color: var(--rg-red); }
+.rg-sa main :is(.hover:bg-blue-700,.hover:bg-indigo-700):hover { background-color: var(--rg-red-dark); }
+.rg-sa main :is(.text-blue-600,.text-indigo-600) { color: var(--rg-red); }
+
+/* ---------- Core primitives ---------- */
+.rg-sa .rg-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  border-radius: 10px; padding: 0.55rem 1rem; font-size: 13px; font-weight: 600; color: #fff; line-height: 1.25;
+  background: linear-gradient(180deg, var(--rg-red-light), var(--rg-red));
+  box-shadow: var(--rg-shadow-glow), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.rg-sa .rg-primary:hover { background: linear-gradient(180deg, var(--rg-red), var(--rg-red-dark)); }
+.rg-sa .rg-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  border: 1px solid var(--rg-border-strong); border-radius: 10px; background: #fff; color: var(--rg-text);
+  padding: 0.5rem 0.9rem; font-size: 13px; font-weight: 600; line-height: 1.25;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.rg-sa .rg-secondary:hover { background: var(--rg-surface-2); border-color: #bcc4d3; }
+.rg-sa .rg-outline {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;
+  border: 1px solid var(--rg-red); border-radius: 8px; background: #fff; color: var(--rg-red);
+  padding: 0.3rem 0.8rem; font-size: 12px; font-weight: 600; line-height: 1.25;
+}
+.rg-sa .rg-outline:hover { background: var(--rg-red-soft); }
+.rg-sa .rg-icon {
+  display: inline-flex; align-items: center; justify-content: center; padding: 0.55rem;
+  border: 1px solid var(--rg-border); border-radius: 10px; color: var(--rg-text-secondary); background: #fff;
+}
+.rg-sa .rg-icon:hover { background: var(--rg-surface-3); color: var(--rg-text); }
+.rg-sa .rg-card {
+  overflow: hidden; border: 1px solid var(--rg-border); border-radius: 14px; background: #fff; box-shadow: var(--rg-shadow-card);
+}
+.rg-sa .rg-input {
+  width: 100%; border: 1px solid var(--rg-border-strong); border-radius: 10px; background: #fff; color: var(--rg-text);
+  padding: 0.5rem 0.75rem; font-size: 13px; min-height: 38px;
+}
+.rg-sa .rg-input::placeholder { color: var(--rg-text-dim); }
+.rg-sa .rg-input:focus-visible { border-color: var(--rg-red); outline-offset: 0; }
+
+.rg-sa .rg-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.rg-sa .rg-table th {
+  position: sticky; top: 0; z-index: 1; background: var(--rg-surface-2); color: var(--rg-text-muted);
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap;
+}
+.rg-sa .rg-table :is(th, td) { padding: 0.7rem 1rem; border-bottom: 1px solid var(--rg-border); vertical-align: middle; }
+.rg-sa .rg-table tbody tr:hover { background: var(--rg-surface-2); }
+.rg-sa .rg-table tbody tr:last-child td { border-bottom: 0; }
+
+.rg-sa .rg-skip { position: fixed; z-index: 100; top: -100px; left: 1rem; padding: 1rem; border-radius: 10px; background: #fff; color: var(--rg-text); border: 1px solid var(--rg-red); }
+.rg-sa .rg-skip:focus { top: 1rem; }
+
+/* ---------- Navigation rail: deep navy/black with a soft red glow ---------- */
+.rg-sa .rg-rail {
+  background:
+    radial-gradient(420px 260px at 0% 100%, rgba(225, 29, 46, 0.32), transparent 70%),
+    linear-gradient(180deg, #0c0f19 0%, #090b12 100%);
+  box-shadow: 4px 0 24px -12px rgba(0, 0, 0, 0.5);
+}
+.rg-sa .rg-rail ::-webkit-scrollbar { width: 6px; }
+.rg-sa .rg-rail ::-webkit-scrollbar-thumb { background: #2a2f3d; border-radius: 6px; }
+
+/* ---------- AI / insights hero ---------- */
+.rg-sa .rg-hero {
+  position: relative; overflow: hidden; border-radius: 18px; color: #fff;
+  background:
+    radial-gradient(520px 260px at 100% 0%, rgba(225, 29, 46, 0.38), transparent 70%),
+    radial-gradient(420px 240px at 0% 100%, rgba(124, 58, 237, 0.28), transparent 70%),
+    linear-gradient(135deg, #0c0f19, #12151f);
+  box-shadow: 0 18px 40px -22px rgba(12, 15, 25, 0.8);
+}
+.rg-sa .rg-chip-dark {
+  display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06); padding: 0.4rem 0.7rem; font-size: 12px; color: #e7e9f1; text-align: left;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 639px) { .rg-sa header .rg-primary { display: none; } }
+@media print { .rg-sa .rg-rail, .rg-sa header { display: none; } }

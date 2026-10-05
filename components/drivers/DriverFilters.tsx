@@ -1,5 +1,7 @@
 'use client';
 
+import { Search } from 'lucide-react';
+
 interface DriverFiltersProps {
   search: string;
   setSearch: (value: string) => void;
@@ -14,51 +16,42 @@ export default function DriverFilters({
   setStatus,
 }: DriverFiltersProps) {
   return (
-    <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="grid gap-4 md:grid-cols-3">
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Search Driver
-          </label>
+    <div className="rg-card mb-5 flex flex-wrap items-center gap-2.5 p-3">
+      <label className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 focus-within:border-red-500">
+        <Search size={15} className="text-neutral-400" />
 
-          <input
-            type="text"
-            placeholder="Name, Mobile, Vehicle..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500"
-          />
-        </div>
+        <input
+          type="text"
+          aria-label="Search drivers"
+          placeholder="Search by name, mobile or vehicle…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="!min-h-0 !border-0 !bg-transparent !p-0 !py-2 min-w-0 w-full outline-none"
+        />
+      </label>
 
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Status
-          </label>
+      <select
+        aria-label="Status"
+        value={status}
+        onChange={(e) => setStatus(e.target.value)}
+        className="rg-input !w-auto"
+      >
+        <option value="All">All statuses</option>
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+        <option value="Blocked">Blocked</option>
+      </select>
 
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500"
-          >
-            <option value="All">All Drivers</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-            <option value="Blocked">Blocked</option>
-          </select>
-        </div>
-
-        <div className="flex items-end">
-          <button
-            onClick={() => {
-              setSearch('');
-              setStatus('All');
-            }}
-            className="w-full rounded-xl border border-slate-300 px-5 py-3 font-medium transition hover:bg-slate-100"
-          >
-            Reset Filters
-          </button>
-        </div>
-      </div>
+      <button
+        type="button"
+        onClick={() => {
+          setSearch('');
+          setStatus('All');
+        }}
+        className="rg-secondary"
+      >
+        Reset
+      </button>
     </div>
   );
 }

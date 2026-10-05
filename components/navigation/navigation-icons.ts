@@ -51,6 +51,8 @@
 
   Wrench,
   Globe2,
+  Radar,
+  Sparkles,
 
 
   ChevronRight,
@@ -111,6 +113,8 @@ export const NavigationIcons = {
 
   
   websiteSeo: Globe2,
+  liveOps: Radar,
+  aiHub: Sparkles,
 arrow: ChevronRight,
 };
 

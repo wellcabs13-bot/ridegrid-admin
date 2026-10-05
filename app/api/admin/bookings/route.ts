@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       source: p.get("source") || undefined, status: p.get("status") || undefined, paymentStatus: p.get("paymentStatus") || undefined,
       segment: p.get("segment") || undefined, corporateId: p.get("corporateId") || undefined, vendorId: p.get("vendorId") || undefined,
       vehicleId: p.get("vehicleId") || undefined, driverId: p.get("driverId") || undefined,
-      archived: p.get("archived") === "1", page: intParam(p.get("page"), 1), pageSize: Math.min(intParam(p.get("pageSize"), 25), 100),
+      archived: p.get("archived") === "1", page: intParam(p.get("page"), 1), pageSize: Math.min(intParam(p.get("pageSize"), 25), 100), withStatusCounts: true,
     }));
   } catch (error) {
     return fail(error, "GET /api/admin/bookings");

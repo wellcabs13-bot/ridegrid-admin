@@ -26,6 +26,11 @@ export const navigation: NavigationGroup[] = [
         ],
       },
       {
+        title: "Live Operations",
+        href: "/live-operations",
+        icon: NavigationIcons.liveOps,
+      },
+      {
         title: "Customers",
         href: "/customers",
         icon: NavigationIcons.customers,
@@ -101,9 +106,9 @@ export const navigation: NavigationGroup[] = [
         icon: NavigationIcons.automation,
       },
       {
-        title: "AI Services",
+        title: "AI Intelligence",
         href: "/ai",
-        icon: NavigationIcons.ai,
+        icon: NavigationIcons.aiHub,
       },
     ],
   },

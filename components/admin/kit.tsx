@@ -1,12 +1,18 @@
 "use client";
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, type LucideIcon } from "lucide-react";
 
 // Shared Super Admin building blocks. Styling follows the existing rg-* system.
 
 export const inr = (value: number | string | null | undefined, digits = 0) =>
   value === null || value === undefined || Number.isNaN(Number(value)) ? "—" : `₹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: digits, minimumFractionDigits: digits })}`;
+// Lakh / crore form for tiles where the full amount would not fit (the exact value goes in a tooltip).
+export const inrCompact = (value: number | null | undefined) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
+  const v = Number(value), abs = Math.abs(v);
+  return abs >= 1e7 ? `₹${(v / 1e7).toLocaleString("en-IN", { maximumFractionDigits: 2 })} Cr` : abs >= 1e5 ? `₹${(v / 1e5).toLocaleString("en-IN", { maximumFractionDigits: 2 })} L` : inr(v);
+};
 export const num = (value: number | null | undefined) => (value === null || value === undefined ? "—" : Number(value).toLocaleString("en-IN"));
 export const when = (value?: string | Date | null, withTime = true) => {
   if (!value) return "—";
@@ -15,9 +21,29 @@ export const when = (value?: string | Date | null, withTime = true) => {
 };
 export const words = (value?: string | null) => (value ? value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : "—");
 
-export function Kpi({ label, value, hint, href, tone }: { label: string; value: ReactNode; hint?: ReactNode; href?: string; tone?: "warn" | "bad" | "good" }) {
-  const toneClass = tone === "bad" ? "text-red-700" : tone === "warn" ? "text-amber-700" : tone === "good" ? "text-emerald-700" : "";
-  const body = <div className="rg-card h-full p-4 transition hover:border-neutral-300"><p className="text-xs font-medium text-neutral-500">{label}</p><p className={`mt-2 text-2xl font-semibold tracking-tight ${toneClass}`}>{value}</p>{hint && <p className="mt-1 text-xs text-neutral-500">{hint}</p>}</div>;
+const ACCENTS = {
+  red: "bg-red-50 text-red-600", green: "bg-emerald-50 text-emerald-600", blue: "bg-blue-50 text-blue-600",
+  amber: "bg-amber-50 text-amber-600", violet: "bg-violet-50 text-violet-600", slate: "bg-slate-100 text-slate-600",
+} as const;
+export type Accent = keyof typeof ACCENTS;
+
+// KPI tile: tinted icon square, small label, bold value, optional hint / delta.
+export function Kpi({ label, value, hint, href, tone, icon: Icon, accent = "slate", delta }: {
+  label: string; value: ReactNode; hint?: ReactNode; href?: string; tone?: "warn" | "bad" | "good";
+  icon?: LucideIcon; accent?: Accent; delta?: { value: number | null; suffix?: string; invert?: boolean };
+}) {
+  const toneClass = tone === "bad" ? "text-red-700" : tone === "warn" ? "text-amber-700" : tone === "good" ? "text-emerald-700" : "text-neutral-950";
+  const d = delta && delta.value !== null && Number.isFinite(delta.value) ? delta : null;
+  const up = d ? d.value! >= 0 : true, good = d ? (d.invert ? !up : up) : true;
+  const body = <div className="rg-card flex h-full items-start gap-2.5 p-3.5 transition hover:border-neutral-300 hover:shadow-md">
+    {Icon && <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${ACCENTS[accent]}`}><Icon size={18} /></span>}
+    <div className="min-w-0">
+      <p className="text-xs font-medium leading-4 text-neutral-500">{label}</p>
+      <p className={`mt-0.5 text-[21px] font-bold leading-7 tracking-tight ${toneClass}`}>{value}</p>
+      {d && <p className={`mt-0.5 text-[11px] font-semibold ${good ? "text-emerald-600" : "text-red-600"}`}>{up ? "▲" : "▼"} {Math.abs(d.value!).toLocaleString("en-IN", { maximumFractionDigits: 1 })}{d.suffix ?? "%"}</p>}
+      {hint && <p className="mt-0.5 text-[11px] leading-4 text-neutral-500">{hint}</p>}
+    </div>
+  </div>;
   return href ? <Link href={href} className="block h-full" aria-label={`${label}: open`}>{body}</Link> : body;
 }
 
@@ -33,12 +59,15 @@ const PILL: Record<string, string> = {
   SENT: "bg-emerald-50 text-emerald-700", READ: "bg-neutral-100 text-neutral-600", NOT_CONFIGURED: "bg-neutral-100 text-neutral-600",
   DISABLED: "bg-neutral-100 text-neutral-600",
 };
+const DOT: Record<string, string> = { "bg-blue-50": "bg-blue-500", "bg-violet-50": "bg-violet-500", "bg-orange-50": "bg-orange-500", "bg-emerald-50": "bg-emerald-500", "bg-red-50": "bg-red-500", "bg-amber-50": "bg-amber-500", "bg-neutral-100": "bg-neutral-400" };
 export function Pill({ value, label }: { value: string; label?: string }) {
-  return <span className={`inline-flex whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold ${PILL[value] ?? "bg-neutral-100 text-neutral-700"}`}>{label ?? words(value)}</span>;
+  const cls = PILL[value] ?? "bg-neutral-100 text-neutral-700";
+  const dot = DOT[cls.split(" ")[0]] ?? "bg-neutral-400";
+  return <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${cls}`}><span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{label ?? words(value)}</span>;
 }
 
 export function Section({ title, description, actions, children }: { title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
-  return <section className="rg-card"><div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4"><div><h2 className="font-semibold">{title}</h2>{description && <p className="mt-0.5 text-xs text-neutral-500">{description}</p>}</div>{actions}</div><div>{children}</div></section>;
+  return <section className="rg-card"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-5 py-3.5"><div><h2 className="text-[15px] font-bold tracking-tight">{title}</h2>{description && <p className="mt-0.5 text-xs text-neutral-500">{description}</p>}</div>{actions}</div><div>{children}</div></section>;
 }
 
 export function Empty({ title = "Nothing here yet", text }: { title?: string; text?: string }) {
@@ -46,7 +75,15 @@ export function Empty({ title = "Nothing here yet", text }: { title?: string; te
 }
 
 export function Pager({ page, totalPages, total, onPage }: { page: number; totalPages: number; total: number; onPage: (page: number) => void }) {
-  return <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm"><span className="text-neutral-500">{total.toLocaleString("en-IN")} records · page {page} of {totalPages}</span><div className="flex gap-2"><button className="rg-secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>Previous</button><button className="rg-secondary" disabled={page >= totalPages} onClick={() => onPage(page + 1)}>Next</button></div></div>;
+  const first = Math.max(1, Math.min(page - 2, totalPages - 4)), last = Math.min(totalPages, first + 4);
+  const pages = Array.from({ length: last - first + 1 }, (_, i) => first + i);
+  const btn = "inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-semibold";
+  return <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 px-5 py-3 text-xs"><span className="text-neutral-500">{total.toLocaleString("en-IN")} records · page {page} of {totalPages}</span>
+    <nav aria-label="Pagination" className="flex items-center gap-1.5">
+      <button className={`${btn} border-neutral-200 bg-white`} disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page"><ChevronLeft size={14} /></button>
+      {pages.map(n => <button key={n} onClick={() => onPage(n)} aria-current={n === page ? "page" : undefined} className={`${btn} ${n === page ? "border-red-600 bg-red-600 text-white" : "border-neutral-200 bg-white text-neutral-700"}`}>{n}</button>)}
+      <button className={`${btn} border-neutral-200 bg-white`} disabled={page >= totalPages} onClick={() => onPage(page + 1)} aria-label="Next page"><ChevronRight size={14} /></button>
+    </nav></div>;
 }
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {

@@ -8,7 +8,7 @@ import { Confirm, Drawer, Empty, Field, Notice, Pager, Pill, Rows, Section, inr,
 import AddVendorModal from "@/components/vendors/AddVendorModal";
 import VendorForm, { VendorFormData } from "@/components/vendors/VendorForm";
 import ResetLoginPassword from "@/components/admin/ResetLoginPassword";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Search } from "lucide-react";
 
 type Row = {
   id: string; companyName: string; city: string | null; contact: string; email: string; mobile: string | null; state: string; verified: boolean;
@@ -55,35 +55,39 @@ export default function VendorsPage() {
     try {
       const documents = { aadhaarCard: await upload(f.aadhaarCard), panCard: await upload(f.panCard), cancelledCheque: await upload(f.cancelledCheque) };
       const body = { companyName: f.companyName, ownerName: f.ownerName, mobile: f.mobile, email: f.email, homeCity: f.homeCity, fleetSize: f.fleetSize, address: f.address, city: f.city, state: f.state, pinCode: f.pinCode, bankName: f.bankName, accountNumber: f.accountNumber, ifscCode: f.ifscCode, branchName: f.branchName, documents };
-      await send("/api/vendors", form?.id ? "PUT" : "POST", form?.id ? { id: form.id, ...body } : body);
-      setNotice(form?.id ? "Vendor updated." : "Vendor added. It stays hidden from the marketplace until verified."); setForm(null); await load();
+      const saved = await send<{ activationEmailSent?: boolean; temporaryPassword?: string } | null>("/api/vendors", form?.id ? "PUT" : "POST", form?.id ? { id: form.id, ...body } : body);
+      const credential = saved?.temporaryPassword ? ` Temporary password (shown only once — share it securely): ${saved.temporaryPassword} . The vendor signs in with email or mobile and must set a new password at first sign-in.` : "";
+      setNotice(form?.id ? "Vendor updated." : (saved?.activationEmailSent
+        ? `Vendor added. An activation email was sent to ${f.email}. It stays hidden from the marketplace until verified.`
+        : "Vendor added, but the activation email could not be sent. It stays hidden from the marketplace until verified.") + credential); setForm(null); await load();
     } catch (e) { setFormError(e instanceof Error ? e.message : "Unable to save vendor."); } finally { setSaving(false); }
   };
 
   return <DashboardLayout><div className="mx-auto max-w-[1600px] space-y-5">
-    <PageHeading title="Vendors" description="Fleet partners, their verification and suspension state, fleet, trips and payables. Only verified, active vendors appear in the marketplace.">
+    <PageHeading title="Vendors Management" description="Fleet partners, their verification and suspension state, fleet, trips and payables. Only verified, active vendors appear in the marketplace.">
       <button className="rg-secondary" onClick={() => void load()} disabled={loading}><RefreshCw size={15} className={loading ? "animate-spin" : ""} />Refresh</button>
       <button className="rg-primary" onClick={() => { setFormError(""); setForm({ id: null }); }}><Plus size={15} />Add vendor</button>
     </PageHeading>
     {notice && <Notice tone="success" onClose={() => setNotice("")}>{notice}</Notice>}
-    <section className="rg-card p-4"><form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={e => { e.preventDefault(); setPage(1); setApplied({ status, q: q.trim() }); }}>
-      <Field label="Search"><input className="rg-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Company, contact, email, mobile, city" /></Field>
-      <Field label="Status"><select className="rg-input" value={status} onChange={e => setStatus(e.target.value)}><option value="">All (not deleted)</option><option value="ACTIVE">Active</option><option value="VERIFIED">Verified</option><option value="PENDING">Awaiting verification</option><option value="SUSPENDED">Suspended</option><option value="DELETED">Deleted</option></select></Field>
-      <div className="flex items-end"><button className="rg-primary" type="submit">Apply</button></div>
+    <section className="rg-card p-3"><form className="flex flex-wrap items-center gap-2.5" onSubmit={e => { e.preventDefault(); setPage(1); setApplied({ status, q: q.trim() }); }}>
+      <label className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 focus-within:border-red-500"><Search size={15} className="text-neutral-400" /><input aria-label="Search vendors" className="!min-h-0 !border-0 !bg-transparent !p-0 !py-2 min-w-0 w-full" value={q} onChange={e => setQ(e.target.value)} placeholder="Search by company, contact, email, mobile or city…" /></label>
+      <select aria-label="Status" className="rg-input !w-auto" value={status} onChange={e => setStatus(e.target.value)}><option value="">All (not deleted)</option><option value="ACTIVE">Active</option><option value="VERIFIED">Verified</option><option value="PENDING">Awaiting verification</option><option value="SUSPENDED">Suspended</option><option value="DELETED">Deleted</option></select>
+      <button className="rg-primary" type="submit">Apply</button>
+      <button className="rg-secondary" type="button" onClick={() => { setQ(""); setStatus(""); setPage(1); setApplied({ status: "", q: "" }); }}>Reset</button>
     </form></section>
     {error ? <Notice tone="error">{error}</Notice> : <section className="rg-card">
       {loading && !data ? <p className="p-10 text-center text-sm text-neutral-500">Loading vendors…</p> : !data?.rows.length ? <Empty title="No vendors found" text="Add a vendor, then verify it to make its fleet bookable." /> :
-        <div className="overflow-x-auto"><table className="rg-table min-w-[1400px]"><thead><tr><th>Vendor</th><th>Contact</th><th>Status</th><th>Joined</th><th className="text-right">Vehicles / drivers</th><th className="text-right">Trips (done · current)</th><th className="text-right">Gross value</th><th className="text-right">Earned · paid</th><th className="text-right">Outstanding</th><th className="text-right">In marketplace</th></tr></thead>
+        <div className="overflow-x-auto"><table className="rg-table min-w-[1120px]"><thead><tr><th>Vendor</th><th>Contact</th><th>Status</th><th className="text-right">Vehicles / drivers</th><th className="text-right">Trips (done · current)</th><th className="text-right">Value (gross · earned · paid)</th><th className="text-right">Outstanding</th><th className="text-right">Marketplace</th><th className="text-right">Action</th></tr></thead>
           <tbody>{data.rows.map(v => <tr key={v.id} className="cursor-pointer" onClick={() => setOpen(v.id)}>
-            <td><button className="font-semibold text-red-700 hover:underline">{v.companyName}</button><p className="text-xs text-neutral-500">{v.city ?? "—"}</p></td>
+            <td><button className="font-semibold text-red-600 hover:underline">{v.companyName}</button><p className="text-xs text-neutral-500">{v.city ?? "—"} · joined {when(v.joined, false)}</p></td>
             <td><p>{v.contact}</p><p className="text-xs text-neutral-500">{v.mobile ?? "—"} · {v.email}</p></td>
             <td><div className="flex flex-wrap gap-1"><Pill value={v.state} label={v.state === "PENDING" ? "Awaiting verification" : undefined} />{v.verified && <Pill value="VERIFIED" />}</div>{v.suspensionReason && <p className="mt-1 max-w-[180px] truncate text-[11px] text-neutral-500" title={v.suspensionReason}>{v.suspensionReason}</p>}</td>
-            <td className="whitespace-nowrap text-xs">{when(v.joined, false)}</td>
             <td className="text-right">{num(v.activeVehicles)}/{num(v.totalVehicles)} · {num(v.activeDrivers)}</td>
             <td className="text-right">{num(v.trips)} <span className="text-xs text-neutral-500">({num(v.completed)} · {num(v.current)})</span></td>
-            <td className="text-right">{inr(v.grossValue)}</td><td className="text-right text-xs">{inr(v.earned)} · {inr(v.paid)}</td>
+            <td className="text-right"><p>{inr(v.grossValue)}</p><p className="text-[11px] text-neutral-500">{inr(v.earned)} · {inr(v.paid)}</p></td>
             <td className="text-right font-semibold">{inr(v.outstanding)}</td>
             <td className="text-right">{v.marketplaceVehicles ? `${v.marketplaceVehicles} vehicle(s)` : <span className="text-xs text-neutral-500">Not listed</span>}</td>
+            <td className="text-right"><button className="rg-outline" onClick={e => { e.stopPropagation(); setOpen(v.id); }}>View</button></td>
           </tr>)}</tbody></table></div>}
       {data && data.rows.length > 0 && <Pager page={data.page} totalPages={data.totalPages} total={data.total} onPage={setPage} />}
     </section>}
