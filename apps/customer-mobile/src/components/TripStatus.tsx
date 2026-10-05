@@ -1,15 +1,18 @@
 import { Linking, Text, View } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { formatDateTime } from "../utils/when";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Card, Button, ErrorText, styles, theme } from "./ui";
 import { Badge } from "./Premium";
 import { api } from "../services/api";
 import { useApp } from "../state/Providers";
-import { label } from "../utils/journey";
+import { bookingTone, label } from "../utils/journey";
 import type { Booking } from "../types";
 export function TripStatus({ booking: b }: { booking: Booking }) {
   const { session, online } = useApp();
+  const client = useQueryClient();
   const q = useQuery({
     queryKey: ["trip-status", session?.user.id, b.id],
     enabled: !!session,
@@ -32,6 +35,14 @@ export function TripStatus({ booking: b }: { booking: Booking }) {
         };
       }>(`/api/mobile/trip-status?id=${encodeURIComponent(b.id)}`, { signal }),
   });
+  // The booking shown around this card (status, driver, contact) reloads as soon as the
+  // lightweight status poll sees the Vendor or Driver App change it.
+  useEffect(() => {
+    if (q.data && q.data.status !== b.status) {
+      void client.invalidateQueries({ queryKey: ["booking", session?.user.id, b.id] });
+      void client.invalidateQueries({ queryKey: ["bookings"] });
+    }
+  }, [q.data?.status, b.status]);
   const milestones = q.data?.trip
     ? [
         ["Driver assigned", q.data.trip.driverAssignedAt],
@@ -46,7 +57,8 @@ export function TripStatus({ booking: b }: { booking: Booking }) {
       <Text style={styles.heading}>Trip status</Text>
       <Badge
         text={label(q.data?.trip?.status || q.data?.status || b.status)}
-        tone="green"
+        tone={bookingTone(q.data?.status || b.status).tone}
+        icon={bookingTone(q.data?.status || b.status).icon}
       />
       <LinearGradient
         colors={[theme.surface, theme.paper]}
@@ -96,9 +108,7 @@ export function TripStatus({ booking: b }: { booking: Booking }) {
           <View key={name} style={{ gap: 3 }}>
             <Text style={styles.body}>✓ {name}</Text>
             <Text style={styles.small}>
-              {new Date(time!).toLocaleString("en-IN", {
-                timeZone: "Asia/Kolkata",
-              })}{" "}
+              {formatDateTime(time!)}{" "}
               IST
             </Text>
           </View>

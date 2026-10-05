@@ -18,6 +18,8 @@ export type Profile = {
   user: User & { isVerified: boolean };
 };
 export type Service = "ONE_WAY" | "ROUNDTRIP" | "LOCAL";
+// Airport transfers are searched live through the central listing service.
+export type Journey = Service | "AIRPORT";
 export type Option = {
   service: Service;
   city: string;
@@ -28,7 +30,7 @@ export type Option = {
   pricingPackageId: string;
 };
 export type Search = {
-  serviceType: "LOCAL" | "OUTSTATION";
+  serviceType: "LOCAL" | "OUTSTATION" | "AIRPORT";
   tripType: "ONEWAY" | "ROUNDTRIP";
   pickupCity: string;
   dropCity: string;
@@ -37,6 +39,9 @@ export type Search = {
   days: string;
   category: string;
   packageName: string;
+  // Airport transfers only.
+  city?: string;
+  airportDirection?: "PICKUP" | "DROP";
 };
 export type Fare = {
   vendorFare: string;
@@ -130,6 +135,8 @@ export type Notice = {
   message: string;
   createdAt: string;
   readAt: string | null;
+  // Resolved by the server against this account's own bookings; absent when none.
+  target?: { type: "booking"; id: string; bookingNumber: string } | null;
 };
 export type NoticePage = {
   items: Notice[];
@@ -143,6 +150,8 @@ export type Config = {
   cancellation: boolean;
   onlineCheckout: boolean;
   paymentMethods: string[];
+  airportCities?: string[];
+  accountDeletionPath?: string;
   support: {
     name: string;
     phoneHref: string;

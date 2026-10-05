@@ -77,17 +77,19 @@ export default function Checkout() {
             <Card>
               <VehicleIdentity listing={journey.listing} />
               <Text style={styles.heading}>
-                {journey.search.pickupCity} →{" "}
-                {journey.search.dropCity.replaceAll("|", " · ") ||
-                  journey.search.pickupCity}
+                {journey.search.serviceType === "AIRPORT"
+                  ? `${journey.search.pickupCity} airport ${journey.search.airportDirection === "DROP" ? "drop" : "pickup"}`
+                  : `${journey.search.pickupCity} → ${journey.search.dropCity.replaceAll("|", " · ") || journey.search.pickupCity}`}
               </Text>
               <Text style={styles.small}>
-                {journey.search.serviceType === "LOCAL"
-                  ? "Local"
-                  : journey.search.tripType === "ROUNDTRIP"
-                    ? "Roundtrip"
-                    : "One-way"}{" "}
-                · {journey.search.days} day(s)
+                {journey.search.serviceType === "AIRPORT"
+                  ? "Airport transfer"
+                  : journey.search.serviceType === "LOCAL"
+                    ? "Local"
+                    : journey.search.tripType === "ROUNDTRIP"
+                      ? "Round trip"
+                      : "One-way"}
+                {journey.search.serviceType === "AIRPORT" ? "" : ` · ${journey.search.days} day(s)`}
               </Text>
             </Card>
             <Card>

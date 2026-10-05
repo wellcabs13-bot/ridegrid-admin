@@ -1,10 +1,11 @@
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Brand, Badge, MenuRow } from "../../components/Premium";
-import { theme } from "../../components/ui";
+import { Badge, MenuRow, QuickAction, SectionHeader, TrustRow } from "../../components/Premium";
+import { theme, shadow } from "../../components/ui";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Text, View, ImageBackground, Pressable } from "react-native";
+import { formatDateTime } from "../../utils/when";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
@@ -19,8 +20,8 @@ import {
 } from "../../components/ui";
 import { api } from "../../services/api";
 import { readOptions, writeOptions } from "../../storage/cache";
-import { calendarDays, pickupISO } from "../../utils/journey";
-import type { Option, Search, Service } from "../../types";
+import { bookingGroup, bookingStatusLabel, bookingTone, calendarDays, journeyLabel, label, pickupISO } from "../../utils/journey";
+import type { BookingPage, Config, Journey, Option, Search, Service } from "../../types";
 import { useApp } from "../../state/Providers";
 import { Select } from "../../components/Select";
 import { JourneyDate } from "../../components/JourneyDate";
@@ -46,12 +47,33 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
     initialData: cached,
     initialDataUpdatedAt: 0,
   });
-  const [service, setService] = useState<Service>(
-    params.serviceType === "LOCAL"
-      ? "LOCAL"
-      : params.tripType === "ROUNDTRIP"
-        ? "ROUNDTRIP"
-        : "ONE_WAY",
+  // Airport cities come from the server; airport supply itself is searched live.
+  const config = useQuery({
+    queryKey: ["config"],
+    queryFn: ({ signal }) => api<Config>("/api/mobile/config", { signal }, false),
+    staleTime: 300000,
+  });
+  const airportCities = config.data?.airportCities || [];
+  // The next real booking, from the same API as My Trips (home only).
+  const recent = useQuery({
+    queryKey: ["home-bookings", session?.user.id],
+    enabled: !!session && !searchOnly,
+    queryFn: ({ signal }) => api<BookingPage>("/api/mobile/bookings?page=1", { signal }),
+  });
+  const upcoming = (recent.data?.bookings || [])
+    .filter((b) => ["Upcoming", "Active"].includes(bookingGroup(b.status)))
+    .sort((a, b) => Date.parse(a.pickupDateTime) - Date.parse(b.pickupDateTime))[0];
+  const [service, setService] = useState<Journey>(
+    params.serviceType === "AIRPORT"
+      ? "AIRPORT"
+      : params.serviceType === "LOCAL"
+        ? "LOCAL"
+        : params.tripType === "ROUNDTRIP"
+          ? "ROUNDTRIP"
+          : "ONE_WAY",
+  );
+  const [direction, setDirection] = useState<"PICKUP" | "DROP">(
+    params.airportDirection === "DROP" ? "DROP" : "PICKUP",
   );
   const [pickup, setPickup] = useState(params.pickupCity || "");
   const [drop, setDrop] = useState(params.dropCity || "");
@@ -73,10 +95,15 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
   }, [date, end]);
   const options = q.data || cached || [];
   const services = unique(options.map((o) => o.service));
+  const journeys: Journey[] = [
+    ...(services as Service[]),
+    ...(airportCities.length ? (["AIRPORT"] as const) : []),
+  ];
+  const airport = service === "AIRPORT";
   const rows = options.filter((o) => o.service === service);
-  const cities = unique(
-    rows.map((o) => (service === "LOCAL" ? o.city : o.fromCity)),
-  );
+  const cities = airport
+    ? unique(airportCities)
+    : unique(rows.map((o) => (service === "LOCAL" ? o.city : o.fromCity)));
   const from = rows.filter(
     (o) => (service === "LOCAL" ? o.city : o.fromCity) === pickup,
   );
@@ -98,13 +125,34 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
       ),
   );
   useEffect(() => {
-    if (services.length && !services.includes(service)) {
-      setService(services[0] as Service);
+    if (journeys.length && !journeys.includes(service)) {
+      setService(journeys[0]);
       setPickup("");
     }
-  }, [services.join("|"), service]);
+  }, [journeys.join("|"), service]);
   function search() {
     try {
+      if (airport) {
+        if (!pickup) throw new Error("Choose the airport city.");
+        const s: Search = {
+          serviceType: "AIRPORT",
+          tripType: "ONEWAY",
+          pickupCity: pickup,
+          city: pickup,
+          airportDirection: direction,
+          dropCity: "",
+          date,
+          time,
+          days: "1",
+          category: "",
+          packageName: "",
+        };
+        if (Date.parse(pickupISO(s)) <= Date.now())
+          throw new Error("Choose a future pickup date and time.");
+        setError("");
+        router.push({ pathname: "/results", params: s });
+        return;
+      }
       if (!pickup || !category || !categories.includes(category))
         throw new Error("Choose a pickup city and available vehicle category.");
       if (service === "ONE_WAY" && !drop)
@@ -139,13 +187,13 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
     <Screen
       title={
         searchOnly
-          ? "Plan your journey"
+          ? "Book your ride"
           : `Hello${session?.user.name ? `, ${session.user.name.split(" ")[0]}` : ", traveller"}`
       }
       subtitle={
         searchOnly
-          ? "Your route. Your dates. Your choice."
-          : "Where would you like to go today?"
+          ? "Search exact cars from verified drivers and vendors."
+          : "Let's ride better today."
       }
       onRefresh={() => void q.refetch()}
       refreshing={q.isRefetching}
@@ -154,125 +202,125 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
         <>
           <ImageBackground
             source={require("../../../assets/journey-night.webp")}
-            imageStyle={{ borderRadius: 20, width: "100%", height: "100%" }}
-            style={{
-              overflow: "hidden",
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: theme.line,
-            }}
+            imageStyle={{ borderRadius: 24 }}
+            style={{ overflow: "hidden", borderRadius: 24, ...shadow }}
           >
             <LinearGradient
-              colors={[`${theme.paper}44`, `${theme.paper}22`, `${theme.paper}D9`]}
-              style={{ padding: 24, gap: 16 }}
+              colors={["#0B1220F2", "#0B1220B3", "#0B122066"]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={{ padding: 22, gap: 14 }}
             >
-              <Brand large />
+              <Badge text="EXACT CARS · REAL DRIVERS" tone="cyan" icon="shield-checkmark" />
               <Text
                 style={{
-                  color: theme.ink,
-                  fontSize: 30,
+                  color: "white",
+                  fontSize: 28,
                   fontWeight: "800",
-                  lineHeight: 36,
+                  lineHeight: 34,
+                  letterSpacing: -0.6,
+                  maxWidth: 260,
                 }}
               >
-                Go places.{"\n"}Your way.
+                Your next ride is a better ride.
               </Text>
-              <Text style={[styles.subtitle, { maxWidth: 230 }]}>
-                An open road. A real vehicle. A journey that's yours.
+              <Text style={{ color: "#CBD5E1", fontSize: 14, lineHeight: 20, maxWidth: 260 }}>
+                Choose the exact car, the exact driver and a transparent fare.
               </Text>
-              <View style={{ height: 60, justifyContent: "flex-end" }}>
-                <Badge text="RIDE MORE. LIVE FREER." tone="gold" />
+              <View style={{ alignSelf: "flex-start", minWidth: 200 }}>
+                <Button
+                  title="Book a ride"
+                  icon="arrow-forward"
+                  onPress={() => router.push("/(tabs)/book")}
+                />
               </View>
-              <Button
-                title="Find your next ride"
-                onPress={() => router.push("/search")}
-              />
             </LinearGradient>
           </ImageBackground>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              gap: 8,
-            }}
-          >
-            {(
-              [
-                ["car-outline", "Real vehicles"],
-                ["calendar-outline", "Date availability"],
-                ["receipt-outline", "Clear pricing"],
-              ] as const
-            ).map(([icon, text]) => (
-              <View
-                key={text}
-                style={{ flex: 1, alignItems: "center", gap: 8 }}
-              >
-                <Ionicons name={icon} size={24} color={theme.gold} />
-                <Text
-                  style={[styles.small, { textAlign: "center", fontSize: 11 }]}
-                >
-                  {text}
-                </Text>
-              </View>
-            ))}
-          </View>
-          {!!services.length && (
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              {services.map((v) => (
-                <Pressable
-                  key={v}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Plan ${v.replaceAll("_", " ")}`}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/search",
-                      params: {
-                        serviceType: v === "LOCAL" ? "LOCAL" : "OUTSTATION",
-                        tripType: v === "ROUNDTRIP" ? "ROUNDTRIP" : "ONEWAY",
-                      },
-                    })
-                  }
-                  style={{
-                    flex: 1,
-                    minHeight: 84,
-                    borderRadius: 14,
-                    borderWidth: 1,
-                    borderColor: theme.line,
-                    backgroundColor: theme.surface,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                  }}
-                >
-                  <Ionicons
-                    name={
+          {!!journeys.length && (
+            <View style={{ gap: 12 }}>
+              <SectionHeader title="Where to?" caption="Pick the kind of journey" />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {journeys.map((v) => (
+                  <QuickAction
+                    key={v}
+                    title={journeyLabel(v)}
+                    icon={
                       v === "ROUNDTRIP"
                         ? "repeat-outline"
                         : v === "LOCAL"
-                          ? "business-outline"
-                          : "navigate-outline"
+                          ? "time-outline"
+                          : v === "AIRPORT"
+                            ? "airplane-outline"
+                            : "navigate-outline"
                     }
-                    color={theme.gold}
-                    size={25}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/search",
+                        params: {
+                          serviceType: v === "AIRPORT" ? "AIRPORT" : v === "LOCAL" ? "LOCAL" : "OUTSTATION",
+                          tripType: v === "ROUNDTRIP" ? "ROUNDTRIP" : "ONEWAY",
+                        },
+                      })
+                    }
                   />
-                  <Text
-                    style={[styles.small, { fontWeight: "700", fontSize: 12 }]}
-                  >
-                    {v === "ONE_WAY"
-                      ? "One-way"
-                      : v === "ROUNDTRIP"
-                        ? "Roundtrip"
-                        : "Local"}
+                ))}
+              </View>
+            </View>
+          )}
+          {upcoming && (
+            <View style={{ gap: 12 }}>
+              <SectionHeader
+                title={upcoming.status === "TRIP_STARTED" ? "Trip in progress" : "Upcoming ride"}
+                action="All trips"
+                onAction={() => router.push("/(tabs)/trips")}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Open booking ${upcoming.bookingNumber}`}
+                onPress={() =>
+                  router.push({ pathname: "/bookings/[id]", params: { id: upcoming.id } })
+                }
+                style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
+              >
+                <View style={styles.row}>
+                  <Badge
+                    text={bookingStatusLabel(upcoming.status)}
+                    tone={bookingTone(upcoming.status).tone}
+                    icon={bookingTone(upcoming.status).icon}
+                  />
+                  <Text style={styles.small}>{formatDateTime(upcoming.pickupDateTime)} IST</Text>
+                </View>
+                <Text style={styles.heading} numberOfLines={1}>
+                  {upcoming.pickupLocation}
+                </Text>
+                <Text style={styles.small} numberOfLines={1}>
+                  to {upcoming.dropLocation}
+                </Text>
+                <View style={styles.row}>
+                  <Text style={[styles.body, { fontWeight: "600", flex: 1 }]} numberOfLines={1}>
+                    {upcoming.vehicle.make} {upcoming.vehicle.model}
+                    {upcoming.driver ? ` · ${upcoming.driver.firstName}` : ""}
                   </Text>
-                </Pressable>
-              ))}
+                  <Ionicons name="chevron-forward" size={18} color={theme.muted} />
+                </View>
+              </Pressable>
             </View>
           )}
           <Card>
+            <TrustRow
+              items={[
+                ["car-sport-outline", "Exact cars"],
+                ["person-circle-outline", "Real drivers"],
+                ["business-outline", "Trusted vendors"],
+                ["receipt-outline", "Clear fares"],
+              ]}
+            />
+          </Card>
+          <Card>
             <MenuRow
-              icon="sparkles-outline"
-              title="A smarter way to plan"
-              subtitle="Meet your RideGrid trip assistant"
+              icon="compass-outline"
+              title="RideGuide"
+              subtitle="Guided trip planning with real RideGrid information"
               onPress={() => router.push("/assistant")}
             />
             <MenuRow
@@ -287,19 +335,20 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
       {searchOnly &&
         (q.isPending && !options.length ? (
           <Loading />
-        ) : !options.length ? (
+        ) : !journeys.length ? (
           <Empty
             title="No routes available"
             body="Current marketplace options will appear here when available."
           />
         ) : (
           <Card>
-            <Text style={styles.heading}>Let’s find your ride</Text>
+            
             <Chips
-              values={services}
+              values={journeys}
               value={service}
+              format={journeyLabel}
               onChange={(v) => {
-                setService(v as Service);
+                setService(v as Journey);
                 setPickup("");
                 setDrop("");
                 setVisits([]);
@@ -307,8 +356,16 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
                 setCategory("");
               }}
             />
+            {airport && (
+              <Chips
+                values={["PICKUP", "DROP"]}
+                value={direction}
+                format={(v) => (v === "PICKUP" ? "Pickup from airport" : "Drop to airport")}
+                onChange={(v) => setDirection(v as "PICKUP" | "DROP")}
+              />
+            )}
             <Select
-              label="Pickup city"
+              label={airport ? "Airport city" : "Pickup city"}
               values={cities}
               value={pickup}
               onChange={(v) => {
@@ -353,21 +410,30 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
                 }}
               />
             )}
-            <Text style={styles.small}>Vehicle category</Text>
-            <Chips
-              values={categories}
-              value={category}
-              onChange={setCategory}
-            />
+            {airport ? (
+              <Text style={styles.small}>
+                Airport cars appear as vendors publish airport fares for your city.
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.small}>Vehicle category</Text>
+                <Chips
+                  values={categories}
+                  value={category}
+                  format={label}
+                  onChange={setCategory}
+                />
+              </>
+            )}
             <JourneyDate
-              label="Departure date (YYYY-MM-DD)"
+              label={airport ? "Pickup date" : "Departure date"}
               value={date}
               onChange={setDate}
             />
             {service === "ROUNDTRIP" ? (
               <>
                 <JourneyDate
-                  label="Return date (YYYY-MM-DD)"
+                  label="Return date"
                   value={end}
                   onChange={setEnd}
                 />
@@ -379,14 +445,14 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
               </>
             ) : (
               <JourneyDate
-                label="Pickup time (HH:MM, 24-hour, India time)"
+                label="Pickup time (India time)"
                 mode="time"
                 value={time}
                 onChange={setTime}
               />
             )}
             <ErrorText error={error} />
-            <Button title="Find my ride" onPress={search} disabled={!online} />
+            <Button title="Search exact cars" icon="search" onPress={search} disabled={!online} />
           </Card>
         ))}
       <ErrorText error={q.error} />

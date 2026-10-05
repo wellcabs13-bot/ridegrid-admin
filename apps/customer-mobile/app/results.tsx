@@ -76,15 +76,15 @@ export default function Results() {
         <View style={{ gap: 14 }}>
           <Text style={styles.title}>Your next ride</Text>
           <Text style={styles.subtitle}>
-            {search.pickupCity}{" "}
-            {search.dropCity
-              ? `to ${search.dropCity.replaceAll("|", ", ")}`
-              : ""}
+            {search.serviceType === "AIRPORT"
+              ? `${search.pickupCity} airport ${search.airportDirection === "DROP" ? "drop" : "pickup"}`
+              : `${search.pickupCity} ${search.dropCity ? `to ${search.dropCity.replaceAll("|", ", ")}` : ""}`}
           </Text>
           <Text style={styles.small}>
-            {search.date} / {search.time} IST / {search.days} day(s)
+            {search.date} / {search.time} IST
+            {search.serviceType === "AIRPORT" ? "" : ` / ${search.days} day(s)`}
           </Text>
-          <SaveRoute search={search} />
+          {search.serviceType !== "AIRPORT" && <SaveRoute search={search} />}
           <Text style={styles.small}>
             {q.data?.pages[0]?.pagination.total ?? "…"} vehicles · Lowest price
             first

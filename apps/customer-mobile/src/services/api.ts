@@ -102,7 +102,7 @@ export async function api<T>(
   if (authenticated && session?.user.id !== userId) throw normalizeError(401);
   if (!response.ok || body.success === false) {
     if (response.status === 401 && authenticated) await setSession(null);
-    throw normalizeError(response.status, body);
+    throw normalizeError(response.status, body, authenticated);
   }
   return body.data as T;
 }

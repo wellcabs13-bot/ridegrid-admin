@@ -11,7 +11,7 @@ export default function Layout() {
       <Providers>
         <Startup>
           <JourneyProvider>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
             <Stack
               screenOptions={{
                 headerTitle: "RideGrid",
@@ -23,7 +23,10 @@ export default function Layout() {
               }}
             >
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="login" options={{ title: "Your account" }} />
+              <Stack.Screen
+                name="login"
+                options={{ title: "", headerTransparent: true, headerTintColor: "#FFFFFF" }}
+              />
               <Stack.Screen
                 name="results"
                 options={{ title: "Available rides" }}

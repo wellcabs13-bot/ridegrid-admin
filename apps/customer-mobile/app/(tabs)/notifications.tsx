@@ -5,6 +5,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
+import { router } from "expo-router";
 import { api } from "../../src/services/api";
 import { useApp } from "../../src/state/Providers";
 import type { NoticePage } from "../../src/types";
@@ -88,8 +89,17 @@ export default function Inbox() {
               <Text style={styles.heading}>{n.title}</Text>
               <Text style={styles.body}>{n.message}</Text>
               <Text style={styles.small}>
-                {new Date(n.createdAt).toLocaleString()}
+                {new Date(n.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST
               </Text>
+              {n.target?.type === "booking" && (
+                <Button
+                  title={`Open booking ${n.target.bookingNumber}`}
+                  onPress={() => {
+                    if (!n.readAt && online) mark.mutate(n.id);
+                    router.push({ pathname: "/bookings/[id]", params: { id: n.target!.id } });
+                  }}
+                />
+              )}
               {!n.readAt && (
                 <Button
                   title="Mark as read"

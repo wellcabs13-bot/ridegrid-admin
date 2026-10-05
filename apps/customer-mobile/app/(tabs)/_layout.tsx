@@ -8,6 +8,15 @@ import { api } from "../../src/services/api";
 import { useApp } from "../../src/state/Providers";
 import { theme } from "../../src/components/ui";
 import type { NoticePage } from "../../src/types";
+type Icon = React.ComponentProps<typeof Ionicons>["name"];
+const TABS: { name: string; title: string; icon: Icon; active: Icon; hidden?: boolean }[] = [
+  { name: "index", title: "Home", icon: "home-outline", active: "home" },
+  { name: "book", title: "Book", icon: "search-outline", active: "search" },
+  { name: "trips", title: "Trips", icon: "car-outline", active: "car" },
+  { name: "notifications", title: "Updates", icon: "notifications-outline", active: "notifications" },
+  { name: "account", title: "Account", icon: "person-outline", active: "person" },
+  { name: "wallet", title: "Wallet", icon: "wallet-outline", active: "wallet", hidden: true },
+];
 export default function Layout() {
   const insets = useSafeAreaInsets();
   const { session } = useApp();
@@ -20,7 +29,12 @@ export default function Layout() {
   return (
     <Tabs
       screenOptions={{
-        headerTitle: () => <Brand />,
+        headerTitle: "",
+        headerLeft: () => (
+          <View style={{ marginLeft: 20 }}>
+            <Brand />
+          </View>
+        ),
         headerRight: () => (
           <Pressable
             accessibilityRole="button"
@@ -36,9 +50,7 @@ export default function Layout() {
           >
             <View
               style={{
-                backgroundColor: theme.brandDark,
-                borderColor: theme.brand,
-                borderWidth: 1,
+                backgroundColor: theme.ink,
                 width: 34,
                 height: 34,
                 borderRadius: 17,
@@ -46,7 +58,7 @@ export default function Layout() {
                 justifyContent: "center",
               }}
             >
-              <Text style={{ color: theme.ink, fontWeight: "700" }}>
+              <Text style={{ color: "white", fontWeight: "700" }}>
                 {session?.user.name?.slice(0, 1).toUpperCase() || "R"}
               </Text>
             </View>
@@ -56,51 +68,42 @@ export default function Layout() {
         headerStyle: { backgroundColor: theme.paper },
         headerTintColor: theme.ink,
         tabBarActiveTintColor: theme.brand,
-        tabBarInactiveTintColor: theme.muted,
+        tabBarInactiveTintColor: "#98A2B3",
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          backgroundColor: "#000000",
+          backgroundColor: "#FFFFFF",
           borderTopColor: theme.line,
+          borderTopWidth: 1,
           paddingTop: 8,
-          height: 64 + insets.bottom,
+          height: 62 + insets.bottom,
           paddingBottom: Math.max(insets.bottom, 8),
+          elevation: 12,
+          shadowColor: "#101828",
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -4 },
         },
-        tabBarLabelStyle: { fontSize: 12 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
       }}
     >
-      {(["index", "trips", "wallet", "notifications", "account"] as const).map(
-        (name, i) => (
-          <Tabs.Screen
-            key={name}
-            name={name}
-            options={{
-              href: name === "wallet" ? null : undefined,
-              title: ["Home", "Trips", "Wallet", "Notifications", "Account"][i],
-              tabBarLabel: name === "notifications" ? "Updates" : undefined,
-              tabBarBadge:
-                name === "notifications" && inbox.data?.unread
-                  ? inbox.data.unread
-                  : undefined,
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons
-                  name={
-                    (
-                      [
-                        "home-outline",
-                        "car-outline",
-                        "wallet-outline",
-                        "notifications-outline",
-                        "person-circle-outline",
-                      ] as const
-                    )[i]
-                  }
-                  color={color}
-                  size={size}
-                />
-              ),
-            }}
-          />
-        ),
-      )}
+      {TABS.map((t) => (
+        <Tabs.Screen
+          key={t.name}
+          name={t.name}
+          options={{
+            href: t.hidden ? null : undefined,
+            title: t.title,
+            tabBarBadge:
+              t.name === "notifications" && inbox.data?.unread
+                ? inbox.data.unread
+                : undefined,
+            tabBarBadgeStyle: { backgroundColor: theme.brand, color: "white" },
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons name={focused ? t.active : t.icon} color={color} size={size + 1} />
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }

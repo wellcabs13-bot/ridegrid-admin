@@ -1,9 +1,7 @@
-import { Text, View } from "react-native";
+import { Text } from "react-native";
 import { router } from "expo-router";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useQuery } from "@tanstack/react-query";
-import { Screen, Card, styles, theme, ErrorText } from "../src/components/ui";
+import { Screen, Card, styles, ErrorText } from "../src/components/ui";
 import { MenuRow, Badge } from "../src/components/Premium";
 import { useApp } from "../src/state/Providers";
 import { api } from "../src/services/api";
@@ -19,24 +17,15 @@ export default function Assistant() {
   });
   return (
     <Screen
-      title="Your trip assistant"
-      subtitle="A little guidance. A lot more freedom."
+      title="RideGuide"
+      subtitle="Guided trip planning with real RideGrid information."
     >
-      <LinearGradient
-        colors={[theme.surface, "#1A0F10", theme.paper]}
-        style={[styles.card, { alignItems: "center", paddingVertical: 32 }]}
-      >
-        <Ionicons name="sparkles-outline" size={64} color={theme.brand} />
-        <Text style={styles.title}>Meet RideGuide</Text>
-        <Badge text="GUIDED PLANNING" tone="gold" />
-        <Text style={[styles.subtitle, { textAlign: "center" }]}>
-          Plan, compare and manage your journey with real RideGrid information.
+      <Card>
+        <Badge text="GUIDED ACTIONS" tone="cyan" icon="compass-outline" />
+        <Text style={styles.small}>
+          Choose an action below. RideGuide uses guided actions and live RideGrid data, without AI chat or predictions.
         </Text>
-        <Text style={[styles.small, { textAlign: "center" }]}>
-          Choose an action below. This assistant uses guided actions, without AI
-          chat or predictions.
-        </Text>
-      </LinearGradient>
+      </Card>
       <Card>
         <MenuRow
           icon="navigate-outline"

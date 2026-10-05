@@ -70,7 +70,7 @@ export default function Listing() {
         before confirmation.
       </Text>
       <Button
-        title={session ? "Book this vehicle" : "Sign in to book"}
+        title={session ? "Book this ride" : "Sign in to book"}
         disabled={!online}
         onPress={() => router.push(session ? "/checkout" : "/login")}
       />

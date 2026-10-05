@@ -1,5 +1,5 @@
-import React from "react";
-import { LinearGradient } from "expo-linear-gradient";
+import React, { useState } from "react";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -25,70 +25,79 @@ export const theme = {
     android: "sans-serif",
     default: "Arial",
   }),
-  ink: "#F5F5F7",
-  muted: "#9A9AA2",
-  brand: "#EF4444",
-  brandDark: "#B91C1C",
-  purple: "#9F1239",
-  gold: "#F2CD88",
-  success: "#62E2B1",
-  surface: "#1C1C21",
-  paper: "#0A0A0C",
-  line: "#2A2A30",
+  ink: "#0F172A",
+  muted: "#667085",
+  brand: "#E31B23",
+  brandDark: "#B8121A",
+  brandSoft: "#FDECEC",
+  purple: "#6D28D9",
+  gold: "#B7791F",
+  success: "#15803D",
+  surface: "#FFFFFF",
+  paper: "#F4F5F8",
+  field: "#F7F8FA",
+  line: "#E6E8EE",
   radius: 20,
   spacing: 16,
 };
+// One soft elevation used by every card so the whole app feels consistent.
+export const shadow = {
+  shadowColor: "#101828",
+  shadowOpacity: 0.08,
+  shadowRadius: 14,
+  shadowOffset: { width: 0, height: 6 },
+  elevation: 3,
+} as const;
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.paper },
   content: {
     padding: 20,
     paddingBottom: 40,
-    gap: 18,
+    gap: 16,
     width: "100%",
     maxWidth: 720,
     alignSelf: "center",
   },
   title: {
-    fontFamily: Platform.select({
-      ios: "System",
-      android: "sans-serif",
-      default: "Arial",
-    }),
-    fontSize: 30,
+    fontFamily: theme.font,
+    fontSize: 28,
     fontWeight: "800",
     color: theme.ink,
-    letterSpacing: -0.7,
+    letterSpacing: -0.6,
+    lineHeight: 34,
   },
   subtitle: {
     fontFamily: theme.font,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
     color: theme.muted,
   },
   card: {
     backgroundColor: theme.surface,
-    padding: 20,
+    padding: 18,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: theme.line,
     gap: 12,
+    ...shadow,
   },
   heading: {
     fontFamily: theme.font,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
     color: theme.ink,
+    letterSpacing: -0.2,
   },
   body: {
     fontFamily: theme.font,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
     color: theme.ink,
   },
   small: {
     fontFamily: theme.font,
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 19,
     color: theme.muted,
   },
   row: {
@@ -98,41 +107,47 @@ export const styles = StyleSheet.create({
     gap: 12,
   },
   button: {
-    minHeight: 52,
-    padding: 15,
-    borderRadius: 14,
+    minHeight: 54,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 16,
     backgroundColor: theme.brand,
     alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   buttonText: {
     fontFamily: theme.font,
     fontSize: 16,
     fontWeight: "700",
     color: "white",
+    letterSpacing: 0.1,
   },
   input: {
     fontFamily: theme.font,
-    backgroundColor: theme.surface,
+    backgroundColor: theme.field,
     borderWidth: 1,
     borderColor: theme.line,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     minHeight: 52,
     fontSize: 16,
     color: theme.ink,
   },
-  error: { color: "#FF8295", fontSize: 15, lineHeight: 22 },
+  error: { color: "#DC2626", fontSize: 14, lineHeight: 20 },
   chip: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    minHeight: 48,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: "center",
     borderRadius: 24,
     borderWidth: 1,
     borderColor: theme.line,
     backgroundColor: theme.surface,
   },
-  chipActive: { backgroundColor: theme.brandDark, borderColor: theme.brand },
+  chipActive: { backgroundColor: theme.brand, borderColor: theme.brand },
 });
 export function Screen({
   title,
@@ -171,7 +186,7 @@ export function Screen({
               You are offline. Saved information may be out of date.
             </Text>
           )}
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: 6 }}>
             <Text accessibilityRole="header" style={styles.title}>
               {title}
             </Text>
@@ -192,12 +207,14 @@ export function Button({
   disabled = false,
   secondary = false,
   busy = false,
+  icon,
 }: {
   title: string;
   onPress: () => void;
   disabled?: boolean;
   secondary?: boolean;
   busy?: boolean;
+  icon?: React.ComponentProps<typeof Ionicons>["name"];
 }) {
   return (
     <Pressable
@@ -206,46 +223,71 @@ export function Button({
       accessibilityState={{ disabled: disabled || busy, busy }}
       onPress={onPress}
       disabled={disabled || busy}
-      style={[
-        {
-          borderRadius: 14,
-          overflow: "hidden",
-          borderWidth: 1,
-          borderColor: secondary ? theme.line : theme.brand,
-        },
-        secondary && { backgroundColor: theme.surface },
+      style={({ pressed }) => [
+        styles.button,
+        secondary
+          ? {
+              backgroundColor: theme.surface,
+              borderWidth: 1,
+              borderColor: theme.line,
+            }
+          : {
+              shadowColor: theme.brand,
+              shadowOpacity: 0.28,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 6 },
+              elevation: 4,
+            },
+        pressed && { transform: [{ scale: 0.98 }], opacity: 0.92 },
         (disabled || busy) && { opacity: 0.5 },
       ]}
     >
-      <LinearGradient
-        colors={
-          secondary
-            ? [theme.surface, theme.surface]
-            : ["#F87171", theme.brand, theme.brandDark]
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.button, { backgroundColor: "transparent" }]}
-      >
-        {busy ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.buttonText}>{title}</Text>
-        )}
-      </LinearGradient>
+      {busy ? (
+        <ActivityIndicator color={secondary ? theme.brand : "white"} />
+      ) : (
+        <>
+          <Text
+            style={[styles.buttonText, secondary && { color: theme.ink }]}
+          >
+            {title}
+          </Text>
+          {icon && (
+            <Ionicons
+              name={icon}
+              size={18}
+              color={secondary ? theme.ink : "white"}
+            />
+          )}
+        </>
+      )}
     </Pressable>
   );
 }
-export function Field({ label, ...props }: TextInputProps & { label: string }) {
+export function Field({ label, secureTextEntry, ...props }: TextInputProps & { label: string }) {
+  const [shown, setShown] = useState(false);
   return (
     <View style={{ gap: 7 }}>
-      <Text style={styles.small}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        placeholderTextColor="#727C88"
-        style={styles.input}
-        {...props}
-      />
+      <Text style={[styles.small, { fontWeight: "600", color: theme.ink }]}>{label}</Text>
+      <View style={{ justifyContent: "center" }}>
+        <TextInput
+          accessibilityLabel={label}
+          placeholderTextColor="#98A2B3"
+          style={[styles.input, secureTextEntry ? { paddingRight: 52 } : null]}
+          secureTextEntry={secureTextEntry && !shown}
+          {...props}
+        />
+        {secureTextEntry && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={shown ? "Hide password" : "Show password"}
+            onPress={() => setShown((v) => !v)}
+            hitSlop={8}
+            style={{ position: "absolute", right: 6, width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+          >
+            <Ionicons name={shown ? "eye-off-outline" : "eye-outline"} size={20} color={theme.muted} />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -289,10 +331,12 @@ export function Chips({
   values,
   value,
   onChange,
+  format = (s: string) => s.replaceAll("_", " "),
 }: {
   values: string[];
   value: string;
   onChange: (s: string) => void;
+  format?: (s: string) => string;
 }) {
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -308,9 +352,10 @@ export function Chips({
             style={{
               color: value === s ? "white" : theme.ink,
               fontWeight: "600",
+              fontSize: 14,
             }}
           >
-            {s.replaceAll("_", " ")}
+            {format(s)}
           </Text>
         </Pressable>
       ))}

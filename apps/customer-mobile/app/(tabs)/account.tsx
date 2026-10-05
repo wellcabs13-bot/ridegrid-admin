@@ -1,4 +1,4 @@
-import { MenuRow, Badge } from "../../src/components/Premium";
+import { MenuRow, Badge, Avatar, SectionHeader } from "../../src/components/Premium";
 import { useState } from "react";
 import { Text, Linking, View } from "react-native";
 import { router } from "expo-router";
@@ -13,7 +13,6 @@ import {
   ErrorText,
   SignedIn,
   styles,
-  theme,
 } from "../../src/components/ui";
 export default function Account() {
   const { session, online } = useApp();
@@ -40,110 +39,60 @@ export default function Account() {
       setBusy(false);
     }
   }
+  const open = (path?: string) => void Linking.openURL(`${baseURL}${path}`);
   return (
-    <Screen
-      title="Your account"
-      subtitle="Everything you need for a smoother journey."
-    >
+    <Screen title="Profile" subtitle="Your account, trips and support.">
       <SignedIn>
         <Card>
-          <View
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 32,
-              borderWidth: 1,
-              borderColor: theme.brand,
-              backgroundColor: theme.brandDark,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text style={[styles.title, { color: theme.ink }]}>
-              {session?.user.name?.slice(0, 1).toUpperCase()}
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <Avatar name={session?.user.name || "R"} size={60} />
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={styles.heading} numberOfLines={1}>
+                {session?.user.name}
+              </Text>
+              <Text style={styles.small} numberOfLines={1}>
+                {session?.user.email}
+              </Text>
+              {profile.data?.user.isVerified && (
+                <Badge text="Verified account" tone="green" icon="shield-checkmark" />
+              )}
+            </View>
           </View>
-          <Text style={styles.heading}>{session?.user.name}</Text>
-          <Text style={styles.small}>{session?.user.email}</Text>
-          {profile.data?.user.isVerified && (
-            <Badge
-              text="Verified account"
-              tone="green"
-              icon="shield-checkmark-outline"
-            />
-          )}
-          <MenuRow
-            icon="car-outline"
-            title="My Bookings"
-            onPress={() => router.push("/(tabs)/trips")}
-          />
-          <MenuRow
-            icon="bookmark-outline"
-            title="Saved Routes & Fare Watches"
-            onPress={() => router.push("/saved-routes")}
-          />
-          <MenuRow
-            icon="gift-outline"
-            title="Loyalty Rewards"
-            onPress={() => router.push("/rewards")}
-          />
-          <MenuRow
-            icon="notifications-outline"
-            title="Notifications"
-            onPress={() => router.push("/(tabs)/notifications")}
-          />
-          <MenuRow
-            icon="shield-checkmark-outline"
-            title="Safety & support"
-            onPress={() => router.push("/safety")}
-          />
-          <MenuRow
-            icon="sparkles-outline"
-            title="Trip Assistant"
-            onPress={() => router.push("/assistant")}
-          />
-          <Button
-            title="Personal information"
-            secondary
-            onPress={() => router.push("/profile")}
-          />
-          <Button
-            title="Password & security"
-            secondary
-            onPress={() => router.push("/security")}
-          />
+          <Button title="Personal information" secondary onPress={() => router.push("/profile")} />
+        </Card>
+        <SectionHeader title="My RideGrid" />
+        <Card>
+          <MenuRow icon="car-outline" title="My trips" subtitle="View and manage your bookings" onPress={() => router.push("/(tabs)/trips")} />
+          <MenuRow icon="bookmark-outline" title="Saved routes & fare watches" onPress={() => router.push("/saved-routes")} />
+          <MenuRow icon="gift-outline" title="Loyalty rewards" onPress={() => router.push("/rewards")} />
+          <MenuRow icon="compass-outline" title="RideGuide" subtitle="Guided trip planning" onPress={() => router.push("/assistant")} />
+          <MenuRow icon="notifications-outline" title="Notifications" onPress={() => router.push("/(tabs)/notifications")} />
         </Card>
       </SignedIn>
+      <SectionHeader title="Security & support" />
       <Card>
-        <Button
-          title="Help & support"
-          secondary
-          onPress={() => router.push("/support")}
-        />
-        <Button
-          title="Terms & conditions"
-          secondary
-          disabled={!q.data}
-          onPress={() => void Linking.openURL(`${baseURL}${q.data?.termsPath}`)}
-        />
-        <Button
-          title="Privacy policy"
-          secondary
-          disabled={!q.data}
-          onPress={() =>
-            void Linking.openURL(`${baseURL}${q.data?.privacyPath}`)
-          }
-        />
-        <Text style={styles.small}>RideGrid Customer / Version 1.0.0</Text>
+        {session && (
+          <MenuRow icon="lock-closed-outline" title="Password & security" onPress={() => router.push("/security")} />
+        )}
+        <MenuRow icon="shield-checkmark-outline" title="Safety" onPress={() => router.push("/safety")} />
+        <MenuRow icon="headset-outline" title="Help & support" onPress={() => router.push("/support")} />
+        <MenuRow icon="document-text-outline" title="Terms & conditions" onPress={() => q.data && open(q.data.termsPath)} />
+        <MenuRow icon="eye-off-outline" title="Privacy policy" onPress={() => q.data && open(q.data.privacyPath)} />
+        {session && (
+          <MenuRow
+            icon="trash-outline"
+            title="Delete my account"
+            onPress={() => q.data && open(q.data.accountDeletionPath || "/account-deletion")}
+          />
+        )}
       </Card>
+      <Text style={[styles.small, { textAlign: "center" }]}>RideGrid Customer · Version 1.0.0</Text>
       <ErrorText error={error || q.error} />
-      {session && (
-        <Button
-          title="Sign out"
-          onPress={() => void signOut()}
-          busy={busy}
-          disabled={!online}
-        />
+      {/* Signing out clears this device immediately, online or not; the server
+          session is revoked when a connection is available. */}
+      {session && <Button title="Sign out" secondary onPress={() => void signOut()} busy={busy} />}
+      {session && !online && (
+        <Text style={styles.small}>Offline: you will be signed out on this device now.</Text>
       )}
     </Screen>
   );

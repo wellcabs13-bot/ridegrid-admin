@@ -43,7 +43,8 @@ export default function PaymentReturn() {
   }, [fetchStatus]);
 
   useEffect(() => {
-    if (!data || data.paymentStatus === "PAID" || data.paymentStatus === "FAILED") return;
+    // Stop once payment or the booking itself is final (a cancelled hold never revives).
+    if (!data || data.paymentStatus === "PAID" || data.paymentStatus === "FAILED" || data.status === "CANCELLED") return;
     const id = setInterval(() => {
       pollCount.current += 1;
       if (pollCount.current >= MAX_POLLS) {
@@ -91,9 +92,13 @@ export default function PaymentReturn() {
     );
   }
 
-  const paid = data?.paymentStatus === "PAID";
-  const failed = data?.paymentStatus === "FAILED";
-  const processing = !paid && !failed && !expired;
+  // Confirmed only when the server has both captured the payment and kept the booking.
+  // A payment captured after the hold expired leaves the booking cancelled: refund due.
+  const cancelled = data?.status === "CANCELLED";
+  const paid = data?.paymentStatus === "PAID" && !cancelled;
+  const refundDue = data?.paymentStatus === "PAID" && cancelled;
+  const failed = !paid && !refundDue && (data?.paymentStatus === "FAILED" || cancelled);
+  const processing = !paid && !failed && !refundDue && !expired;
 
   return (
     <Screen title="Payment status" subtitle="Your booking is the source of truth for payment status.">
@@ -105,8 +110,23 @@ export default function PaymentReturn() {
           </View>
         )}
         {paid && <Text style={styles.heading}>Booking confirmed and paid.</Text>}
-        {expired && !paid && <Text style={styles.heading}>We did not receive a confirmation in time.</Text>}
-        {failed && !expired && <Text style={styles.heading}>Payment failed.</Text>}
+        {refundDue && (
+          <>
+            <Text style={styles.heading}>Payment received, booking not confirmed.</Text>
+            <Text style={styles.body}>
+              Your payment arrived after the vehicle hold expired, so this booking was not confirmed. A full refund is being arranged. Contact support with your booking number if you have questions.
+            </Text>
+          </>
+        )}
+        {expired && !paid && !refundDue && !failed && <Text style={styles.heading}>We did not receive a confirmation in time.</Text>}
+        {failed && (
+          <>
+            <Text style={styles.heading}>{cancelled ? "Booking not confirmed." : "Payment failed."}</Text>
+            <Text style={styles.body}>
+              {cancelled ? "The payment was not completed before the vehicle hold ended, and the vehicle was released. If any amount was deducted, RideGrid refunds it; contact support with your booking number. Search again to book." : "You can retry the payment while the vehicle hold lasts."}
+            </Text>
+          </>
+        )}
         {data && (
           <>
             <Text style={styles.small}>Booking {data.bookingNumber}</Text>
@@ -114,8 +134,11 @@ export default function PaymentReturn() {
           </>
         )}
         <ErrorText error={error} />
-        {(failed || expired) && !paid && (
+        {((failed && !cancelled) || (expired && !failed && !refundDue)) && !paid && (
           <Button title="Retry payment" busy={retrying} onPress={() => void retry()} />
+        )}
+        {refundDue && (
+          <Button title="Contact support" secondary onPress={() => router.push("/support")} />
         )}
         <Button
           title="Open My Trips"

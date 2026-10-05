@@ -75,7 +75,9 @@ test("preserves exact quote, package, multi-city route and duration through book
   assert.equal(body.days, "4");
   assert.equal(body.dropCity, "Mumbai|Nashik");
   assert.equal(body.quoteId, "quote-fixture");
-  assert.equal(body.paymentMethod, "CASH");
+  // Retail is PayU only: the booking asks for an online (PayU) checkout, never Cash.
+  assert.equal(body.paymentMethod, "UPI");
+  assert.notEqual(body.paymentMethod, "CASH");
   assert.equal("finalFare" in body, false);
 });
 test("blocks stale or mismatched quotes before submission", () => {

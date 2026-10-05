@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "scheme": "ridegrid",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ridegrid.customer",
@@ -15,7 +15,10 @@
     },
     "android": {
       "package": "com.ridegrid.customer",
-      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"]
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-router",
@@ -32,6 +35,12 @@
       "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0A0A0C"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e19c6521-24ce-421a-83c9-7c919b5b8bfc"
+      }
     }
   }
 }

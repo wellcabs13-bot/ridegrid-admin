@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Text } from "react-native";
+import { ImageBackground, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Brand } from "../../components/Premium";
 import { router, useLocalSearchParams } from "expo-router";
 import {
-  Screen,
   Card,
   Field,
   Button,
@@ -38,7 +40,11 @@ export function AuthScreen({ reset = false }: { reset?: boolean }) {
     setMessage("");
     try {
       if (mode === "forgot") {
-        await post("/api/auth/forgot-password", { email }, false);
+        await post(
+          "/api/auth/forgot-password",
+          { identifier: email.trim(), role: "CUSTOMER" },
+          false,
+        );
         setMessage(
           "If your account exists, a reset link has been requested. Contact support if it does not arrive.",
         );
@@ -71,7 +77,7 @@ export function AuthScreen({ reset = false }: { reset?: boolean }) {
       }
       const result = await post<Session>(
         "/api/auth/login",
-        { email, password },
+        { identifier: email.trim(), password, role: "CUSTOMER" },
         false,
       );
       if (result.user.role !== "CUSTOMER") {
@@ -91,19 +97,42 @@ export function AuthScreen({ reset = false }: { reset?: boolean }) {
       setBusy(false);
     }
   }
+  const titleText =
+    mode === "register"
+      ? "Create your account"
+      : mode === "forgot"
+        ? "Forgot password?"
+        : mode === "reset"
+          ? "Set a new password"
+          : "Welcome back";
   return (
-    <Screen
-      title={
-        mode === "register"
-          ? "Welcome to RideGrid"
-          : mode === "forgot"
-            ? "Forgot password?"
-            : mode === "reset"
-              ? "Set a new password"
-              : "Welcome back"
-      }
-      subtitle="Your next journey starts here."
-    >
+    <SafeAreaView edges={["left", "right", "bottom"]} style={styles.screen}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
+          <ImageBackground source={require("../../../assets/journey-night.webp")} style={{ overflow: "hidden" }}>
+            <LinearGradient
+              colors={["#0B1220F0", "#0B1220CC", "#0B1220F5"]}
+              style={{ paddingTop: 64, paddingHorizontal: 24, paddingBottom: 56, gap: 14 }}
+            >
+              <Brand large light />
+              <Text style={{ color: "white", fontSize: 26, fontWeight: "800", lineHeight: 32, letterSpacing: -0.5 }}>
+                Exact Cars. Real Drivers. Better Rides.
+              </Text>
+              <Text style={{ color: "#CBD5E1", fontSize: 14, lineHeight: 20 }}>
+                Choose the exact car, the exact driver and a transparent fare.
+              </Text>
+            </LinearGradient>
+          </ImageBackground>
+          <View style={[styles.content, { marginTop: -32, gap: 16 }]}>
+            <View style={{ gap: 4 }}>
+              <Text accessibilityRole="header" style={styles.title}>
+                {titleText}
+              </Text>
+              <Text style={styles.subtitle}>Your next journey starts here.</Text>
+            </View>
       <Card>
         {mode === "register" && (
           <>
@@ -130,12 +159,12 @@ export function AuthScreen({ reset = false }: { reset?: boolean }) {
         )}
         {mode !== "reset" && (
           <Field
-            label="Email"
+            label={mode === "register" ? "Email" : "Email or mobile number"}
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
+            keyboardType={mode === "register" ? "email-address" : "default"}
             autoCapitalize="none"
-            autoComplete="email"
+            autoComplete={mode === "register" ? "email" : "username"}
           />
         )}
         {mode !== "forgot" && (
@@ -206,6 +235,9 @@ export function AuthScreen({ reset = false }: { reset?: boolean }) {
           />
         )}
       </Card>
-    </Screen>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

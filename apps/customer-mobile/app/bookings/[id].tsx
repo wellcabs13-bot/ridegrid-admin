@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { formatDateTime } from "../../src/utils/when";
 import { TripStatus } from "../../src/components/TripStatus";
 import { Badge, PriceDisplay } from "../../src/components/Premium";
 import { routeParams, shareSummary } from "../../src/utils/routes";
@@ -15,9 +16,10 @@ import {
   ErrorText,
   Loading,
   styles,
+  theme,
 } from "../../src/components/ui";
 import { Fare } from "../../src/components/Fare";
-import { label, money } from "../../src/utils/journey";
+import { bookingStatusLabel, bookingTone, label, money } from "../../src/utils/journey";
 import type { BookingPage } from "../../src/types";
 export default function Detail() {
   const { id, confirmed } = useLocalSearchParams<{
@@ -60,22 +62,20 @@ export default function Detail() {
                 <Ionicons
                   name="checkmark-circle-outline"
                   size={64}
-                  color="#F2CD88"
+                  color={theme.success}
                   style={{ alignSelf: "center" }}
                 />
               )}
               <Badge
-                text={label(b.status)}
-                tone={b.status === "CANCELLED" ? "gold" : "green"}
-                icon="checkmark-circle-outline"
+                text={bookingStatusLabel(b.status)}
+                tone={bookingTone(b.status).tone}
+                icon={bookingTone(b.status).icon}
               />
               <Text style={styles.body}>{b.pickupLocation}</Text>
               <Text style={styles.small}>to</Text>
               <Text style={styles.body}>{b.dropLocation}</Text>
               <Text style={styles.small}>
-                {new Date(b.pickupDateTime).toLocaleString("en-IN", {
-                  timeZone: "Asia/Kolkata",
-                })}{" "}
+                {formatDateTime(b.pickupDateTime)}{" "}
                 IST
               </Text>
               <Text style={styles.small}>
@@ -111,6 +111,23 @@ export default function Detail() {
                 <Text style={styles.small}>Driver assignment is pending.</Text>
               )}
             </Card>
+            {b.status === "AWAITING_PAYMENT" && (
+              <Card>
+                <Text style={styles.heading}>Payment not confirmed yet</Text>
+                <Text style={styles.small}>
+                  The vehicle is held briefly while PayU confirms your payment. Check the status, or retry the payment while the hold lasts.
+                </Text>
+                <Button
+                  title="Check payment status"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/payment-return",
+                      params: { bookingId: b.id, bookingNumber: b.bookingNumber },
+                    })
+                  }
+                />
+              </Card>
+            )}
             <TripStatus booking={b} />
             <Button
               title="Share trip"

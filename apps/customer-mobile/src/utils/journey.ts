@@ -70,6 +70,8 @@ export function bookingInput(
     platform: "mobile",
   };
 }
+export const journeyLabel = (s: string) =>
+  s === "ONE_WAY" ? "One-way" : s === "ROUNDTRIP" ? "Round trip" : s === "LOCAL" ? "Local" : s === "AIRPORT" ? "Airport" : label(s);
 export function bookingGroup(status: string) {
   return status === "CANCELLED"
     ? "Cancelled"
@@ -79,11 +81,21 @@ export function bookingGroup(status: string) {
         ? "Active"
         : "Upcoming";
 }
+const ACRONYMS = new Set(["UPI", "SUV", "MUV", "GST", "CNG", "IST", "PAYU"]);
 export const label = (s: string) =>
   s
     .replaceAll("_", " ")
     .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .replace(/\b\w+/g, (w) => (ACRONYMS.has(w.toUpperCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)));
+// Status as the customer should read it. Colour is never the only signal: the text says it.
+export function bookingTone(status: string): { tone: "cyan" | "gold" | "green"; icon: "checkmark-circle-outline" | "time-outline" | "close-circle-outline" | "car-outline" } {
+  if (status === "CANCELLED") return { tone: "cyan", icon: "close-circle-outline" };
+  if (status === "PENDING" || status === "AWAITING_PAYMENT") return { tone: "gold", icon: "time-outline" };
+  if (status === "TRIP_STARTED" || status === "DRIVER_ASSIGNED") return { tone: "green", icon: "car-outline" };
+  return { tone: "green", icon: "checkmark-circle-outline" };
+}
+export const bookingStatusLabel = (status: string) =>
+  status === "AWAITING_PAYMENT" ? "Awaiting payment" : status === "TRIP_STARTED" ? "Trip in progress" : status === "TRIP_COMPLETED" ? "Trip completed" : label(status);
 export const money = (value: string | number | null | undefined) =>
   value == null
     ? "Not available"
