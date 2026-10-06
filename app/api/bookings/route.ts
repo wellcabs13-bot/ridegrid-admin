@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 import { bookingScope, requestPermission } from "@/lib/request-access";
+import { bookingView, bookingViewSelect } from "@/lib/services/booking/BookingContactPolicy";
 import { Permission } from "@/lib/permissions";
 
 export async function GET(request: NextRequest) {
@@ -10,50 +11,20 @@ export async function GET(request: NextRequest) {
     const access = await requestPermission(request, Permission.BOOKING_VIEW);
     if (access.denied) return access.denied;
     if (access.user!.role === "DRIVER") return driverGet(request, "trips");
-    const bookings = await prisma.booking.findMany({
+    // Same role-aware fields as GET /api/bookings/[id] (BookingContactPolicy): no raw
+    // corporate, vehicle, transaction or coupon records, and contacts only per role.
+    const rows = await prisma.booking.findMany({
       where: {
         ...bookingScope(access.user!),
         deletedAt: null,
       },
-      include: {
-        trip: { select: { status: true, deletedAt: true, arrivedPickupAt: true, tripStartedAt: true, tripCompletedAt: true } },
-        customer: {
-          include: {
-            user: { select: { id: true, name: true, email: true, mobile: true } },
-          },
-        },
-        vendor: {
-          include: {
-            user: { select: { id: true, name: true, email: true, mobile: true } },
-          },
-        },
-        corporate: true,
-        vehicle: true,
-        driver: {
-          include: {
-            user: { select: { id: true, name: true, email: true, mobile: true } },
-          },
-        },
-        transactions: {
-          orderBy: {
-            createdAt: "desc",
-          },
-        },
-        couponUsages: {
-          include: {
-            coupon: true,
-          },
-        },
-        statusHistory: {
-          orderBy: {
-            createdAt: "desc",
-          },
-        },
-      },
+      select: bookingViewSelect,
       orderBy: {
         createdAt: "desc",
       },
+      take: 200,
     });
+    const bookings = rows.map((b) => bookingView(b, access.user!));
 
     return NextResponse.json({
       success: true,

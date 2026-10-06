@@ -1,7 +1,8 @@
 import { AuditAction, NotificationStatus, NotificationType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { rolePermissionMatrix } from "@/lib/permissions";
-import { automationRules, getAutomationRuleById } from "@/lib/automation/automation-rules";
+import { automationRules, getAutomationRuleById, ruleRequirement } from "@/lib/automation/automation-rules";
+import { emailConfig, pushConfig } from "@/lib/notifications/channels";
 import { isRuleEnabled, loadRuleOverrides, setRuleEnabled } from "@/lib/automation/automation-engine";
 import { processRetryQueue, storedAutomation } from "@/lib/events/event-dispatcher";
 import { AutomationAction, AutomationTrigger, type AutomationRuntimeStatus } from "@/types/automation";
@@ -14,14 +15,16 @@ import { addDays } from "@/lib/services/admin/metrics";
 
 const configured = (...keys: string[]) => keys.every(k => !!process.env[k]);
 
+// Status comes only from real server configuration; the reason names the missing
+// setting, never a secret value.
 export function channelStatus() {
+  const email = emailConfig(), push = pushConfig();
   return [
     { channel: "IN_APP", label: "In-app inbox (apps & portals)", status: "ACTIVE", detail: "Stored in the central Notification table and shown in the customer, driver, vendor and corporate apps." },
-    // No email/SMS/WhatsApp provider integration exists yet (Zoho CPaaS is a later phase).
-    { channel: "EMAIL", label: "Email", status: "NOT_CONFIGURED", detail: "No email provider is connected. Email notifications are recorded but not delivered." },
+    { channel: "EMAIL", label: "Email (Zoho CPaaS)", status: email.ok ? "ACTIVE" : "NOT_CONFIGURED", detail: email.ok ? `Sending as ${email.config.fromName} <${email.config.fromAddress}>.` : `Email is not delivered: ${email.reason}` },
     { channel: "SMS", label: "SMS", status: "NOT_CONFIGURED", detail: "No SMS provider is connected." },
     { channel: "WHATSAPP", label: "WhatsApp", status: "NOT_CONFIGURED", detail: "No WhatsApp provider is connected." },
-    { channel: "DEVICE_PUSH", label: "Device push", status: "NOT_CONFIGURED", detail: "Device push registration is not enabled; apps read the in-app inbox." },
+    { channel: "DEVICE_PUSH", label: "Device push (Expo / FCM)", status: push.ok ? "ACTIVE" : "NOT_CONFIGURED", detail: push.ok ? "Signed-in apps register their device; in-app notifications are mirrored as push." : `Push is not delivered: ${push.reason} Apps read the in-app inbox.` },
   ];
 }
 
@@ -105,11 +108,12 @@ export async function automationView() {
       else continue;
       if (!lastRunAt) { lastRunAt = e.createdAt; latestFailed = !!failure; lastError = failure?.error ?? null; }
     }
-    const status: AutomationRuntimeStatus = r.requires ? "NOT_CONFIGURED" : !enabled ? "DISABLED" : latestFailed ? "FAILED" : "ACTIVE";
+    const requires = ruleRequirement(r);
+    const status: AutomationRuntimeStatus = requires ? "NOT_CONFIGURED" : !enabled ? "DISABLED" : latestFailed ? "FAILED" : "ACTIVE";
     return {
       id: r.id, name: r.name, description: r.description, trigger: r.trigger, action: r.action, recipient: r.recipient ?? null,
       channel: CHANNEL[r.action] ?? "Scheduled job",
-      status, enabled, requires: r.requires ?? null, executed30d: executed, failed30d: failures, lastRunAt, lastError,
+      status, enabled, requires, executed30d: executed, failed30d: failures, lastRunAt, lastError,
     };
   });
   const triggers = new Set<string>(WORKFLOWS.map(w => w.trigger));
@@ -128,7 +132,8 @@ export async function automationView() {
 export async function setAutomationRuleEnabled(id: string, enabled: boolean, actorId: string) {
   const rule = getAutomationRuleById(id);
   if (!rule) throw new AccountLifecycleError(404, "Automation rule not found.");
-  if (rule.requires) throw new AccountLifecycleError(409, `This rule cannot run yet: ${rule.requires}.`);
+  const requires = ruleRequirement(rule);
+  if (requires) throw new AccountLifecycleError(409, `This rule cannot run yet: ${requires}.`);
   await setRuleEnabled(id, enabled);
   await audit(prisma, { actorId, action: AuditAction.UPDATE, entityName: "AutomationRule", entityId: id, newValue: { event: enabled ? "AUTOMATION_ENABLED" : "AUTOMATION_DISABLED" } });
   return { id, enabled };

@@ -1,84 +1,63 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 
 import { prisma } from "@/lib/prisma";
 import { success } from "@/lib/api-response";
 import { apiError } from "@/lib/api-error";
+import { sendAccountLink, type RoleLabel } from "@/lib/auth/account-email";
+import { identifierWhere, parseRole } from "@/lib/auth/identity";
 
-const RESET_TOKEN_MINUTES = 30;
-
-function hashToken(token: string): string {
-  return crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
-}
+const RESEND_COOLDOWN_MS = 60_000;
+const ROLE_LABEL: Record<string, RoleLabel> = {
+  CUSTOMER: "Customer",
+  VENDOR: "Vendor",
+  DRIVER: "Driver",
+  CORPORATE_EMPLOYEE: "Corporate Employee",
+  CORPORATE_ADMIN: "Corporate Admin",
+};
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const email =
-      typeof body.email === "string"
-        ? body.email.trim().toLowerCase()
-        : "";
+    // Email address or mobile number; "email" is accepted from older clients.
+    const identifier =
+      typeof body.identifier === "string"
+        ? body.identifier.trim()
+        : typeof body.email === "string"
+          ? body.email.trim()
+          : "";
+    const role = parseRole(body.role);
 
-    if (!email) {
+    if (!identifier) {
       return NextResponse.json(
         {
           success: false,
-          message: "Email is required.",
+          message: "Email or mobile number is required.",
         },
         { status: 400 }
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // The same email/mobile may belong to several roles; each account gets its own
+    // link (the app passes its role to limit this to one).
+    const users = await prisma.user.findMany({
+      where: { ...identifierWhere(identifier), deletedAt: null, isActive: true, ...(role ? { role } : {}) },
+      take: 5,
     });
 
-    /*
-     * Do not reveal whether an email exists.
-     */
-    if (!user || user.deletedAt || !user.isActive) {
-      return success(
-        null,
-        "If the account exists, a password reset link has been requested."
-      );
+    // The response never reveals whether an account exists.
+    for (const user of users) {
+      // One link per minute per account: stops the endpoint being used to flood an inbox.
+      const recent = await prisma.passwordResetToken.findFirst({
+        where: { userId: user.id, usedAt: null, createdAt: { gt: new Date(Date.now() - RESEND_COOLDOWN_MS) } },
+        select: { id: true },
+      });
+      if (!recent) {
+        // Failure to deliver is recorded in the notification log; the response stays
+        // identical either way so account existence is not revealed.
+        await sendAccountLink(user, "RESET", ROLE_LABEL[user.role] ?? "RideGrid");
+      }
     }
-
-    await prisma.passwordResetToken.updateMany({
-      where: {
-        userId: user.id,
-        usedAt: null,
-      },
-      data: {
-        usedAt: new Date(),
-      },
-    });
-
-    const rawToken = crypto
-      .randomBytes(48)
-      .toString("base64url");
-
-    const tokenHash = hashToken(rawToken);
-
-    const expiresAt = new Date(
-      Date.now() +
-        RESET_TOKEN_MINUTES * 60 * 1000
-    );
-
-    await prisma.passwordResetToken.create({
-      data: {
-        tokenHash,
-        userId: user.id,
-        expiresAt,
-      },
-    });
-
-    console.info(
-      `[AUTH] Password reset requested for ${user.email}.`
-    );
 
     return success(
       null,

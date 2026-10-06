@@ -10,9 +10,12 @@ datasource db {
 model User {
   id                  String               @id @default(cuid())
   name                String
-  email               String               @unique
-  mobile              String?              @unique
+  // Unique per role among non-deleted users via partial unique indexes in
+  // migration 20261001000000_role_scoped_identity (not expressible in Prisma).
+  email               String
+  mobile              String?
   password            String
+  mustChangePassword  Boolean              @default(false)
   role                UserRole             @default(CUSTOMER)
   isActive            Boolean              @default(true)
   isVerified          Boolean              @default(false)
@@ -32,9 +35,13 @@ model User {
   securityEvents      SecurityEvent[]
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
-  assignedTickets     SupportTicket[]      @relation("AssignedSupportAgent")
+  pushDevices         PushDevice[]
+  assignedTickets    SupportTicket[]      @relation("AssignedSupportAgent")
   ticketMessages      TicketMessage[]      @relation("SupportMessageSender")
   vendor              Vendor?
+
+  @@index([email])
+  @@index([mobile])
 }
 
 model Customer {
@@ -2932,6 +2939,26 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@index([revokedAt])
+}
+
+// An Expo push token registered by a signed-in mobile app. A token identifies one app
+// install; it always belongs to the user most recently signed in on that device.
+model PushDevice {
+  id            String    @id @default(cuid())
+  userId        String
+  token         String    @unique
+  app           String
+  platform      String
+  isActive      Boolean   @default(true)
+  lastSeenAt    DateTime  @default(now())
+  deactivatedAt DateTime?
+  failureReason String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
 }
 
 model PasswordResetToken {

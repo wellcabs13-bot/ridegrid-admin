@@ -1,9 +1,11 @@
 import { requestUser, staffGuard } from "@/lib/request-access";
+import { sendAccountLink } from "@/lib/auth/account-email";
 import { deleteVendor } from "@/lib/services/admin/AccountLifecycleService";
 import { Permission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { passwordService } from "@/lib/auth/password";
+import { findIdentityClash, normalizeEmail, normalizeMobile } from "@/lib/auth/identity";
 
 function serializeVendor(vendor: any) {
   return {
@@ -187,34 +189,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const normalizedMobile = mobile.trim();
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedMobile = normalizeMobile(mobile) as string;
 
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: normalizedEmail },
-          { mobile: normalizedMobile },
-        ],
-        deletedAt: null,
-      },
-    });
-
-    if (existingUser) {
+    // Only another active VENDOR blocks: the same email/mobile may belong to a customer etc.
+    const clash = await findIdentityClash({ role: "VENDOR", email: normalizedEmail, mobile: normalizedMobile });
+    if (clash) {
       return NextResponse.json(
         {
           success: false,
           message:
-            existingUser.email === normalizedEmail
-              ? "A user with this email already exists."
-              : "A user with this mobile number already exists.",
+            clash === "email"
+              ? "A vendor with this email already exists."
+              : "A vendor with this mobile number already exists.",
         },
         { status: 409 }
       );
     }
 
-    const temporaryPassword = crypto.randomUUID();
-    const hashedPassword = await bcrypt.hash(temporaryPassword, 12);
+    // A unique temporary password is shown once to the Super Admin; the first sign-in
+    // with it forces the vendor to choose a new one. The activation email also works.
+    const temporaryPassword = passwordService.generateTemporaryPassword(12);
+    const hashedPassword = await passwordService.hash(temporaryPassword);
 
     const vendor = await prisma.$transaction(async (tx: any) => {
       const user = await tx.user.create({
@@ -223,6 +219,7 @@ export async function POST(req: NextRequest) {
           email: normalizedEmail,
           mobile: normalizedMobile,
           password: hashedPassword,
+          mustChangePassword: true,
           role: "VENDOR",
           isActive: true,
           isVerified: false,
@@ -277,11 +274,20 @@ export async function POST(req: NextRequest) {
       return createdVendor;
     });
 
+    // Activation email goes out only after the vendor and its login are committed.
+    const activation = await sendAccountLink(
+      { id: vendor.userId, email: normalizedEmail, name: ownerName.trim() },
+      "ACTIVATION",
+      "Vendor"
+    );
+
     return NextResponse.json(
       {
         success: true,
-        message: "Vendor created successfully.",
-        data: serializeVendor(vendor),
+        message: activation.sent
+          ? `Vendor created. An activation email was sent to ${normalizedEmail}.`
+          : `Vendor created, but the activation email was not sent (${activation.reason ?? "unknown reason"}). Share the temporary password or use Forgot Password.`,
+        data: { ...serializeVendor(vendor), activationEmailSent: activation.sent, temporaryPassword },
       },
       { status: 201 }
     );
@@ -347,15 +353,12 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const nextEmail = typeof email === "string" ? email.trim().toLowerCase() : undefined;
-    const nextMobile = typeof mobile === "string" ? mobile.trim() : undefined;
+    const nextEmail = typeof email === "string" ? normalizeEmail(email) : undefined;
+    const nextMobile = typeof mobile === "string" ? normalizeMobile(mobile) ?? undefined : undefined;
     if ((nextEmail && nextEmail !== vendor.user.email) || (nextMobile && nextMobile !== vendor.user.mobile)) {
-      const clash = await prisma.user.findFirst({
-        where: { id: { not: vendor.userId }, OR: [...(nextEmail ? [{ email: nextEmail }] : []), ...(nextMobile ? [{ mobile: nextMobile }] : [])] },
-        select: { email: true },
-      });
+      const clash = await findIdentityClash({ role: "VENDOR", email: nextEmail, mobile: nextMobile, exceptUserId: vendor.userId });
       if (clash) {
-        return NextResponse.json({ success: false, message: clash.email === nextEmail ? "Another account already uses this email." : "Another account already uses this mobile number." }, { status: 409 });
+        return NextResponse.json({ success: false, message: clash === "email" ? "Another vendor already uses this email." : "Another vendor already uses this mobile number." }, { status: 409 });
       }
     }
     const actorId = (await requestUser(req))?.id ?? null;
@@ -368,11 +371,11 @@ export async function PUT(req: NextRequest) {
       }
 
       if (mobile !== undefined) {
-        userData.mobile = mobile;
+        userData.mobile = normalizeMobile(mobile);
       }
 
       if (email !== undefined) {
-        userData.email = email.trim().toLowerCase();
+        userData.email = normalizeEmail(email);
       }
 
       if (Object.keys(userData).length > 0) {

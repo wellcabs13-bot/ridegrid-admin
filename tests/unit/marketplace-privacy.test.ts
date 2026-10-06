@@ -100,6 +100,26 @@ describe("anonymous marketplace search", () => {
     expect(listings.map((l: { id: string }) => l.id)).toEqual(["car2"]);
     expect(listings[0].vendor.verified).toBe(false);
   });
+
+  it("returns a truthful empty result when the only supply belongs to an unapproved vendor", async () => {
+    cars = [vehicle("car1", vendor({ id: "v-pending", isApproved: false }))];
+    m.pricingPackage.findMany.mockResolvedValue([pkg("p1", cars[0])]);
+    const res = await anonymousSearch();
+    expect(res.status).toBe(200);
+    expect((await res.json()).data.listings).toEqual([]);
+  });
+
+  it("rejects unsupported filters with 400 and never echoes database errors", async () => {
+    for (const q of ["serviceType=BOGUS", "serviceType=OUTSTATION&tripType=BAD", "serviceType=LOCAL&date=10-10-2026", "serviceType=LOCAL&time=9am"]) {
+      const res = await search(new NextRequest(`https://ridegrid.test/api/marketplace/search?${q}`));
+      expect(res.status).toBe(400);
+    }
+    expect(m.pricingPackage.findMany).not.toHaveBeenCalled();
+    m.pricingPackage.findMany.mockRejectedValue(new Error("Invalid `prisma.pricingPackage.findMany()` invocation"));
+    const res = await anonymousSearch();
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toMatch(/prisma|invocation/i);
+  });
 });
 
 describe("booking contact policy", () => {

@@ -1,5 +1,6 @@
 import { AuditAction, BookingStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { findIdentityClash, normalizeMobile } from "@/lib/auth/identity";
 import { audit, AccountLifecycleError } from "@/lib/services/admin/AccountLifecycleService";
 import { paymentTotals, REVENUE_STATUSES, UPCOMING_STATUSES } from "@/lib/services/admin/metrics";
 
@@ -155,17 +156,17 @@ export async function personDetail(kind: PersonType, id: string) {
 }
 
 // Admin profile correction for retail customers. Email/mobile stay unique among
-// active accounts (enforced by the DB unique constraints).
+// active CUSTOMER accounts (enforced by the role-scoped DB unique indexes).
 export async function updateRetailProfile(id: string, input: { firstName?: string; lastName?: string; email?: string; mobile?: string }, actorId: string) {
   const c = await prisma.customer.findFirst({ where: { id, deletedAt: null }, select: { id: true, userId: true, firstName: true, lastName: true, user: { select: { email: true, mobile: true } } } });
   if (!c) throw new AccountLifecycleError(404, "Customer not found.");
   const firstName = input.firstName?.trim() || c.firstName, lastName = input.lastName?.trim() || c.lastName;
   const email = input.email?.trim().toLowerCase() || c.user.email;
-  const mobile = input.mobile === undefined ? c.user.mobile : input.mobile.trim() || null;
+  const mobile = input.mobile === undefined ? c.user.mobile : normalizeMobile(input.mobile);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new AccountLifecycleError(400, "Enter a valid email address.");
   if (mobile && !/^\+?\d{10,13}$/.test(mobile.replace(/\s/g, ""))) throw new AccountLifecycleError(400, "Enter a valid mobile number.");
-  const clash = await prisma.user.findFirst({ where: { id: { not: c.userId }, OR: [{ email }, ...(mobile ? [{ mobile }] : [])] }, select: { email: true } });
-  if (clash) throw new AccountLifecycleError(409, clash.email === email ? "Another account already uses this email." : "Another account already uses this mobile number.");
+  const clash = await findIdentityClash({ role: "CUSTOMER", email, mobile, exceptUserId: c.userId });
+  if (clash) throw new AccountLifecycleError(409, clash === "email" ? "Another customer already uses this email." : "Another customer already uses this mobile number.");
   await prisma.$transaction(async tx => {
     await tx.user.update({ where: { id: c.userId }, data: { name: `${firstName} ${lastName}`.trim(), email, mobile } });
     await tx.customer.update({ where: { id: c.id }, data: { firstName, lastName } });

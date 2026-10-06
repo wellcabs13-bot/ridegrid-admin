@@ -2,6 +2,8 @@ import crypto from "crypto";
 import { AuditAction, BookingStatus, CorporateBillingCycle, CorporateStatus, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { passwordService } from "@/lib/auth/password";
+import { findIdentityClash, normalizeMobile } from "@/lib/auth/identity";
+import { sendAccountLink } from "@/lib/auth/account-email";
 import { AccountLifecycleError, audit } from "@/lib/services/admin/AccountLifecycleService";
 import { addDays, bookingRevenue, istStartOfDay, istStartOfMonth, paymentTotals, REVENUE_STATUSES } from "@/lib/services/admin/metrics";
 
@@ -115,7 +117,7 @@ export async function createCorporate(input: CreateCorporateInput, actorId: stri
   const need = (v: string | undefined, label: string) => { if (!v?.trim()) throw new AccountLifecycleError(400, `${label} is required.`); return v.trim(); };
   const companyName = need(input.companyName, "Company name"), address = need(input.address, "Address"), city = need(input.city, "City"), state = need(input.state, "State"), pincode = need(input.pincode, "PIN code");
   const email = need(input.email, "Company email").toLowerCase(), mobile = need(input.mobile, "Company mobile").replace(/\s/g, "");
-  const adminName = need(input.admin?.name, "Admin name"), adminEmail = need(input.admin?.email, "Admin email").toLowerCase(), adminMobile = need(input.admin?.mobile, "Admin mobile").replace(/\s/g, "");
+  const adminName = need(input.admin?.name, "Admin name"), adminEmail = need(input.admin?.email, "Admin email").toLowerCase(), adminMobile = normalizeMobile(need(input.admin?.mobile, "Admin mobile")) ?? "";
   if (!EMAIL.test(email) || !EMAIL.test(adminEmail)) throw new AccountLifecycleError(400, "Enter valid email addresses.");
   if (!MOBILE.test(mobile) || !MOBILE.test(adminMobile)) throw new AccountLifecycleError(400, "Enter valid 10-digit mobile numbers.");
   if (!/^\d{6}$/.test(pincode)) throw new AccountLifecycleError(400, "PIN code must be 6 digits.");
@@ -127,7 +129,7 @@ export async function createCorporate(input: CreateCorporateInput, actorId: stri
 
   const [companyClash, userClash, employeeClash] = await Promise.all([
     prisma.corporate.findFirst({ where: { OR: [{ email }, ...(gstNumber ? [{ gstNumber }] : [])] }, select: { email: true } }),
-    prisma.user.findFirst({ where: { OR: [{ email: adminEmail }, { mobile: adminMobile }] }, select: { email: true } }),
+    findIdentityClash({ role: UserRole.CORPORATE_ADMIN, email: adminEmail, mobile: adminMobile }).then(c => c && { email: c === "email" ? adminEmail : "" }),
     prisma.corporateEmployee.findFirst({ where: { officialEmail: adminEmail }, select: { id: true } }),
   ]);
   if (companyClash) throw new AccountLifecycleError(409, companyClash.email === email ? "A company with this email already exists." : "A company with this GSTIN already exists.");
@@ -141,7 +143,7 @@ export async function createCorporate(input: CreateCorporateInput, actorId: stri
       status: CorporateStatus.ACTIVE, billingCycle, creditLimit: creditLimit || null, paymentTermsDays: input.paymentTermsDays ?? 30,
     } });
     await tx.corporateWallet.create({ data: { corporateId: corporate.id, balance: 0, creditLimit: creditLimit || null } });
-    const user = await tx.user.create({ data: { name: adminName, email: adminEmail, mobile: adminMobile, password: passwordHash, role: UserRole.CORPORATE_ADMIN, isActive: true, isVerified: false } });
+    const user = await tx.user.create({ data: { name: adminName, email: adminEmail, mobile: adminMobile, password: passwordHash, mustChangePassword: true, role: UserRole.CORPORATE_ADMIN, isActive: true, isVerified: false } });
     const employee = await tx.corporateEmployee.create({ data: {
       corporateId: corporate.id, userId: user.id, employeeCode: `ADM-${crypto.randomBytes(4).toString("hex").toUpperCase()}`,
       employeeName: adminName, officialEmail: adminEmail, mobile: adminMobile, designation: input.admin.designation?.trim() || "Corporate Admin", isApprover: true, isActive: true,
@@ -187,23 +189,28 @@ export async function updateCorporate(id: string, input: { status?: string; cred
 }
 
 // Corporate Portal records employees without a login; RideGrid provisions the
-// Employee App login here. The temporary password is shown once.
+// Employee App login here. An activation email is sent; the temporary password is shown once as a fallback.
 export async function provisionEmployeeLogin(corporateId: string, employeeId: string, actorId: string) {
   const e = await prisma.corporateEmployee.findFirst({ where: { id: employeeId, corporateId }, select: { id: true, userId: true, isActive: true, employeeName: true, officialEmail: true, mobile: true, corporate: { select: { status: true, deletedAt: true } } } });
   if (!e || e.officialEmail.endsWith(DELETED_EMAIL)) throw new AccountLifecycleError(404, "Employee not found.");
   if (!e.isActive) throw new AccountLifecycleError(409, "Activate the employee before creating a login.");
   if (e.corporate.deletedAt || e.corporate.status !== CorporateStatus.ACTIVE) throw new AccountLifecycleError(409, "The company account is not active.");
   if (e.userId) throw new AccountLifecycleError(409, "This employee already has a login.");
-  const mobile = e.mobile?.replace(/\s/g, "") || null;
-  const clash = await prisma.user.findFirst({ where: { OR: [{ email: e.officialEmail }, ...(mobile ? [{ mobile }] : [])] }, select: { email: true } });
-  if (clash) throw new AccountLifecycleError(409, clash.email === e.officialEmail ? "Another account already uses this email." : "Another account already uses this mobile number.");
+  const mobile = normalizeMobile(e.mobile);
+  const clash = await findIdentityClash({ role: UserRole.CORPORATE_EMPLOYEE, email: e.officialEmail, mobile });
+  if (clash) throw new AccountLifecycleError(409, clash === "email" ? "Another employee login already uses this email." : "Another employee login already uses this mobile number.");
   const temporaryPassword = passwordService.generateTemporaryPassword(14);
   const hash = await passwordService.hash(temporaryPassword);
+  let userId = "";
   await prisma.$transaction(async tx => {
-    const user = await tx.user.create({ data: { name: e.employeeName, email: e.officialEmail, mobile, password: hash, role: UserRole.CORPORATE_EMPLOYEE, isActive: true, isVerified: false } });
+    const user = await tx.user.create({ data: { name: e.employeeName, email: e.officialEmail, mobile, password: hash, mustChangePassword: true, role: UserRole.CORPORATE_EMPLOYEE, isActive: true, isVerified: false } });
     const linked = await tx.corporateEmployee.updateMany({ where: { id: e.id, userId: null }, data: { userId: user.id } });
     if (linked.count !== 1) throw new AccountLifecycleError(409, "This employee already has a login.");
+    userId = user.id;
     await audit(tx, { actorId, action: AuditAction.CREATE, entityName: "CorporateEmployee", entityId: e.id, newValue: { event: "LOGIN_PROVISIONED", corporateId } });
   });
-  return { email: e.officialEmail, temporaryPassword };
+  // The employee can choose their own password from an emailed link; the temporary
+  // password remains a one-time fallback for the administrator to hand over.
+  const activation = await sendAccountLink({ id: userId, email: e.officialEmail, name: e.employeeName }, "ACTIVATION", "Corporate Employee");
+  return { email: e.officialEmail, temporaryPassword, activationEmailSent: activation.sent };
 }

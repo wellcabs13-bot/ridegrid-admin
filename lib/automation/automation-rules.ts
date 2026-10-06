@@ -5,6 +5,7 @@ import {
   AutomationStatus,
   AutomationTrigger,
 } from "@/types/automation";
+import { emailReady } from "@/lib/notifications/channels";
 
 // The registry of RideGrid's internal automations. Every rule with status ACTIVE and
 // no `requires` is executed by the AutomationEngine whenever the central dispatcher
@@ -20,7 +21,20 @@ export type NotificationTemplateInput = {
 
 export type AutomationRuleDefinition = AutomationRule & {
   template?: (input: NotificationTemplateInput) => { title: string; message: string };
+  // SEND_EMAIL rules: subject and plain-text body. Delivered through the EmailProvider.
+  email?: (input: NotificationTemplateInput) => { subject: string; text: string };
 };
+
+// Email rules can run only while the email provider is configured; otherwise they
+// report NOT_CONFIGURED and are never selected. Other dependencies are static.
+export function ruleRequirement(rule: AutomationRuleDefinition): string | null {
+  if (rule.requires) return rule.requires;
+  if (rule.action === AutomationAction.SEND_EMAIL && !emailReady()) return "Email provider (Zoho CPaaS) not configured";
+  return null;
+}
+
+const HELP = "Need help? Reply to this email, write to service@wellcabs.com or call +91 90110 79304.";
+const APP = "Open the RideGrid app for the car, driver and trip details.";
 
 const RULES_VERSION_DATE = new Date("2026-09-28T00:00:00.000Z");
 
@@ -114,9 +128,59 @@ export const automationRules: AutomationRuleDefinition[] = [
       template: () => ({ title: "Account verified", message: "Your RideGrid vendor account is verified. Your approved vehicles can now appear in the marketplace." }),
     }),
 
+  // Email copies through the EmailProvider (Zoho CPaaS). Active only when configured.
+  rule("AUTO-014", "Booking confirmation email", "Email copy of the booking confirmation to the traveller.",
+    AutomationTrigger.BOOKING_CREATED, AutomationAction.SEND_EMAIL, {
+      recipient: "TRAVELLER",
+      email: ({ ref, pickup }) => ({ subject: `Booking confirmed: ${ref}`, text: `Your RideGrid booking ${ref} is confirmed${at(pickup)}.\n\n${APP}\n\n${HELP}` }),
+    }),
+  rule("AUTO-017", "Payment confirmation email", "Email receipt to the customer once PayU payment is verified.",
+    AutomationTrigger.PAYMENT_RECEIVED, AutomationAction.SEND_EMAIL, {
+      recipient: "TRAVELLER",
+      email: ({ ref }) => ({ subject: `Payment received: ${ref}`, text: `We have received your payment for booking ${ref}. Your tax invoice will be available from the RideGrid app once the trip is complete.\n\n${HELP}` }),
+    }),
+  rule("AUTO-018", "Driver assignment email", "Email to the traveller when the booking's driver is assigned or changed.",
+    AutomationTrigger.DRIVER_ASSIGNED, AutomationAction.SEND_EMAIL, {
+      recipient: "TRAVELLER",
+      email: ({ ref }) => ({ subject: `Driver assigned: ${ref}`, text: `A driver has been assigned to your booking ${ref}. The driver's name and contact are shown in the RideGrid app closer to pickup.\n\n${HELP}` }),
+    }),
+  rule("AUTO-019", "Cancellation email", "Email to the traveller when a booking is cancelled.",
+    AutomationTrigger.BOOKING_CANCELLED, AutomationAction.SEND_EMAIL, {
+      recipient: "TRAVELLER",
+      email: ({ ref }) => ({ subject: `Booking cancelled: ${ref}`, text: `Your RideGrid booking ${ref} has been cancelled. Any refund due is returned to the original payment method; we will write again once it is processed.\n\n${HELP}` }),
+    }),
+  rule("AUTO-020", "Refund in progress email", "Email to the customer when a cancellation leaves an online payment to refund.",
+    AutomationTrigger.REFUND_DUE, AutomationAction.SEND_EMAIL, {
+      recipient: "TRAVELLER",
+      email: ({ ref }) => ({ subject: `Refund in progress: ${ref}`, text: `A refund is due for your cancelled booking ${ref}. It is being processed to your original payment method; banks usually take 5-7 working days to credit it.\n\n${HELP}` }),
+    }),
+  rule("AUTO-021", "Trip completed email", "Email to the traveller when the trip is completed.",
+    AutomationTrigger.TRIP_COMPLETED, AutomationAction.SEND_EMAIL, {
+      recipient: "TRAVELLER",
+      email: ({ ref }) => ({ subject: `Trip completed: ${ref}`, text: `Your trip ${ref} is complete. Thank you for travelling with Wellcabs.\n\nYou can rate the trip and view the booking in the RideGrid app.\n\n${HELP}` }),
+    }),
+  rule("AUTO-022", "Approval required email", "Email to the company's Corporate Administrators and assigned approver.",
+    AutomationTrigger.CORPORATE_APPROVAL_REQUIRED, AutomationAction.SEND_EMAIL, {
+      recipient: "CORPORATE_APPROVERS",
+      email: ({ pickup }) => ({ subject: "Travel approval required", text: `A ride request${pickup ? ` for ${pickup}` : ""} is awaiting your decision.\n\nReview it in the RideGrid Corporate Portal under Approvals, or in the RideGrid Corporate app.\n\n${HELP}` }),
+    }),
+  rule("AUTO-023", "Approval granted email", "Email to the employee when their ride request is approved.",
+    AutomationTrigger.CORPORATE_APPROVED, AutomationAction.SEND_EMAIL, {
+      recipient: "TRAVELLER",
+      email: () => ({ subject: "Ride request approved", text: `Your ride request was approved. Open Approvals in the RideGrid Corporate app to confirm the booking at a fresh price.\n\n${HELP}` }),
+    }),
+  rule("AUTO-024", "Approval rejected email", "Email to the employee when their ride request is rejected.",
+    AutomationTrigger.CORPORATE_REJECTED, AutomationAction.SEND_EMAIL, {
+      recipient: "TRAVELLER",
+      email: ({ metadata }) => ({ subject: "Ride request not approved", text: `Your ride request was not approved.${typeof metadata.remarks === "string" && metadata.remarks ? `\n\nApprover's note: ${metadata.remarks.slice(0, 500)}` : ""}\n\n${HELP}` }),
+    }),
+  rule("AUTO-025", "Vendor verified email", "Email to the vendor when the Super Admin verifies their account.",
+    AutomationTrigger.VENDOR_APPROVED, AutomationAction.SEND_EMAIL, {
+      recipient: "VENDOR",
+      email: () => ({ subject: "Your RideGrid vendor account is verified", text: `Your RideGrid vendor account is verified. Your approved vehicles can now appear in the RideGrid marketplace.\n\n${HELP}` }),
+    }),
+
   // Declared but dependent on integrations that are not live yet.
-  rule("AUTO-014", "Booking confirmation email", "Email copy of the booking confirmation.",
-    AutomationTrigger.BOOKING_CREATED, AutomationAction.SEND_EMAIL, { requires: "Email provider (not connected)" }),
   rule("AUTO-015", "Document expiry reminder", "WhatsApp reminder before a vendor or driver document expires.",
     AutomationTrigger.DOCUMENT_EXPIRY, AutomationAction.SEND_WHATSAPP, { requires: "WhatsApp provider and a document-expiry scheduler (neither configured)" }),
   rule("AUTO-016", "Daily operations report", "Scheduled daily operations summary.",
@@ -132,7 +196,7 @@ export function getAutomationRules(
     (rule) =>
       rule.enabled &&
       rule.status === AutomationStatus.ACTIVE &&
-      !rule.requires &&
+      !ruleRequirement(rule) &&
       (!trigger ||
         rule.trigger === trigger)
   );

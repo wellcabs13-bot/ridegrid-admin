@@ -136,8 +136,8 @@ function CorporateDrawer({ id, onClose, onChanged, onCredential }: { id: string 
     if (!d) return;
     setBusy(true); setActionError("");
     try {
-      const r = await send<{ email: string; temporaryPassword: string }>(`/api/admin/corporates/${d.id}`, "POST", { action: "provision-login", employeeId });
-      setConfirm(null); onCredential({ title: "Employee App login created. Share the temporary password securely — it is shown only once.", email: r.email, password: r.temporaryPassword });
+      const r = await send<{ email: string; temporaryPassword: string; activationEmailSent?: boolean }>(`/api/admin/corporates/${d.id}`, "POST", { action: "provision-login", employeeId });
+      setConfirm(null); onCredential({ title: r.activationEmailSent ? "Employee App login created and an activation email was sent. The temporary password below is a one-time fallback." : "Employee App login created. The activation email could not be sent — share the temporary password securely; it is shown only once.", email: r.email, password: r.temporaryPassword });
       setD(await send<Detail>(`/api/admin/corporates/${d.id}`, "GET"));
     } catch (e) { setActionError(e instanceof Error ? e.message : "Unable to create login."); } finally { setBusy(false); }
   };

@@ -3,42 +3,41 @@ import fs from "fs/promises";
 import path from "path";
 import { protectDocumentFile } from "@/lib/vendor-mobile/file-access";
 import { vendorFailure } from "@/lib/vendor-mobile/access";
+import { locateStoredFile, signedFileUrl, SIGNED_URL_SECONDS } from "@/lib/services/storage/FileStorageService";
 
+const mimeTypes: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".pdf": "application/pdf",
+};
+
+// Authorizes the caller (documents: owner or RideGrid staff; unlinked files are public
+// media), then redirects to a short-lived signed URL on the private bucket.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
     if (!/^[a-zA-Z0-9-]{1,100}$/.test(id)) return NextResponse.json({ success: false }, { status: 404 });
-    const authorizedDocument = await protectDocumentFile(_request, id);
-    const root = path.join(process.cwd(), "storage", "media", id);
-    const files = await fs.readdir(root);
+    const authorizedDocument = await protectDocumentFile(request, id);
+    const found = await locateStoredFile(id);
+    if (!found) return NextResponse.json({ success: false, message: "File not found." }, { status: 404 });
     // An upload whose database transaction failed is not public media.
-    if (!authorizedDocument && files.some(name => /^document\.(pdf|png|jpg)$/i.test(name))) return NextResponse.json({ success: false }, { status: 404 });
+    if (!authorizedDocument && /^document\.(pdf|png|jpg)$/i.test(found.name)) return NextResponse.json({ success: false }, { status: 404 });
 
-    if (!files.length) {
-      return NextResponse.json(
-        { success: false, message: "File not found." },
-        { status: 404 }
-      );
+    if (found.remoteKey) {
+      const url = await signedFileUrl(found.remoteKey, SIGNED_URL_SECONDS);
+      return NextResponse.redirect(url, { status: 302, headers: { "Cache-Control": "private, no-store" } });
     }
 
-    const filePath = path.join(root, files[0]);
-    const file = await fs.readFile(filePath);
-    const ext = path.extname(files[0]).toLowerCase();
-
-    const mimeTypes: Record<string, string> = {
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".png": "image/png",
-      ".pdf": "application/pdf",
-    };
-
-    return new NextResponse(file, {
+    // Files bundled with the deployment before the move to object storage (read-only).
+    const file = await fs.readFile(found.localPath!);
+    return new NextResponse(new Uint8Array(file), {
       headers: {
-        "Content-Type": mimeTypes[ext] || "application/octet-stream",
-        "Content-Disposition": `inline; filename="${files[0]}"`,
+        "Content-Type": mimeTypes[path.extname(found.name).toLowerCase()] || "application/octet-stream",
+        "Content-Disposition": `inline; filename="${found.name}"`,
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },

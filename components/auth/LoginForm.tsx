@@ -51,7 +51,7 @@ export default function LoginForm() {
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <div>
         <label htmlFor="login-email" className="mb-2 block text-sm font-medium text-gray-700">
-          Email Address
+          Email or Mobile Number
         </label>
 
         <div className="relative">
@@ -61,11 +61,11 @@ export default function LoginForm() {
             name="email"
             id="login-email"
             autoComplete="username"
-            type="email"
+            type="text"
             required
             value={form.email}
             onChange={handleChange}
-            placeholder="admin@ridegrid.com"
+            placeholder="Email or 10-digit mobile"
             className="w-full rounded-xl border border-gray-300 py-3 pl-11 pr-4 outline-none focus:border-red-600"
           />
         </div>

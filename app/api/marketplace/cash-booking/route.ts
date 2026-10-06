@@ -1,6 +1,7 @@
 import { assertQuoteUsable, Snapshot } from "@/lib/services/pricing/QuoteService";
 import { PricingError, decimal } from "@/lib/services/pricing/engine";
 import { pricingResponse } from "@/lib/services/pricing/access";
+import { normalizeMobile } from "@/lib/auth/identity";
 import { NextRequest, NextResponse } from "next/server";
 import {
   CouponScope,
@@ -301,8 +302,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!customer) {
-      const existingUser = await prisma.user.findUnique({
-        where: { email },
+      // The same email may belong to other roles (e.g. a vendor); only a CUSTOMER account is reused.
+      const existingUser = await prisma.user.findFirst({
+        where: { email, role: UserRole.CUSTOMER, deletedAt: null },
       });
 
       if (existingUser) {
@@ -351,7 +353,7 @@ export async function POST(request: NextRequest) {
           data: {
             name: `${firstName} ${lastName}`.trim(),
             email,
-            mobile,
+            mobile: normalizeMobile(mobile),
             password: temporaryPassword,
             role: UserRole.CUSTOMER,
             isActive: true,

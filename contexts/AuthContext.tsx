@@ -81,7 +81,7 @@ export function AuthProvider({
 
   async function login(email: string, password: string) {
     const result = await AuthService.login({
-  email,
+  identifier: email,
   password,
 });
 

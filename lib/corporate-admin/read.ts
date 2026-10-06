@@ -676,14 +676,18 @@ async function invoices(request: NextRequest, a: AdminAccess) {
   const [rows, total, totals, unbilled] = await Promise.all([
     prisma.invoice.findMany({ where, orderBy: [{ invoiceDate: "desc" }, { id: "asc" }], skip: (n - 1) * PAGE, take: PAGE, select: invoiceSelect }),
     prisma.invoice.count({ where }),
-    prisma.invoice.groupBy({ by: ["paymentStatus"], where, _count: { _all: true }, _sum: { totalAmount: true, taxAmount: true } }),
+    // groupBy with the booking relation filter cannot sum taxAmount (Booking has a
+    // taxAmount column too and Postgres rejects the ambiguous reference), so GST is
+    // summed per status with aggregate, which filters in a subquery.
+    prisma.invoice.groupBy({ by: ["paymentStatus"], where, _count: { _all: true }, _sum: { totalAmount: true } }),
     // Completed trips that RideGrid Finance has not invoiced yet.
     prisma.booking.aggregate({ where: { ...companyBookings(a), ...(await orgFilter(request, a)), status: "TRIP_COMPLETED", invoice: { is: null } }, _sum: { finalFare: true }, _count: { _all: true } }),
   ]);
+  const tax = await Promise.all(totals.map((t) => prisma.invoice.aggregate({ where: { AND: [where, { paymentStatus: t.paymentStatus }] }, _sum: { taxAmount: true } })));
   return {
     items: rows.map((r) => invoiceRow(r, a.corporateId)),
     page: n, pageSize: PAGE, total,
-    summary: totals.map((t) => ({ status: t.paymentStatus, count: t._count._all, amount: dec(t._sum.totalAmount), tax: dec(t._sum.taxAmount) })),
+    summary: totals.map((t, i) => ({ status: t.paymentStatus, count: t._count._all, amount: dec(t._sum.totalAmount), tax: dec(tax[i]._sum.taxAmount) })),
     unbilled: { trips: unbilled._count._all, amount: dec(unbilled._sum.finalFare) },
   };
 }

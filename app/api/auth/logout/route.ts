@@ -2,6 +2,8 @@
 
 import { authService } from "@/lib/auth/auth";
 import { apiError } from "@/lib/api-error";
+import { refreshTokenService } from "@/lib/auth/refresh-token";
+import { deactivatePushDevice, isExpoPushToken } from "@/lib/notifications/push";
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,6 +49,17 @@ export async function POST(request: NextRequest) {
         request.headers.get("user-agent") ??
         "unknown",
     };
+
+    // This device stops receiving push for the signed-out account. The owner comes from
+    // the refresh token being revoked, so it works after the access token expired.
+    if (refreshToken && isExpoPushToken(body.pushToken)) {
+      try {
+        const userId = await refreshTokenService.getUserId(refreshToken);
+        if (userId) await deactivatePushDevice(userId, body.pushToken);
+      } catch {
+        // Sign-out must complete even if push storage is unavailable.
+      }
+    }
 
     if (refreshToken) await authService.logout(session);
 

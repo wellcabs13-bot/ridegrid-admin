@@ -1,6 +1,8 @@
 export interface LoginRequest {
-  email: string;
+  /** Email address or mobile number. */
+  identifier: string;
   password: string;
+  role?: string;
 }
 
 class AuthServiceClass {
@@ -19,6 +21,11 @@ class AuthServiceClass {
       throw new Error(result.message || "Unable to sign in. Please try again.");
     }
 
+    // A temporary password must be replaced before a session is issued.
+    if (result.data?.passwordChangeRequired && result.data.changeToken) {
+      window.location.assign(`/reset-password?token=${encodeURIComponent(result.data.changeToken)}&first=1`);
+      throw new Error("Set a new password to continue.");
+    }
     if (!result.data?.user?.id) throw new Error("Invalid sign-in response.");
     return result.data;
   }

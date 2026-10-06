@@ -15,6 +15,32 @@ import {
   reservationWindowFromPickup,
 } from "@/lib/services/marketplace/BookingAvailabilityService";
 import { WELLCABS } from "@/lib/website-public/brand";
+import { marketplaceRateWhere } from "@/lib/services/marketplace/MarketplaceOptionsService";
+import { withNotificationTargets } from "@/lib/notifications/NotificationTargets";
+
+// The vendor's account and marketplace standing, from the same rules the marketplace
+// and Super Admin use. A vendor is never told it is live unless cars are listed now.
+export async function vendorStanding(vendorId: string) {
+  const [v, listed, vehicles] = await Promise.all([
+    prisma.vendor.findFirst({ where: { id: vendorId }, select: { isApproved: true, verifiedAt: true, suspendedAt: true, suspensionReason: true } }),
+    prisma.pricingRateVersion.findMany({ where: marketplaceRateWhere(new Date(), vendorId), select: { pricingPackage: { select: { vehicleId: true } } } }),
+    prisma.vehicle.findMany({ where: { vendorId, deletedAt: null }, select: { isVerified: true, status: true, driverId: true } }),
+  ]);
+  const state = v?.suspendedAt ? "SUSPENDED" : v?.isApproved ? "VERIFIED" : "PENDING";
+  const liveVehicles = new Set(listed.map((r) => r.pricingPackage?.vehicleId).filter(Boolean)).size;
+  const reasons: string[] = [];
+  if (state === "SUSPENDED") reasons.push(v?.suspensionReason ? `Your account is suspended: ${v.suspensionReason}` : "Your account is suspended. Contact RideGrid support.");
+  if (state === "PENDING") reasons.push("RideGrid has not verified your business yet. Your cars are not shown to customers until it does.");
+  if (!vehicles.length) reasons.push("Add a vehicle to start receiving bookings.");
+  else {
+    const unverified = vehicles.filter((x) => !x.isVerified).length;
+    if (unverified) reasons.push(`${unverified} vehicle${unverified === 1 ? " is" : "s are"} waiting for RideGrid verification.`);
+    const noDriver = vehicles.filter((x) => !x.driverId).length;
+    if (noDriver) reasons.push(`${noDriver} vehicle${noDriver === 1 ? " has" : "s have"} no assigned driver.`);
+    if (state === "VERIFIED" && !liveVehicles && !unverified) reasons.push("No car has an approved, current price. Publish pricing to be listed.");
+  }
+  return { state, verifiedAt: v?.verifiedAt ?? null, liveVehicles, totalVehicles: vehicles.length, reasons };
+}
 
 export async function readVendor(
   request: NextRequest,
@@ -113,6 +139,7 @@ export async function readVendor(
       window: today,
     });
     return {
+      standing: await vendorStanding(vendorId),
       todayBookings,
       upcoming,
       active,
@@ -216,7 +243,12 @@ export async function readVendor(
         select: vehicleSelect,
       });
       if (!row) throw new VendorError(404, "Vehicle not found.");
-      return row;
+      // Public listing photos are counted exactly as the marketplace selects them.
+      // Documents and quarantined uploads are never listing photos.
+      const listingPhotos = await prisma.fileAsset.count({
+        where: { entityType: "VEHICLE_PHOTO", entityId: row.id, mimeType: { startsWith: "image/" } },
+      });
+      return { ...row, listingPhotos };
     }
     return list(
       await prisma.vehicle.findMany({
@@ -396,6 +428,7 @@ export async function readVendor(
     });
     return {
       ...vendor,
+      standing: await vendorStanding(vendorId),
       accountNumber: undefined,
       accountLast4: vendor.accountNumber?.slice(-4) || null,
     };
@@ -416,7 +449,7 @@ export async function readVendor(
       }),
       prisma.notification.count({ where: { userId, readAt: null } }),
     ]);
-    return { ...list(items), unread };
+    return { ...list(await withNotificationTargets(items, { vendorId })), unread };
   }
   if (section === "earnings") {
     const [wallet, settlements, totals, completed] = await Promise.all([

@@ -6,9 +6,11 @@ const prisma = new PrismaClient();
 async function main() {
   const email = "admin@ridegrid.in";
 
-  const existingUser = await prisma.user.findUnique({
+  const existingUser = await prisma.user.findFirst({
     where: {
       email,
+      role: UserRole.SUPER_ADMIN,
+      deletedAt: null,
     },
   });
 

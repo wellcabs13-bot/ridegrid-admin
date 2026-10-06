@@ -13,26 +13,42 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    // "identifier" is an email address or mobile number; "email" is accepted from older clients.
+    const identifier =
+      typeof body.identifier === "string"
+        ? body.identifier
+        : typeof body.email === "string"
+          ? body.email
+          : "";
+
     if (
-      typeof body.email !== "string" ||
+      !identifier.trim() ||
       typeof body.password !== "string" ||
-      !body.email.trim() ||
       !body.password
     ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Email and password are required.",
+          message: "Email or mobile number and password are required.",
         },
         { status: 400 }
       );
     }
 
     const result = await authService.login({
-      email: body.email,
+      identifier,
       password: body.password,
+      role: body.role,
       rememberMe: body.rememberMe ?? false,
     });
+
+    if ("passwordChangeRequired" in result) {
+      return NextResponse.json({
+        success: true,
+        message: "Set a new password to continue.",
+        data: result,
+      });
+    }
 
     const response = NextResponse.json({
       success: true,

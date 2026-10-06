@@ -1,12 +1,14 @@
+import { pushReady } from "@/lib/notifications/channels";
 import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { WELLCABS } from "@/lib/website-public/brand";
+import { withNotificationTargets } from "@/lib/notifications/NotificationTargets";
 import { DriverAccess, DriverError } from "./access";
 import { bookingSelect, documentSelect, safeBooking, vehicleSelect } from "./selects";
 export async function readDriver(request: NextRequest, section: string, a: DriverAccess) {
   const where = { driverId: a.driverId, deletedAt: null };
-  if (section === "config") return { support: WELLCABS, emergencyPhone: process.env.DRIVER_EMERGENCY_PHONE || null, documentUpload: false, profileEdit: false, backgroundLocation: false, pushRegistration: false, payoutHistory: true };
+  if (section === "config") return { support: WELLCABS, emergencyPhone: process.env.DRIVER_EMERGENCY_PHONE || null, documentUpload: false, profileEdit: false, backgroundLocation: false, pushRegistration: pushReady(), payoutHistory: true };
   if (section === "profile") {
     const d = await prisma.driver.findFirst({ where: { id: a.driverId, deletedAt: null }, select: { id: true, firstName: true, lastName: true, status: true, city: true, licenseNumber: true, user: { select: { name: true, email: true, mobile: true, isVerified: true } }, vehicles: { where: { deletedAt: null }, select: vehicleSelect }, documents: { select: documentSelect } } });
     if (!d) throw new DriverError(404, "Profile not found.");
@@ -17,7 +19,7 @@ export async function readDriver(request: NextRequest, section: string, a: Drive
     const id = request.nextUrl.searchParams.get("id");
     return prisma.vehicle.findMany({ where: { deletedAt: null, ...(id ? { id } : {}), OR: [{ driverId: a.driverId }, { bookings: { some: { ...where, status: { in: ["DRIVER_ASSIGNED", "TRIP_STARTED"] } } } }] }, select: vehicleSelect });
   }
-  if (section === "notifications") return prisma.notification.findMany({ where: { userId: a.user.id }, select: { id: true, title: true, message: true, readAt: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 100 });
+  if (section === "notifications") return withNotificationTargets(await prisma.notification.findMany({ where: { userId: a.user.id }, select: { id: true, title: true, message: true, readAt: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 100 }), { driverId: a.driverId });
   if (section === "earnings") {
     const items = await prisma.booking.findMany({ where: { ...where, status: "TRIP_COMPLETED", driverPayout: { not: null } }, select: { id: true, bookingNumber: true, pickupDateTime: true, driverPayout: true }, orderBy: { pickupDateTime: "desc" }, take: 100 });
     const [payrolls, incentives] = await Promise.all([

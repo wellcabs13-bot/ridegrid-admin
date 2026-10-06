@@ -1,5 +1,6 @@
 import { CorporateBudgetPeriod, Prisma, VehicleCategory } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { findIdentityClash, normalizeMobile } from "@/lib/auth/identity";
 import { APPROVER_LABEL, APPROVER_TYPES, corporateApprovalService } from "@/lib/services/corporate/CorporateApprovalService";
 import { corporateTravelPolicyService, policyServiceType } from "@/lib/services/corporate/CorporateTravelPolicyService";
 import { assertBudgetFits } from "@/lib/services/corporate/CorporateBudgetService";
@@ -138,14 +139,11 @@ async function employeeData(b: Body, a: AdminAccess, creating: boolean, selfId?:
   return { data, department };
 }
 
-// One identity per person: the official email and mobile may not already belong to another login.
+// The official email and mobile may not already belong to another employee login
+// (the same email/mobile may still be used by a customer, vendor or driver account).
 async function assertIdentityFree(officialEmail: string | null | undefined, mobile: string | null | undefined, exceptUserId?: string | null) {
-  const or: Prisma.UserWhereInput[] = [];
-  if (officialEmail) or.push({ email: officialEmail });
-  if (mobile) or.push({ mobile: mobile.replace(/\s/g, "") });
-  if (!or.length) return;
-  const clash = await prisma.user.findFirst({ where: { OR: or, deletedAt: null, ...(exceptUserId ? { id: { not: exceptUserId } } : {}) }, select: { email: true } });
-  if (clash) throw new CorporateAdminError(409, clash.email === officialEmail ? "Another RideGrid account already uses this email." : "Another RideGrid account already uses this mobile number.");
+  const clash = await findIdentityClash({ role: "CORPORATE_EMPLOYEE", email: officialEmail, mobile, exceptUserId });
+  if (clash) throw new CorporateAdminError(409, clash === "email" ? "Another employee login already uses this email." : "Another employee login already uses this mobile number.");
 }
 
 async function employeeWrite(b: Body, a: AdminAccess) {
@@ -187,7 +185,7 @@ async function employeeWrite(b: Body, a: AdminAccess) {
   if (action === "PROVISION_LOGIN") {
     const result = await provisionEmployeeLogin(a.corporateId, existing.id, a.user.id);
     await prisma.$transaction((tx) => auditEntry(tx, a, "CREATE", "CorporateEmployee", existing.id, undefined, { event: "LOGIN_PROVISIONED" }));
-    return { email: result.email, temporaryPassword: result.temporaryPassword };
+    return { email: result.email, temporaryPassword: result.temporaryPassword, activationEmailSent: result.activationEmailSent };
   }
   if (action !== "UPDATE") throw new CorporateAdminError(400, "Unsupported action.");
   const { data, department } = await employeeData(b, a, false, existing.id);
@@ -203,7 +201,7 @@ async function employeeWrite(b: Body, a: AdminAccess) {
   return prisma.$transaction(async (tx) => {
     await tx.corporateEmployee.updateMany({ where: { id: existing.id, corporateId: a.corporateId }, data: data as Prisma.CorporateEmployeeUncheckedUpdateManyInput });
     if (existing.userId && data.mobile !== undefined && data.mobile !== existing.mobile)
-      await tx.user.updateMany({ where: { id: existing.userId, role: "CORPORATE_EMPLOYEE" }, data: { mobile: (data.mobile as string).replace(/\s/g, "") } });
+      await tx.user.updateMany({ where: { id: existing.userId, role: "CORPORATE_EMPLOYEE" }, data: { mobile: normalizeMobile(data.mobile as string) } });
     await auditEntry(tx, a, "UPDATE", "CorporateEmployee", existing.id, undefined, data);
     return { id: existing.id };
   });

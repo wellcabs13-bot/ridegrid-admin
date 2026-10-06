@@ -319,7 +319,13 @@ export default function DriverForm() {
       }
 
       alert(
-        "Driver registered successfully."
+        result.data?.temporaryPassword
+          ? `Driver registered.
+
+Temporary password (shown only once — share it securely): ${result.data.temporaryPassword}
+
+The driver signs in to the Driver app with email or mobile number and must set a new password at first sign-in.`
+          : "Driver registered successfully."
       );
 
       window.location.reload();

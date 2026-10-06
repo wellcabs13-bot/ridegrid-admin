@@ -13,15 +13,15 @@ export default function ForgotPasswordPage() {
     <form className="mt-6 space-y-4" onSubmit={async e => {
       e.preventDefault(); if(busy) return; setBusy(true); setError(""); setMessage("");
       try {
-        const response=await fetch("/api/auth/forgot-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email})});
+        const response=await fetch("/api/auth/forgot-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({identifier:email})});
         const result=await response.json();
         if(!response.ok || !result.success) throw new Error(result.message || "Unable to request password recovery.");
         setMessage(result.message || "If the account exists, a password reset link has been requested.");
       } catch(err) {setError(err instanceof Error ? err.message : "Unable to request recovery.");}
       finally {setBusy(false);}
     }}>
-      <label htmlFor="recovery-email" className="block text-sm font-medium">Email address</label>
-      <input id="recovery-email" type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} className="w-full rounded-lg border border-neutral-300 p-3 focus:outline-red-600"/>
+      <label htmlFor="recovery-email" className="block text-sm font-medium">Email or mobile number</label>
+      <input id="recovery-email" type="text" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} className="w-full rounded-lg border border-neutral-300 p-3 focus:outline-red-600"/>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {message && <p role="status" className="rounded-lg bg-neutral-50 p-3 text-sm">{message}</p>}
       <button disabled={busy} className="w-full rounded-lg bg-red-600 p-3 font-semibold text-white disabled:opacity-50">{busy ? "Requesting…" : "Request password recovery"}</button>

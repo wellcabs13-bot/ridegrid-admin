@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { mobileCustomer, mobileFailure } from "@/lib/customer-mobile";
+import { withNotificationTargets } from "@/lib/notifications/NotificationTargets";
 export async function GET(request: NextRequest) {
   try {
     const a = await mobileCustomer(request); if (a.denied) return a.denied;
@@ -11,7 +12,8 @@ export async function GET(request: NextRequest) {
       prisma.notification.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 30, skip: (page - 1) * 30, select: { id: true, title: true, message: true, readAt: true, createdAt: true } }),
       prisma.notification.count({ where: { ...where, readAt: null } }),
     ]);
-    return NextResponse.json({ success: true, data: { items, unread, page, hasMore: items.length === 30 } }, { headers: { "Cache-Control": "no-store" } });
+    const targeted = await withNotificationTargets(items, { customer: { userId: a.user!.id } });
+    return NextResponse.json({ success: true, data: { items: targeted, unread, page, hasMore: items.length === 30 } }, { headers: { "Cache-Control": "no-store" } });
   } catch { return mobileFailure(); }
 }
 export async function PATCH(request: NextRequest) {

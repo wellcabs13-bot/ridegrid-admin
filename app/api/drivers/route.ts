@@ -2,6 +2,8 @@ import { centralFleetAccess } from "@/lib/vendor-mobile/legacy";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { UserRole, DriverStatus } from "@prisma/client";
+import { passwordService } from "@/lib/auth/password";
+import { findIdentityClash, normalizeMobile } from "@/lib/auth/identity";
 
 function serializeDriver(driver: any) {
   const vehicle = driver.vehicles?.[0] ?? null;
@@ -332,9 +334,9 @@ export async function POST(
         .toLowerCase();
 
     const mobile =
-      String(
-        body.mobile ?? ""
-      ).trim();
+      normalizeMobile(
+        String(body.mobile ?? "")
+      ) ?? "";
 
     const licenseNumber =
       String(
@@ -397,23 +399,19 @@ export async function POST(
     /*
      * Email must be unique.
      */
-    const existingUser =
-      await prisma.user.findFirst({
-        where: {
-          email,
-          driver: {
-            deletedAt: null,
-          },
-        },
-      });
+    // Only another active DRIVER blocks: the same email/mobile may belong to other roles.
+    const clash =
+      await findIdentityClash({ role: UserRole.DRIVER, email, mobile });
 
-    if (existingUser) {
+    if (clash) {
       return NextResponse.json(
         {
           success: false,
 
           message:
-            "A user with this email already exists.",
+            clash === "email"
+              ? "A driver with this email already exists."
+              : "A driver with this mobile number already exists.",
         },
 
         {
@@ -489,6 +487,12 @@ export async function POST(
       }
     }
 
+    // Unique temporary password, shown once to the creator; the first sign-in forces a new one.
+    const temporaryPassword =
+      passwordService.generateTemporaryPassword(12);
+    const passwordHash =
+      await passwordService.hash(temporaryPassword);
+
     const driver =
       await prisma.$transaction(
         async (tx) => {
@@ -522,11 +526,8 @@ export async function POST(
                 email,
                 mobile:
                   mobile || null,
-                password:
-                  String(
-                    body.password ??
-                      "ChangeMe@123"
-                  ),
+                password: passwordHash,
+                mustChangePassword: true,
                 role:
                   UserRole.DRIVER,
                 isActive: true,
@@ -606,11 +607,8 @@ export async function POST(
                       mobile:
                         mobile || null,
 
-                      password:
-                        String(
-                          body.password ??
-                            "ChangeMe@123"
-                        ),
+                      password: passwordHash,
+                      mustChangePassword: true,
 
                       role:
                         UserRole.DRIVER,
@@ -655,10 +653,12 @@ export async function POST(
       {
         success: true,
 
-        data:
-          serializeDriver(
+        data: {
+          ...serializeDriver(
             driver
           ),
+          temporaryPassword,
+        },
       },
 
       {

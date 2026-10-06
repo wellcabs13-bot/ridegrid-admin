@@ -17,6 +17,9 @@ import {
 } from "./automation-rules";
 
 import { prisma } from "@/lib/prisma";
+import { emailProvider, logEmailResult } from "@/lib/notifications/email";
+import { sendPush } from "@/lib/notifications/push";
+import { approvalTarget, type NotificationTarget } from "@/lib/notifications/NotificationTargets";
 
 import {
   NotificationStatus,
@@ -25,9 +28,10 @@ import {
 } from "@prisma/client";
 
 // Executes the registered internal automation rules for one event. Called by the
-// central dispatcher for every stored RideGridEvent. Only in-app notification records
-// are created here; external channels (email/SMS/WhatsApp) are not connected, and
-// rules that need them are never selected (see `requires` in automation-rules.ts).
+// central dispatcher for every stored RideGridEvent. In-app notification records are
+// the source of truth; device push mirrors them after they are stored, and email rules
+// send through the EmailProvider. Rules whose channel is not configured are never
+// selected (see ruleRequirement in automation-rules.ts). SMS/WhatsApp are not connected.
 
 type Resolved = {
   ref: string;
@@ -120,17 +124,44 @@ export class AutomationEngine {
     request: AutomationExecutionRequest,
     resolved: Resolved
   ): Promise<number> {
+    const input = { ref: resolved.ref, pickup: resolved.pickup, metadata: request.context.metadata ?? {} };
+    if (rule.action === AutomationAction.SEND_EMAIL && rule.recipient && rule.email)
+      return this.sendEmail(rule, await this.recipients(rule.recipient, request, resolved), rule.email(input), request);
     if (rule.action !== AutomationAction.CREATE_NOTIFICATION || !rule.recipient || !rule.template)
       throw new Error(`Unsupported automation action: ${rule.action}`);
     const userIds = await this.recipients(rule.recipient, request, resolved);
     if (!userIds.length) return 0;
-    const { title, message } = rule.template({ ref: resolved.ref, pickup: resolved.pickup, metadata: request.context.metadata ?? {} });
+    const { title, message } = rule.template(input);
     const now = new Date();
     // In-app inbox records are delivered by being stored; the apps read them directly.
     await prisma.notification.createMany({
       data: userIds.map(userId => ({ userId, notificationType: NotificationType.PUSH, title, message, status: NotificationStatus.SENT, sentAt: now })),
     });
+    // Device push mirrors the stored notification. Best-effort and not awaited: a push
+    // outage never fails or delays the event. Only a navigation hint is sent.
+    const bookingId = request.context.bookingId;
+    const target: NotificationTarget | null = bookingId ? { type: "booking", id: bookingId, bookingNumber: resolved.ref } : approvalTarget(title);
+    void sendPush(userIds.map(userId => ({ userId, title, message, target })));
     return userIds.length;
+  }
+
+  // One email per recipient through the EmailProvider. A rule that already completed
+  // is never re-run for the same event (completedRuleIds), so a retry does not resend.
+  // Only a total, retryable failure fails the rule so the retry queue tries again.
+  private async sendEmail(rule: AutomationRuleDefinition, userIds: string[], content: { subject: string; text: string }, request: AutomationExecutionRequest): Promise<number> {
+    if (!userIds.length) return 0;
+    const users = await prisma.user.findMany({ where: { id: { in: userIds }, isActive: true, deletedAt: null }, select: { id: true, name: true, email: true } });
+    let sent = 0;
+    const retryable: string[] = [];
+    for (const u of users) {
+      const result = await emailProvider.send({ to: { address: u.email, name: u.name }, subject: content.subject, text: content.text, reference: `${rule.id}:${request.context.bookingId ?? request.context.userId ?? "event"}` });
+      await logEmailResult(u.email, content.subject, result);
+      if (result.status === "SENT") sent++;
+      else if (result.status === "FAILED" && result.retryable) retryable.push(result.error);
+      else if (result.status === "FAILED") console.error(`[Automation] ${rule.id} email not accepted: ${result.error}`);
+    }
+    if (!sent && retryable.length) throw new Error(`Email delivery failed: ${retryable[0]}`);
+    return sent;
   }
 
   // Loads what the templates and recipient lookups need, once per event.

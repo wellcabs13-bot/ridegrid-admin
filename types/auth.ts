@@ -21,9 +21,19 @@ export enum AuthStatus {
 }
 
 export interface LoginRequest {
-  email: string;
+  /** Email address or mobile number. */
+  identifier: string;
   password: string;
+  /** Role the calling app expects; omitted by the web portal. */
+  role?: string;
   rememberMe?: boolean;
+}
+
+/** Returned instead of a session while a temporary password must be replaced. */
+export interface PasswordChangeRequired {
+  passwordChangeRequired: true;
+  changeToken: string;
+  user: { name: string; email: string; role: string };
 }
 
 export interface LoginResponse {

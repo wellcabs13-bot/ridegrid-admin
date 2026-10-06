@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { DriverError, required, type DriverAccess } from "@/lib/driver-mobile/access";
 import { emitRideGridEvent } from "@/lib/events/event-dispatcher";
 import { AutomationTrigger } from "@/types/automation";
+import { sendPush } from "@/lib/notifications/push";
 
 export async function ownedAssignment(tx: Prisma.TransactionClient, a: DriverAccess, bookingId: string) {
   const b = await tx.booking.findFirst({
@@ -27,16 +28,28 @@ export async function transitionDriverTrip(a: DriverAccess, bookingId: string, a
     const updated = await tx.booking.updateMany({ where: { id: b.id, driverId: a.driverId, status: b.status, updatedAt: b.updatedAt, deletedAt: null }, data: { status: next.booking, updatedAt: now } });
     if (updated.count !== 1) throw new DriverError(409, "Assignment changed. Refresh and retry.");
     const times = action === "ARRIVED" ? { arrivedPickupAt: now } : action === "START" ? { tripStartedAt: now, startTime: now } : { tripCompletedAt: now, endTime: now };
+    // The Trip row is first written on arrival; its assignment time is when the vendor or
+    // Operations actually assigned the driver (booking history), not the arrival time.
+    const assigned = b.trip ? null : await tx.bookingStatusHistory.findFirst({ where: { bookingId: b.id, currentStatus: "DRIVER_ASSIGNED" }, orderBy: { changedAt: "desc" }, select: { changedAt: true } });
     const trip = b.trip
       ? await tx.trip.update({ where: { id: b.trip.id }, data: { status: next.trip, ...times } })
-      : await tx.trip.create({ data: { bookingId: b.id, driverId: a.driverId, vehicleId: b.vehicleId, status: next.trip, driverAssignedAt: now, ...times } });
+      : await tx.trip.create({ data: { bookingId: b.id, driverId: a.driverId, vehicleId: b.vehicleId, status: next.trip, driverAssignedAt: assigned?.changedAt ?? now, ...times } });
     await tx.bookingStatusHistory.create({ data: { bookingId: b.id, previousStatus: b.status, currentStatus: next.booking, action: action === "COMPLETE" ? "COMPLETED" : "STATUS_CHANGED", changedBy: a.user.id, remarks: `Driver trip: ${next.trip}` } });
     await tx.auditLog.create({ data: { userId: a.user.id, action: "UPDATE", entityName: "Trip", entityId: trip.id, newValue: { status: next.trip, bookingId: b.id } } });
     // Existing notification records are written atomically with central trip state.
-    await tx.notification.createMany({ data: [...new Set([a.user.id, b.customer.userId, b.vendor.userId])].map(userId => ({ userId, notificationType: "PUSH" as const, title: `Trip ${next.trip.replaceAll("_", " ").toLowerCase()}`, message: `${b.bookingNumber}: ${next.trip.replaceAll("_", " ")}`, status: "PENDING" as const })) });
-    return { id: b.id, status: next.booking, trip: { id: trip.id, status: next.trip }, event: { bookingNumber: b.bookingNumber, customerId: b.customerId, customerUserId: b.customer.userId, vendorId: b.vendorId } };
+    // Plain-language updates; the booking number leads so the apps can link to the trip.
+    const update = next.trip === "ARRIVED_AT_PICKUP" ? { title: "Driver arrived at pickup", text: "the driver has arrived at the pickup point." }
+      : next.trip === "STARTED" ? { title: "Trip started", text: "the trip has started." }
+      : { title: "Trip completed", text: "the trip is complete." };
+    await tx.notification.createMany({ data: [...new Set([a.user.id, b.customer.userId, b.vendor.userId])].map(userId => ({ userId, notificationType: "PUSH" as const, title: update.title, message: `${b.bookingNumber}: ${update.text}`, status: "PENDING" as const })) });
+    return { id: b.id, status: next.booking, trip: { id: trip.id, status: next.trip }, event: { bookingNumber: b.bookingNumber, customerId: b.customerId, customerUserId: b.customer.userId, vendorId: b.vendorId, vendorUserId: b.vendor.userId, title: update.title, message: `${b.bookingNumber}: ${update.text}` } };
   }, { isolationLevel: "Serializable" });
   const { event, ...response } = result;
+  // After commit: mirror the stored notification as device push to the traveller and
+  // vendor (the driver pressed the button). Best-effort; never fails the transition.
+  void sendPush([...new Set([event.customerUserId, event.vendorUserId])].filter((u) => u !== a.user.id).map((userId) => ({
+    userId, title: event.title, message: event.message, target: { type: "booking" as const, id: response.id, bookingNumber: event.bookingNumber },
+  })));
   // Completion is a central lifecycle event (booking timeline, automation dashboard).
   if (response.status === "TRIP_COMPLETED")
     await emitRideGridEvent({

@@ -33,9 +33,9 @@ export default function CorporateLoginForm() {
   return <form onSubmit={submit} className="space-y-5">
     {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <div>
-      <label htmlFor="corp-email" className="mb-2 block text-sm font-medium text-neutral-700">Work email</label>
+      <label htmlFor="corp-email" className="mb-2 block text-sm font-medium text-neutral-700">Work email or mobile</label>
       <div className="relative"><Mail className="absolute left-3 top-3 h-5 w-5 text-neutral-400" aria-hidden/>
-        <input id="corp-email" type="email" autoComplete="username" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@company.com" className="w-full rounded-xl border border-neutral-300 py-3 pl-11 pr-4 outline-none focus:border-red-600"/></div>
+        <input id="corp-email" type="text" autoComplete="username" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@company.com" className="w-full rounded-xl border border-neutral-300 py-3 pl-11 pr-4 outline-none focus:border-red-600"/></div>
     </div>
     <div>
       <label htmlFor="corp-password" className="mb-2 block text-sm font-medium text-neutral-700">Password</label>

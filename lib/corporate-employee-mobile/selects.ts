@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import type { ApprovalRequestSnapshot } from "@/lib/services/corporate/CorporateApprovalService";
+import { APPROVER_LABEL, type ApprovalRequestSnapshot, type ApproverType } from "@/lib/services/corporate/CorporateApprovalService";
 
 type FareSource = Record<string, unknown> | null | undefined;
 
@@ -68,7 +68,7 @@ export function safeBooking(b: BookingRow, approval?: { id: string; status: stri
 
 export const approvalSelect = {
   id: true, status: true, amount: true, currentStage: true, submittedAt: true, completedAt: true, bookingId: true, requestSnapshot: true,
-  steps: { select: { level: true, stage: true, status: true, remarks: true, actedAt: true }, orderBy: { level: "asc" as const } },
+  steps: { select: { level: true, stage: true, status: true, remarks: true, actedAt: true, approverType: true }, orderBy: { level: "asc" as const } },
 } satisfies Prisma.CorporateApprovalRequestSelect;
 
 type ApprovalRow = Prisma.CorporateApprovalRequestGetPayload<{ select: typeof approvalSelect }>;
@@ -94,8 +94,8 @@ export function safeApproval(r: ApprovalRow, booking?: { id: string; bookingNumb
       pickupDateTime: s.pickupDateTime, pickupAddress: s.pickupAddress, dropAddress: s.dropAddress, route: s.route,
       vehicle: s.vehicle, vendorName: s.vendorName, fare: s.fare, policyReasons: s.policyReasons, note: s.note,
     } : null,
-    // Approver identity is not exposed; the stage and decision are.
-    steps: r.steps.map((step) => ({ level: step.level, stage: step.stage, status: step.status, actedAt: step.actedAt, remarks: step.remarks })),
+    // Approver identity is not exposed; the approver's role, stage and decision are.
+    steps: r.steps.map((step) => ({ level: step.level, stage: step.stage, approver: APPROVER_LABEL[step.approverType as ApproverType] ?? null, status: step.status, actedAt: step.actedAt, remarks: step.remarks })),
     decisionNote: decided.map((step) => step.remarks).filter(Boolean).join(" ") || null,
     booking: booking ?? null,
   };

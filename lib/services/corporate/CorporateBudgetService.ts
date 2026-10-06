@@ -61,7 +61,7 @@ export async function applicableBudgets(corporateId: string, traveller: BudgetTr
   });
   return Promise.all(rows.map(async (b) => {
     const used = await budgetSpend(b, traveller.userId);
-    return { id: b.id, name: b.budgetName, scope: budgetScope(b), limit: b.allocatedAmount, used, remaining: Prisma.Decimal.max(b.allocatedAmount.minus(used), 0) };
+    return { id: b.id, name: b.budgetName, scope: budgetScope(b), limit: b.allocatedAmount, used, remaining: Prisma.Decimal.max(b.allocatedAmount.minus(used), 0), startDate: b.startDate, endDate: b.endDate };
   }));
 }
 

@@ -1,14 +1,17 @@
+import { pushReady } from "@/lib/notifications/channels";
 import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { WELLCABS } from "@/lib/website-public/brand";
 import { marketplaceListingService } from "@/lib/services/marketplace/MarketplaceListingService";
-import { corporateTravelPolicyService, policyCategories } from "@/lib/services/corporate/CorporateTravelPolicyService";
+import { corporateTravelPolicyService, policyCategories, policyCities } from "@/lib/services/corporate/CorporateTravelPolicyService";
+import { applicableBudgets } from "@/lib/services/corporate/CorporateBudgetService";
+import { withNotificationTargets } from "@/lib/notifications/NotificationTargets";
 import { corporateApprovalService } from "@/lib/services/corporate/CorporateApprovalService";
 import { getCorporateCreditAccount } from "@/lib/services/corporate/CorporateCreditService";
 import { trustedTripLocation } from "@/lib/services/booking/TrustedLocationService";
 import { CorporateMobileError, EmployeeAccess, policySubject } from "./access";
-import { approvalSelect, bookingSelect, safeApproval, safeBooking, safeFare } from "./selects";
+import { approvalSelect, approvalStatus, bookingSelect, safeApproval, safeBooking, safeFare } from "./selects";
 
 export const ownBookings = (a: EmployeeAccess): Prisma.BookingWhereInput => ({
   corporateId: a.employee.corporateId, deletedAt: null, customer: { userId: a.user.id },
@@ -44,7 +47,7 @@ export function profileOf(a: EmployeeAccess) {
   const e = a.employee;
   return {
     id: e.id, name: e.employeeName, employeeCode: e.employeeCode, email: e.officialEmail, mobile: e.mobile,
-    designation: e.designation, grade: e.employeeGrade, managerName: e.managerName, isApprover: e.isApprover,
+    designation: e.designation, grade: e.employeeGrade, managerName: e.managerName, isApprover: e.isApprover, canBook: e.canBook !== false,
     status: e.isActive ? "ACTIVE" : "INACTIVE", defaultPickupAddress: e.defaultPickupAddress,
     company: { name: e.corporate.companyName, approvalFlow: e.corporate.approvalFlow, billingCycle: e.corporate.billingCycle },
     branch: e.branch ? { name: e.branch.branchName, city: e.branch.city } : null,
@@ -52,10 +55,16 @@ export function profileOf(a: EmployeeAccess) {
   };
 }
 
-// Only the employee's own limits are exposed. Company budgets remain admin-only.
+// Only the employee's own limits and budgets assigned to them personally are exposed.
+// Company, branch and department budgets remain admin-only; when one of them blocks a
+// trip, the quote's policy reasons say so.
 export async function budgetOf(a: EmployeeAccess) {
   const e = a.employee;
-  if (e.monthlyTravelLimit === null && e.yearlyTravelLimit === null) return { visible: false as const };
+  const now = new Date();
+  const assigned = (await applicableBudgets(e.corporateId, { id: e.id, userId: a.user.id, branchId: e.branchId, departmentId: e.departmentId }, now))
+    .filter((b) => b.scope === "EMPLOYEE")
+    .map((b) => ({ name: b.name, limit: b.limit.toFixed(2), used: new Prisma.Decimal(b.used).toFixed(2), remaining: b.remaining.toFixed(2), periodStart: b.startDate, periodEnd: b.endDate }));
+  if (e.monthlyTravelLimit === null && e.yearlyTravelLimit === null) return assigned.length ? { visible: true as const, monthly: null, yearly: null, assigned, basis: "Booked, non-cancelled company rides in the budget period." } : { visible: false as const };
   const usage = await corporateTravelPolicyService.employeeUsage(e.corporateId, a.user.id);
   const period = (limit: Prisma.Decimal | null, used: Prisma.Decimal.Value, start: Date, end: Date) => limit === null ? null : {
     limit: limit.toFixed(2), used: new Prisma.Decimal(used).toFixed(2),
@@ -65,6 +74,7 @@ export async function budgetOf(a: EmployeeAccess) {
     visible: true as const,
     monthly: period(e.monthlyTravelLimit, usage.monthUsed, usage.periods.monthStart, usage.periods.monthEnd),
     yearly: period(e.yearlyTravelLimit, usage.yearUsed, usage.periods.yearStart, usage.periods.yearEnd),
+    assigned,
     basis: "Booked, non-cancelled company rides by pickup date (India time).",
   };
 }
@@ -80,6 +90,12 @@ export async function policyOf(a: EmployeeAccess) {
       allowedCategories: policyCategories(policy), advanceBookingHours: policy.advanceBookingHours,
       nightTravelAllowed: policy.nightTravelAllowed, outstationAllowed: policy.outstationAllowed,
       airportTravelAllowed: policy.airportTravelAllowed, approvalRequired: policy.approvalRequired,
+      description: policy.description ?? null,
+      scope: a.employee.travelPolicyId === policy.id ? "ASSIGNED" : policy.departmentId ? "DEPARTMENT" : policy.branchId ? "BRANCH" : "COMPANY",
+      localAllowed: policy.localAllowed !== false, roundTripAllowed: policy.roundTripAllowed !== false,
+      weekendTravelAllowed: policy.weekendTravelAllowed !== false,
+      bookingStartHour: policy.bookingStartHour ?? null, bookingEndHour: policy.bookingEndHour ?? null,
+      blockAboveAmount: policy.blockAboveAmount?.toFixed(2) ?? null, allowedCities: policyCities(policy),
     } : null,
     approvalStages: workflow.stages.map((s) => ({ level: s.level, approver: s.approverDesignation, maxAmount: s.maxAmount })),
     approvalFlow: a.employee.corporate.approvalFlow,
@@ -141,6 +157,20 @@ async function search(request: NextRequest, a: EmployeeAccess) {
   };
 }
 
+// Requests whose current step is assigned to this employee as the approver. Requests
+// whose pickup time has passed can no longer be approved, so they are left out.
+export async function approverQueue(a: EmployeeAccess) {
+  const rows = await prisma.corporateApprovalRequest.findMany({
+    where: { corporateId: a.employee.corporateId, status: "PENDING", employeeId: { not: a.employee.id }, steps: { some: { status: "PENDING", assignedEmployeeId: a.employee.id } } },
+    select: { ...approvalSelect, steps: { select: { level: true, stage: true, status: true, remarks: true, actedAt: true, approverType: true, assignedEmployeeId: true }, orderBy: { level: "asc" } }, employee: { select: { employeeName: true, employeeCode: true, department: { select: { departmentName: true } } } } },
+    orderBy: { submittedAt: "asc" }, take: 50,
+  });
+  // Only requests whose first pending step is this employee's are actionable now.
+  return rows
+    .filter((r) => r.steps.find((s) => s.status === "PENDING")?.assignedEmployeeId === a.employee.id && approvalStatus(r) === "PENDING")
+    .map((r) => ({ ...safeApproval(r), employee: { name: r.employee.employeeName, code: r.employee.employeeCode, department: r.employee.department?.departmentName ?? null } }));
+}
+
 export async function readEmployee(request: NextRequest, section: string, a: EmployeeAccess) {
   const id = request.nextUrl.searchParams.get("id");
   if (section === "config") {
@@ -149,7 +179,7 @@ export async function readEmployee(request: NextRequest, section: string, a: Emp
       support: { name: WELLCABS.name, phoneHref: WELLCABS.phoneHref, emailHref: WELLCABS.emailHref, whatsapp: WELLCABS.whatsapp },
       paymentMethod: payment.method,
       paymentAvailable: payment.available,
-      services: ["ONE_WAY", "ROUNDTRIP", "LOCAL"], profileEdit: false, pushRegistration: false, rebook: true,
+      services: ["ONE_WAY", "ROUNDTRIP", "LOCAL"], profileEdit: false, pushRegistration: pushReady(), rebook: true,
       termsPath: "/terms-and-conditions", privacyPath: "/privacy-policy", cancellationPath: "/cancellation-refund-policy",
     };
   }
@@ -159,18 +189,18 @@ export async function readEmployee(request: NextRequest, section: string, a: Emp
   if (section === "search") return search(request, a);
   if (section === "home") {
     const now = new Date();
-    const [upcoming, active, pending, approved, unread, policy, budget] = await Promise.all([
+    const [upcoming, active, pending, approved, unread, policy, budget, reviews] = await Promise.all([
       prisma.booking.findFirst({ where: { ...ownBookings(a), status: { in: ["PENDING", "CONFIRMED", "DRIVER_ASSIGNED"] }, pickupDateTime: { gte: now } }, select: bookingSelect, orderBy: { pickupDateTime: "asc" } }),
       prisma.booking.count({ where: { ...ownBookings(a), status: "TRIP_STARTED" } }),
       prisma.corporateApprovalRequest.findMany({ where: { ...ownApprovals(a), status: "PENDING" }, select: { requestSnapshot: true, status: true, bookingId: true } }),
       prisma.corporateApprovalRequest.findMany({ where: { ...ownApprovals(a), status: "APPROVED", bookingId: null }, select: { requestSnapshot: true, status: true, bookingId: true } }),
       prisma.notification.count({ where: { userId: a.user.id, readAt: null } }),
-      policyOf(a), budgetOf(a),
+      policyOf(a), budgetOf(a), approverQueue(a),
     ]);
     const live = (rows: { requestSnapshot: Prisma.JsonValue }[]) => rows.filter((r) => Date.parse((r.requestSnapshot as { pickupDateTime?: string } | null)?.pickupDateTime || "") > now.getTime()).length;
     return {
       profile: profileOf(a), upcoming: upcoming ? safeBooking(upcoming) : null, activeTrips: active,
-      pendingApprovals: live(pending), approvedToBook: live(approved), unread, policy: policy.policy, budget, asOf: now,
+      pendingApprovals: live(pending), approvedToBook: live(approved), awaitingMyDecision: reviews.length, unread, policy: policy.policy, budget, asOf: now,
     };
   }
   if (section === "trips") {
@@ -205,17 +235,7 @@ export async function readEmployee(request: NextRequest, section: string, a: Emp
     const rows = await prisma.corporateApprovalRequest.findMany({ where: ownApprovals(a), select: approvalSelect, orderBy: [{ submittedAt: "desc" }, { id: "desc" }], skip: (n - 1) * 20, take: 21 });
     return { items: rows.slice(0, 20).map((r) => safeApproval(r)), page: n, hasMore: rows.length > 20 };
   }
-  // Requests whose current step is assigned to this employee as the approver.
-  if (section === "approver-queue") {
-    const rows = await prisma.corporateApprovalRequest.findMany({
-      where: { corporateId: a.employee.corporateId, status: "PENDING", employeeId: { not: a.employee.id }, steps: { some: { status: "PENDING", assignedEmployeeId: a.employee.id } } },
-      select: { ...approvalSelect, steps: { select: { level: true, stage: true, status: true, remarks: true, actedAt: true, assignedEmployeeId: true }, orderBy: { level: "asc" } }, employee: { select: { employeeName: true, employeeCode: true, department: { select: { departmentName: true } } } } },
-      orderBy: { submittedAt: "asc" }, take: 50,
-    });
-    // Only requests whose first pending step is this employee's are actionable now.
-    const mine = rows.filter((r) => r.steps.find((s) => s.status === "PENDING")?.assignedEmployeeId === a.employee.id);
-    return { items: mine.map((r) => ({ ...safeApproval(r), employee: { name: r.employee.employeeName, code: r.employee.employeeCode, department: r.employee.department?.departmentName ?? null } })) };
-  }
+  if (section === "approver-queue") return { items: await approverQueue(a) };
   if (section === "notifications") {
     const n = page(request);
     const where = { userId: a.user.id };
@@ -223,7 +243,7 @@ export async function readEmployee(request: NextRequest, section: string, a: Emp
       prisma.notification.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 31, skip: (n - 1) * 30, select: { id: true, title: true, message: true, readAt: true, createdAt: true } }),
       prisma.notification.count({ where: { ...where, readAt: null } }),
     ]);
-    return { items: items.slice(0, 30), unread, page: n, hasMore: items.length > 30 };
+    return { items: await withNotificationTargets(items.slice(0, 30), ownBookings(a), { approvals: true }), unread, page: n, hasMore: items.length > 30 };
   }
   throw new CorporateMobileError(404, "Not found.");
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
+import { readStoredFile } from "@/lib/services/storage/FileStorageService";
 import { auditEntry, corporateAdminAccess, CorporateAdminError, failure, ok } from "@/lib/corporate-admin/access";
 import { companyBookings, invoiceWhere } from "@/lib/corporate-admin/read";
 import { commercialProfile, companyDocumentFile, uploadCompanyDocument } from "@/lib/corporate-admin/documents";
@@ -56,12 +56,10 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ kind: s
     const name = kind === "quotation" ? profile?.quotationFileName : profile?.agreementFileName;
     const fileId = url?.match(/^\/api\/files\/([A-Za-z0-9-]{1,100})$/)?.[1];
     if (!fileId) throw new CorporateAdminError(404, "Document not found.");
-    const root = path.join(process.cwd(), "storage", "media", fileId);
-    const files = await fs.readdir(root).catch(() => [] as string[]);
-    if (!files.length) throw new CorporateAdminError(404, "Document not found.");
-    const ext = path.extname(files[0]).toLowerCase();
-    const body = await fs.readFile(path.join(root, files[0]));
-    return new NextResponse(new Uint8Array(body), { headers: headers(MIME[ext] || "application/octet-stream", `inline; filename="${safeName(name || files[0])}"`) });
+    const stored = await readStoredFile(fileId);
+    if (!stored) throw new CorporateAdminError(404, "Document not found.");
+    const ext = path.extname(stored.name).toLowerCase();
+    return new NextResponse(new Uint8Array(stored.body), { headers: headers(MIME[ext] || "application/octet-stream", `inline; filename="${safeName(name || stored.name)}"`) });
   } catch (e) { return failure(e); }
 }
 

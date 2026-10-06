@@ -177,5 +177,6 @@ export async function commitMarketplaceBooking(input: CommitMarketplaceBooking) 
     });
     if (input.afterCreate) await input.afterCreate(tx, created);
     return created;
-  }, { isolationLevel: "Serializable" });
+  // Many round-trips to the database: allow more than Prisma's 5s default.
+  }, { isolationLevel: "Serializable", timeout: 20000, maxWait: 10000 });
 }

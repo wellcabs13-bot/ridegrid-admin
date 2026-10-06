@@ -1,8 +1,7 @@
-import fs from "fs/promises";
 import path from "path";
 import { DocumentType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { storeFile } from "@/lib/services/storage/FileStorageService";
+import { readStoredFile, storeFile } from "@/lib/services/storage/FileStorageService";
 import { AdminAccess, auditEntry, CorporateAdminError } from "./access";
 
 // Company documents live in the shared FileAsset + DocumentRecord store. A record's
@@ -148,8 +147,7 @@ export async function companyDocumentFile(a: AdminAccess, recordId: string) {
   });
   const fileId = r?.file.fileUrl.match(/^\/api\/files\/([A-Za-z0-9-]{1,100})$/)?.[1];
   if (!r || !fileId) throw new CorporateAdminError(404, "Document not found.");
-  const root = path.join(process.cwd(), "storage", "media", fileId);
-  const files = await fs.readdir(root).catch(() => [] as string[]);
-  if (!files.length) throw new CorporateAdminError(404, "Document not found.");
-  return { body: await fs.readFile(path.join(root, files[0])), name: r.file.originalName || files[0], mimeType: r.file.mimeType && MIME[r.file.mimeType] ? r.file.mimeType : "application/octet-stream" };
+  const stored = await readStoredFile(fileId);
+  if (!stored) throw new CorporateAdminError(404, "Document not found.");
+  return { body: stored.body, name: r.file.originalName || stored.name, mimeType: r.file.mimeType && MIME[r.file.mimeType] ? r.file.mimeType : "application/octet-stream" };
 }

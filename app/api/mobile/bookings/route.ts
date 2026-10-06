@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { mobileCustomer, mobileFailure } from "@/lib/customer-mobile";
+import { LIVE_BOOKING_STATUSES } from "@/lib/services/booking/BookingContactPolicy";
+import { publicSnapshot } from "@/lib/services/pricing/publicSnapshot";
 export async function GET(request: NextRequest) {
   try {
     const a = await mobileCustomer(request); if (a.denied) return a.denied;
@@ -17,6 +19,11 @@ export async function GET(request: NextRequest) {
         statusHistory: { select: { currentStatus: true, createdAt: true }, orderBy: { createdAt: "desc" } },
       } });
     if (id && !data.length) return NextResponse.json({ success: false, message: "Booking not found." }, { status: 404 });
-    return NextResponse.json({ success: true, data: { bookings: data.map(({ pricingPackage: p, ...b }) => ({ ...b, rebook: p ? { serviceType: p.packageType === "LOCAL" ? "LOCAL" : "OUTSTATION", tripType: b.tripType === "ROUNDTRIP" ? "ROUNDTRIP" : "ONEWAY", pickupCity: (p.packageType === "LOCAL" ? p.city : p.fromCity) || "", dropCity: p.toCity || "", category: b.vehicle.category, packageName: p.packageType === "LOCAL" ? p.packageName : "" } : null })), page, hasMore: !id && data.length === 20 } }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ success: true, data: { bookings: data.map(({ pricingPackage: p, priceSnapshot, driver, ...b }) => ({ ...b,
+      // Customer-facing fare only (no vendor payout, processing cost or RideGrid revenue),
+      // and the driver's mobile only while the assignment is live (BookingContactPolicy).
+      priceSnapshot: priceSnapshot && typeof priceSnapshot === "object" && !Array.isArray(priceSnapshot) ? publicSnapshot(priceSnapshot) : null,
+      driver: driver ? { firstName: driver.firstName, lastName: driver.lastName, user: { mobile: LIVE_BOOKING_STATUSES.has(b.status) ? driver.user.mobile : null } } : null,
+      rebook: p ? { serviceType: p.packageType === "LOCAL" ? "LOCAL" : "OUTSTATION", tripType: b.tripType === "ROUNDTRIP" ? "ROUNDTRIP" : "ONEWAY", pickupCity: (p.packageType === "LOCAL" ? p.city : p.fromCity) || "", dropCity: p.toCity || "", category: b.vehicle.category, packageName: p.packageType === "LOCAL" ? p.packageName : "" } : null })), page, hasMore: !id && data.length === 20 } }, { headers: { "Cache-Control": "no-store" } });
   } catch { return mobileFailure(); }
 }

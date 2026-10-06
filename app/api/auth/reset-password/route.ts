@@ -135,6 +135,7 @@ export async function POST(request: NextRequest) {
         },
         data: {
           password: passwordHash,
+          mustChangePassword: false,
         },
       }),
 

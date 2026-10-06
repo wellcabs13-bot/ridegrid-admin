@@ -2,6 +2,7 @@ import { staffGuard } from "@/lib/request-access";
 import { Permission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { customerRepository } from "@/lib/repositories/customer";
+import { findIdentityClash, normalizeMobile } from "@/lib/auth/identity";
 
 function serializeCustomer(customer: any) {
   const bookings = customer.bookings ?? [];
@@ -129,10 +130,7 @@ export async function POST(
         ? body.email.trim().toLowerCase()
         : "";
 
-    const mobile =
-      typeof body.mobile === "string"
-        ? body.mobile.trim()
-        : null;
+    const mobile = normalizeMobile(body.mobile);
 
     const password =
       typeof body.password === "string"
@@ -183,6 +181,22 @@ export async function POST(
       );
     }
 
+    // Only another active CUSTOMER blocks registration: the same email/mobile may
+    // already belong to a vendor, driver or corporate employee login.
+    const clash = await findIdentityClash({ role: "CUSTOMER", email, mobile });
+    if (clash) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            clash === "email"
+              ? "This email is already registered. Sign in or use Forgot Password."
+              : "This mobile number is already registered. Sign in or use Forgot Password.",
+        },
+        { status: 409 }
+      );
+    }
+
     const customer =
       await customerRepository.create({
         firstName,
@@ -219,7 +233,7 @@ export async function POST(
         {
           success: false,
           message:
-            "A customer with this email or mobile already exists.",
+            "This email or mobile number is already registered.",
         },
         { status: 409 }
       );

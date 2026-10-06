@@ -24,18 +24,18 @@ export default function EmployeeDetail({ params }: { params: Promise<{ id: strin
   const { data: e, loading, error, reload } = useAdminData<Employee>(`${API}/employees?id=${encodeURIComponent(id)}`);
   const [editing, setEditing] = useState<EmployeeInput | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
-  const [credential, setCredential] = useState<{ email: string; temporaryPassword: string } | null>(null);
+  const [credential, setCredential] = useState<{ email: string; temporaryPassword: string; emailed: boolean } | null>(null);
   const { busy, error: saveError, run } = useSubmit();
   const s = (v: string | null) => v ?? "";
   async function apply() {
     if (!confirm || !e) return;
     const body = confirm.action === "SET_ACTIVE" ? { isActive: confirm.value } : confirm.action === "SET_APPROVER" ? { isApprover: confirm.value } : {};
-    const r = await run(() => send<{ email?: string; temporaryPassword?: string }>("employees", { action: confirm.action, id: e.id, ...body }));
-    if (r) { if (r.temporaryPassword && r.email) setCredential({ email: r.email, temporaryPassword: r.temporaryPassword }); setConfirm(null); void reload(); }
+    const r = await run(() => send<{ email?: string; temporaryPassword?: string; activationEmailSent?: boolean }>("employees", { action: confirm.action, id: e.id, ...body }));
+    if (r) { if (r.temporaryPassword && r.email) setCredential({ email: r.email, temporaryPassword: r.temporaryPassword, emailed: !!r.activationEmailSent }); setConfirm(null); void reload(); }
   }
   const isAdmin = e?.login?.role === "CORPORATE_ADMIN";
   const title = confirm?.action === "PROVISION_LOGIN" ? "Create Corporate Employee App login?" : confirm?.action === "SET_ACTIVE" ? (confirm.value ? "Activate employee?" : "Deactivate employee?") : confirm?.value ? "Make this employee an approver?" : "Remove approver role?";
-  const text = confirm?.action === "PROVISION_LOGIN" ? `A login is created for ${e?.officialEmail} with a one-time temporary password, shown once. Share it with the employee securely; they sign in to the RideGrid Corporate Employee App.`
+  const text = confirm?.action === "PROVISION_LOGIN" ? `A login is created for ${e?.officialEmail} and an activation email is sent so the employee can choose a password. A one-time temporary password is also shown once as a fallback. The employee then signs in to the RideGrid Corporate Employee App.`
     : confirm?.action === "SET_ACTIVE" ? (confirm.value ? "The employee can book company rides again." : "The employee will no longer be able to book company rides. Existing bookings are not cancelled.")
     : "Approvers can be selected in the approval workflow. Company administrators can always decide approval steps in this portal.";
   return <>
@@ -52,7 +52,7 @@ export default function EmployeeDetail({ params }: { params: Promise<{ id: strin
         })}><Pencil size={15}/>Edit</button>
       </>}
     </PageHeader>
-    {credential && <Notice tone="success">Login created for {credential.email}. Temporary password: <strong className="font-mono">{credential.temporaryPassword}</strong> — shown once. Share it securely; the employee should change it after signing in.</Notice>}
+    {credential && <Notice tone="success">Login created for {credential.email}. {credential.emailed ? "An activation email was sent so the employee can choose a password. " : "The activation email could not be sent; the employee can use Forgot Password in the app. "}Fallback temporary password: <strong className="font-mono">{credential.temporaryPassword}</strong> — shown once. Share it securely; the employee should change it after signing in.</Notice>}
     <DataState loading={loading} error={error} onRetry={reload}>{e && <>
       <div className="flex flex-wrap gap-2"><Status value={e.isActive ? "ACTIVE" : "INACTIVE"}/>{e.isApprover && <Status value="Approver" tone="blue"/>}{!e.canBook && <Status value="Cannot book" tone="gray"/>}{isAdmin && <Status value="Company administrator" tone="blue"/>}<Status value={e.login ? (e.login.enabled ? "App login active" : "App login disabled") : "No app login"} tone={e.login?.enabled ? "green" : "gray"}/></div>
       <div className="grid gap-6 xl:grid-cols-3">

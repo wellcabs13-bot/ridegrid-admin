@@ -31,8 +31,12 @@ export function bookingScope(user: { id: string; role: UserRole }): Prisma.Booki
   if (user.role === "CUSTOMER") return { customer: { userId: user.id } };
   if (user.role === "VENDOR") return { vendor: { userId: user.id } };
   if (user.role === "DRIVER") return { driver: { userId: user.id } };
-  if (user.role === "CORPORATE_ADMIN" || user.role === "CORPORATE_EMPLOYEE") {
+  if (user.role === "CORPORATE_ADMIN") {
     return { corporate: { employees: { some: { userId: user.id, isActive: true } } } };
+  }
+  // An employee sees only the rides they travel on, never colleagues' bookings.
+  if (user.role === "CORPORATE_EMPLOYEE") {
+    return { customer: { userId: user.id }, corporate: { employees: { some: { userId: user.id, isActive: true } } } };
   }
   return { id: { in: [] } };
 }

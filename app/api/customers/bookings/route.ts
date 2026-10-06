@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authenticate } from "@/lib/auth/middleware";
+import { requestUser } from "@/lib/request-access";
+import { bookingView, bookingViewSelect } from "@/lib/services/booking/BookingContactPolicy";
 
 const PRIVILEGED_ROLES = ["SUPER_ADMIN", "OPERATIONS", "FINANCE"];
 
+// A customer's bookings. Uses the same role-aware fields as GET /api/bookings/[id]
+// (BookingContactPolicy): never vendor bank details, driver identity documents,
+// payout/commission splits or gateway data.
 export async function GET(request: NextRequest) {
-  const header = request.headers.get("authorization");
-  const token = header?.startsWith("Bearer ")
-    ? header.slice(7)
-    : request.cookies.get("ridegrid_access_token")?.value;
-
-  const user = await authenticate(token);
+  const user = await requestUser(request);
 
   if (!user) {
     return NextResponse.json(
@@ -28,7 +27,8 @@ export async function GET(request: NextRequest) {
     customerId = requestedId;
   } else {
     const customer = await prisma.customer.findFirst({
-      where: { userId: user.id },
+      where: { userId: user.id, deletedAt: null },
+      select: { id: true },
     });
 
     if (!customer) {
@@ -44,19 +44,17 @@ export async function GET(request: NextRequest) {
   const bookings = await prisma.booking.findMany({
     where: {
       customerId,
+      deletedAt: null,
     },
-    include: {
-      vendor: true,
-      vehicle: true,
-      driver: true,
-    },
+    select: bookingViewSelect,
     orderBy: {
       createdAt: "desc",
     },
+    take: 200,
   });
 
   return NextResponse.json({
     success: true,
-    data: bookings,
+    data: bookings.map((b) => bookingView(b, user)),
   });
 }

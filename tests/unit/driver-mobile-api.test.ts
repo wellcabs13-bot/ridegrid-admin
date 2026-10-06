@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-const m = vi.hoisted(() => ({ requestUser: vi.fn(), driver: { findFirst: vi.fn() }, booking: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() }, vehicle: { findMany: vi.fn() }, trip: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() }, tripLocation: { findFirst: vi.fn(), create: vi.fn() }, notification: { createMany: vi.fn(), updateMany: vi.fn() }, bookingStatusHistory: { create: vi.fn() }, auditLog: { create: vi.fn(), findFirst: vi.fn() }, $transaction: vi.fn() }));
+const m = vi.hoisted(() => ({ requestUser: vi.fn(), driver: { findFirst: vi.fn() }, booking: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() }, vehicle: { findMany: vi.fn() }, trip: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() }, tripLocation: { findFirst: vi.fn(), create: vi.fn() }, notification: { createMany: vi.fn(), updateMany: vi.fn() }, bookingStatusHistory: { create: vi.fn(), findFirst: vi.fn() }, auditLog: { create: vi.fn(), findFirst: vi.fn() }, $transaction: vi.fn() }));
 vi.mock("@/lib/request-access", () => ({ requestUser: m.requestUser }));
 vi.mock("@/lib/prisma", () => ({ prisma: m }));
 import { GET, POST } from "@/app/api/mobile/driver/[section]/route";
@@ -43,6 +43,15 @@ describe("central trip operations", () => {
     m.booking.findFirst.mockResolvedValue(assignment(previous!, trip)); const r = await post("trips", { bookingId: "booking-a", action }); expect(r.status).toBe(200); expect((await r.json()).data.status).toBe(expected);
     expect(m.bookingStatusHistory.create.mock.calls[0][0].data).toMatchObject({ previousStatus: previous, currentStatus: expected, changedBy: "user-a" });
     expect(m.auditLog.create.mock.calls[0][0].data.newValue.status).toBe(tripExpected); expect(m.notification.createMany.mock.calls[0][0].data.map((n: { userId: string }) => n.userId)).toEqual(["user-a", "customer", "vendor"]); expect(m.$transaction.mock.calls[0][1].isolationLevel).toBe("Serializable");
+  });
+  it("records the real assignment time when the trip is first written on arrival", async () => {
+    const assignedAt = new Date("2030-01-01T04:00:00Z");
+    m.booking.findFirst.mockResolvedValue(assignment());
+    m.bookingStatusHistory.findFirst.mockResolvedValue({ changedAt: assignedAt });
+    expect((await post("trips", { bookingId: "booking-a", action: "ARRIVED" })).status).toBe(200);
+    expect(m.bookingStatusHistory.findFirst.mock.calls[0][0].where).toEqual({ bookingId: "booking-a", currentStatus: "DRIVER_ASSIGNED" });
+    expect(m.trip.create.mock.calls[0][0].data.driverAssignedAt).toBe(assignedAt);
+    expect(m.trip.create.mock.calls[0][0].data.arrivedPickupAt).not.toBe(assignedAt);
   });
   it("rejects stale assignment and concurrent status changes", async () => { const b = assignment("DRIVER_ASSIGNED", "ASSIGNED"); b.trip!.driverId = "driver-b"; m.booking.findFirst.mockResolvedValue(b); expect((await post("trips", { bookingId: b.id, action: "ARRIVED" })).status).toBe(409); m.booking.findFirst.mockResolvedValue(assignment()); m.booking.updateMany.mockResolvedValue({ count: 0 }); expect((await post("trips", { bookingId: b.id, action: "ARRIVED" })).status).toBe(409); expect(m.trip.create).not.toHaveBeenCalled(); });
 });

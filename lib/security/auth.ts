@@ -50,8 +50,9 @@ export class AuthService {
     }
 
     const user =
-      await prisma.user.findUnique({
+      await prisma.user.findFirst({
         where: {
+          deletedAt: null,
           email: normalizedEmail,
         },
       });
@@ -268,8 +269,9 @@ export class AuthService {
     email: string
   ) {
     const user =
-      await prisma.user.findUnique({
+      await prisma.user.findFirst({
         where: {
+          deletedAt: null,
           email:
             email.trim().toLowerCase(),
         },
@@ -324,8 +326,9 @@ export class AuthService {
     userAgent: string
   ) {
     const user =
-      await prisma.user.findUnique({
+      await prisma.user.findFirst({
         where: {
+          deletedAt: null,
           email,
         },
       });

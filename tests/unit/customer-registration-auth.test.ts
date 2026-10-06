@@ -21,8 +21,21 @@ const mocks = vi.hoisted(() => {
     return state.users.find((u) => u.email === email) ?? null;
   }
 
+  function matches(u: any, where: any): boolean {
+    if (!where) return true;
+    if (where.deletedAt === null && u.deletedAt) return false;
+    if (where.role && u.role !== where.role) return false;
+    if (where.id?.not && u.id === where.id.not) return false;
+    if (where.email?.equals && u.email.toLowerCase() !== where.email.equals.toLowerCase()) return false;
+    if (where.mobile?.in && !where.mobile.in.includes(u.mobile)) return false;
+    if (where.OR && !where.OR.some((w: any) => matches(u, w))) return false;
+    return true;
+  }
+
   const db = {
     user: {
+      findFirst: vi.fn(async ({ where }: any) => state.users.find((u) => matches(u, where)) ?? null),
+      findMany: vi.fn(async ({ where }: any) => state.users.filter((u) => matches(u, where))),
       findUnique: vi.fn(async ({ where }: any) => {
         if (where.email !== undefined) return findUserByEmail(where.email);
         if (where.id !== undefined)

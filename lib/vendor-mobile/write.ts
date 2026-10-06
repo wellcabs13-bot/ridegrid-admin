@@ -8,7 +8,10 @@ import {
   VehicleCategory,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { sendPush, type PushNotice } from "@/lib/notifications/push";
 import { passwordService } from "@/lib/auth/password";
+import { findIdentityClash, normalizeMobile } from "@/lib/auth/identity";
+import { sendAccountLink } from "@/lib/auth/account-email";
 import {
   bookingReservationWindow,
   findBookingConflict,
@@ -212,12 +215,11 @@ export async function writeVendor(
     );
   }
   if (section === "drivers") {
-    // Accounts use the existing password service; no plaintext/default password.
-    // A newly created driver uses the existing forgot-password activation flow.
-    const password = !b.id
-      ? await passwordService.hash(crypto.randomBytes(48).toString("base64"))
-      : null;
-    return prisma.$transaction(
+    // A new driver gets a unique temporary password, shown once to the vendor; the
+    // first sign-in forces a new password. An activation email is also sent after commit.
+    const temporaryPassword = !b.id ? passwordService.generateTemporaryPassword(12) : null;
+    const password = temporaryPassword ? await passwordService.hash(temporaryPassword) : null;
+    const result = await prisma.$transaction(
       async (tx) => {
         if (b.id) {
           const driver = await editableDriver(
@@ -277,6 +279,10 @@ export async function writeVendor(
           throw new VendorError(400, "Enter a valid email.");
         const firstName = required(b.firstName, "first name"),
           lastName = required(b.lastName, "last name");
+        const mobile = b.mobile ? normalizeMobile(required(b.mobile, "mobile", 20)) : null;
+        const clash = await findIdentityClash({ role: "DRIVER", email, mobile }, tx);
+        if (clash)
+          throw new VendorError(409, clash === "email" ? "A driver with this email already exists." : "A driver with this mobile number already exists.");
         const driver = await tx.driver.create({
           data: {
             firstName,
@@ -288,12 +294,13 @@ export async function writeVendor(
                 name: `${firstName} ${lastName}`,
                 email,
                 password: password!,
+                mustChangePassword: true,
                 role: "DRIVER",
-                mobile: b.mobile ? required(b.mobile, "mobile", 20) : null,
+                mobile,
               },
             },
           },
-          select: { id: true },
+          select: { id: true, userId: true },
         });
         await tx.vehicle.update({
           where: { id: vehicle.id },
@@ -304,9 +311,17 @@ export async function writeVendor(
       },
       { isolationLevel: "Serializable" },
     );
+    if (!b.id && "userId" in result) {
+      const login = await prisma.user.findUnique({ where: { id: result.userId }, select: { id: true, email: true, name: true } });
+      const activation = login ? await sendAccountLink(login, "ACTIVATION", "Driver") : { sent: false };
+      return { id: result.id, activationEmailSent: activation.sent, email: login?.email ?? null, temporaryPassword };
+    }
+    return result;
   }
   if (section === "assignment") {
-    return prisma.$transaction(
+    // Push to the assigned driver is sent only after the assignment commits.
+    let assigned: PushNotice | null = null;
+    const result = await prisma.$transaction(
       async (tx) => {
         const vehicle = await ownedVehicle(
           tx,
@@ -390,7 +405,9 @@ export async function writeVendor(
             },
           });
           await audit(tx, a, "Booking", booking.id, "ASSIGNMENT_CONFIRMED");
-          await tx.notification.create({ data: { userId: driver.userId, notificationType: "PUSH", title: "New driver assignment", message: `${booking.bookingNumber}: your trip assignment is ready. Open My Trips for details.` } });
+          const notice = { userId: driver.userId, title: "New driver assignment", message: `${booking.bookingNumber}: your trip assignment is ready. Open My Trips for details.` };
+          await tx.notification.create({ data: { ...notice, notificationType: "PUSH" } });
+          assigned = { ...notice, target: { type: "booking", id: booking.id, bookingNumber: booking.bookingNumber } };
           return { id: booking.id };
         }
         await noFutureBookings(tx, { vehicleId: vehicle.id });
@@ -404,6 +421,8 @@ export async function writeVendor(
       },
       { isolationLevel: "Serializable" },
     );
+    if (assigned) void sendPush([assigned]);
+    return result;
   }
   throw new VendorError(404, "Action not found.");
 }

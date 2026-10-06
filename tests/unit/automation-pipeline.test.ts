@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Exercises the real event dispatcher and automation engine against an in-memory
 // Prisma stand-in: events are stored, rules subscribed to the trigger execute, and
@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => {
   const s = {
     events: [] as any[], retries: [] as any[], audits: [] as any[], notifications: [] as any[], settings: [] as any[],
-    bookings: [] as any[], vendors: [] as any[], drivers: [] as any[], users: [] as any[],
+    bookings: [] as any[], vendors: [] as any[], drivers: [] as any[], users: [] as any[], devices: [] as any[], emailLogs: [] as any[],
     failNotificationFor: null as string | null,
   };
   const client: any = {
@@ -46,10 +46,15 @@ const db = vi.hoisted(() => {
     driver: { findUnique: vi.fn(async ({ where }: any) => s.drivers.find(d => d.id === where.id) ?? null) },
     user: {
       findMany: vi.fn(async ({ where }: any) => s.users.filter(u =>
-        u.isActive && !u.deletedAt &&
+        u.isActive && !u.deletedAt && (where.id?.in ? where.id.in.includes(u.id) :
         (where.role.in ? where.role.in.includes(u.role) : u.role === where.role) &&
-        (!where.corporateEmployee || (u.corporateId === where.corporateEmployee.corporateId && u.employeeActive)))),
+        (!where.corporateEmployee || (u.corporateId === where.corporateEmployee.corporateId && u.employeeActive))))),
     },
+    pushDevice: {
+      findMany: vi.fn(async ({ where }: any) => s.devices.filter(d => d.isActive && where.userId.in.includes(d.userId))),
+      updateMany: vi.fn(async ({ where, data }: any) => { const rows = s.devices.filter(d => (where.token?.in ?? [where.token]).includes(d.token)); rows.forEach(r => Object.assign(r, data)); return { count: rows.length }; }),
+    },
+    notificationLog: { create: vi.fn(async ({ data }: any) => { s.emailLogs.push(data); return data; }) },
   };
   const reset = () => {
     for (const k of Object.keys(s) as (keyof typeof s)[]) if (Array.isArray(s[k])) (s[k] as any[]).length = 0;
@@ -62,12 +67,14 @@ vi.mock("@/lib/prisma", () => ({ prisma: db.client }));
 
 import { dispatchRideGridEvent, emitRideGridEvent, processRetryQueue, storedAutomation } from "@/lib/events/event-dispatcher";
 import { createRideGridEvent, subscribe } from "@/lib/events/event-bus";
-import { automationRules, getAutomationRules } from "@/lib/automation/automation-rules";
+import { automationRules, getAutomationRules, ruleRequirement } from "@/lib/automation/automation-rules";
 import { AutomationTrigger } from "@/types/automation";
 
 const live = (id: string) => ({ id, isActive: true, deletedAt: null });
 
 beforeEach(() => {
+  // Isolate from a developer's real .env: email/push stay unconfigured unless a describe opts in.
+  for (const k of ["ZOHO_CPAAS_EMAIL_API_KEY", "ZOHO_CPAAS_EMAIL_API_URL", "EMAIL_FROM_ADDRESS", "EMAIL_FROM_NAME", "PUSH_NOTIFICATIONS_ENABLED", "EXPO_ACCESS_TOKEN"]) vi.stubEnv(k, "");
   db.reset();
   db.s.bookings.push({ id: "b1", bookingNumber: "RG-1001", pickupDateTime: new Date("2030-01-01T04:30:00.000Z") });
   db.s.vendors.push({ id: "v1", user: live("vendor-user") });
@@ -117,8 +124,12 @@ describe("active automation rules run from the event pipeline", () => {
 
   it("never selects rules that need an unconnected provider or scheduler", async () => {
     const pending = automationRules.filter(r => r.requires).map(r => r.id);
-    expect(pending).toEqual(["AUTO-014", "AUTO-015", "AUTO-016"]);
-    for (const trigger of Object.values(AutomationTrigger)) expect(getAutomationRules(trigger).some(r => r.requires)).toBe(false);
+    expect(pending).toEqual(["AUTO-015", "AUTO-016"]);
+    // Without Zoho CPaaS configuration every email rule reports NOT_CONFIGURED.
+    const email = automationRules.filter(r => r.action === "SEND_EMAIL");
+    expect(email.length).toBeGreaterThanOrEqual(10);
+    expect(email.every(r => ruleRequirement(r) === "Email provider (Zoho CPaaS) not configured")).toBe(true);
+    for (const trigger of Object.values(AutomationTrigger)) expect(getAutomationRules(trigger).some(r => ruleRequirement(r))).toBe(false);
     await dispatchRideGridEvent(bookingCreated());
     expect(db.s.notifications.some(n => ["EMAIL", "SMS", "WHATSAPP"].includes(n.notificationType))).toBe(false);
   });
@@ -183,5 +194,84 @@ describe("failure visibility and retry", () => {
     expect(recipients("New confirmed booking")).toEqual(["vendor-user"]);
     expect(db.s.events[0].status).toBe("COMPLETED");
     expect(storedAutomation(db.s.events[0].payload)?.completed.sort()).toEqual(["AUTO-001", "AUTO-002", "AUTO-003"]);
+  });
+});
+
+describe("email and push channels through the same pipeline", () => {
+  const ENV = { ZOHO_CPAAS_EMAIL_API_KEY: "zoho-secret-key", ZOHO_CPAAS_EMAIL_API_URL: "", EMAIL_FROM_ADDRESS: "service@wellcabs.com", EMAIL_FROM_NAME: "RideGrid by Wellcabs", PUSH_NOTIFICATIONS_ENABLED: "true" };
+  const fetchMock = vi.fn();
+  const calls = (host: string) => fetchMock.mock.calls.filter(([url]) => String(url).includes(host));
+  beforeEach(() => {
+    for (const [k, v] of Object.entries(ENV)) vi.stubEnv(k, v);
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async (url: string, init: any) => String(url).includes("exp.host")
+      ? new Response(JSON.stringify({ data: JSON.parse(init.body).map(() => ({ status: "ok" })) }), { status: 200 })
+      : new Response(JSON.stringify({ data: [{ code: "EM_104", message: "OK" }], request_id: "req-1" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    db.s.users.push({ id: "traveller", name: "Tara", email: "tara@example.com", role: "CUSTOMER", isActive: true, deletedAt: null });
+    db.s.devices.push({ userId: "traveller", token: "ExponentPushToken[traveller-device-1]", isActive: true }, { userId: "vendor-user", token: "ExponentPushToken[vendor-device-0001]", isActive: true });
+  });
+  afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it("sends the booking confirmation email once, via Zoho, from the verified sender", async () => {
+    await dispatchRideGridEvent(bookingCreated());
+    const zoho = calls("cpaas.zoho.com");
+    expect(zoho).toHaveLength(1);
+    const [url, init] = zoho[0];
+    expect(url).toBe("https://cpaas.zoho.com/v1.1/email");
+    expect(init.headers.Authorization).toBe("Zoho-enczapikey zoho-secret-key");
+    const body = JSON.parse(init.body);
+    expect(body.from).toEqual({ address: "service@wellcabs.com", name: "RideGrid by Wellcabs" });
+    expect(body.to[0].email_address.address).toBe("tara@example.com");
+    expect(body.subject).toBe("Booking confirmed: RG-1001");
+    expect(storedAutomation(db.s.events[0].payload)?.completed).toContain("AUTO-014");
+    // Logged without the full address, the key or the body.
+    expect(JSON.stringify(db.s.emailLogs)).not.toMatch(/tara@example|zoho-secret-key|Open the RideGrid/);
+    // A retry of the same event never re-sends a completed email rule.
+    db.s.events[0].status = "FAILED";
+  });
+
+  it("mirrors in-app notifications as push with only a navigation hint", async () => {
+    await dispatchRideGridEvent(bookingCreated());
+    await new Promise(r => setTimeout(r, 0));
+    const sent = calls("exp.host").flatMap(([, init]) => JSON.parse(init.body));
+    expect(sent.map((m: any) => m.to).sort()).toEqual(["ExponentPushToken[traveller-device-1]", "ExponentPushToken[vendor-device-0001]"]);
+    for (const m of sent) {
+      expect(m.data).toEqual({ kind: "booking", bookingId: "b1" });
+      expect(JSON.stringify(m)).not.toMatch(/amount|payout|revenue|mobile|email/i);
+    }
+    // Push adds no extra in-app rows.
+    expect(db.s.notifications).toHaveLength(3);
+  });
+
+  it("retires tokens Expo reports as DeviceNotRegistered", async () => {
+    fetchMock.mockImplementation(async (url: string, init: any) => String(url).includes("exp.host")
+      ? new Response(JSON.stringify({ data: JSON.parse(init.body).map((m: any) => m.to.includes("vendor") ? { status: "error", details: { error: "DeviceNotRegistered" } } : { status: "ok" }) }), { status: 200 })
+      : new Response("{}", { status: 200 }));
+    await dispatchRideGridEvent(bookingCreated());
+    await new Promise(r => setTimeout(r, 0));
+    expect(db.s.devices.find(d => d.userId === "vendor-user")).toMatchObject({ isActive: false, failureReason: "DEVICE_NOT_REGISTERED" });
+    expect(db.s.devices.find(d => d.userId === "traveller").isActive).toBe(true);
+  });
+
+  it("an email outage fails only the email rule, queues a retry and never fails the caller", async () => {
+    fetchMock.mockImplementation(async (url: string) => String(url).includes("exp.host")
+      ? Promise.reject(new Error("offline"))
+      : new Response(JSON.stringify({ error: { code: "TM_500", message: "Service down for zoho-secret-key" } }), { status: 503 }));
+    await expect(emitRideGridEvent({ type: AutomationTrigger.BOOKING_CREATED, module: "BOOKING", bookingId: "b1", userId: "traveller", vendorId: "v1", driverId: "d1" })).resolves.toBeNull();
+    const run = storedAutomation(db.s.events[0].payload)!;
+    expect(run.completed.sort()).toEqual(["AUTO-001", "AUTO-002", "AUTO-003"]);
+    expect(run.failed.map(f => f.ruleId)).toEqual(["AUTO-014"]);
+    expect(run.failed[0].error).not.toContain("zoho-secret-key");
+    expect(db.s.retries).toHaveLength(1);
+    expect(db.s.notifications).toHaveLength(3);
+  });
+
+  it("reports email and push as not configured and sends nothing without credentials", async () => {
+    for (const k of Object.keys(ENV)) vi.stubEnv(k, "");
+    await dispatchRideGridEvent(bookingCreated());
+    await new Promise(r => setTimeout(r, 0));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(storedAutomation(db.s.events[0].payload)?.completed).not.toContain("AUTO-014");
   });
 });

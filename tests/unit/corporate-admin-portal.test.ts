@@ -166,6 +166,18 @@ describe("Corporate Admin A cannot reach Corporate B", () => {
     expect(p.corporateWalletTransaction.findMany.mock.calls[0][0].where).toEqual({ wallet: { corporateId: "corp-a" } });
     expect(JSON.stringify(body)).not.toMatch(/vendorPayout|VendorWallet|rideGridRevenue/);
   });
+  it("lists invoices with a per-status GST summary without summing tax inside groupBy", async () => {
+    p.invoice.count.mockResolvedValue(2);
+    p.invoice.groupBy.mockResolvedValue([{ paymentStatus: "PENDING", _count: { _all: 2 }, _sum: { totalAmount: new Prisma.Decimal(2360) } }]);
+    p.invoice.aggregate.mockResolvedValue({ _sum: { taxAmount: new Prisma.Decimal(360) } });
+    const body = await (await get("invoices")).json();
+    expect(body.data.summary).toEqual([{ status: "PENDING", count: 2, amount: "2360.00", tax: "360.00" }]);
+    // Booking also has taxAmount; summing it in a relation-filtered groupBy is ambiguous in Postgres.
+    expect(p.invoice.groupBy.mock.calls[0][0]._sum).toEqual({ totalAmount: true });
+    const scoped = p.invoice.aggregate.mock.calls[0][0].where.AND;
+    expect(scoped[0].booking).toMatchObject({ corporateId: "corp-a" });
+    expect(scoped[1]).toEqual({ paymentStatus: "PENDING" });
+  });
   it("cannot open Corporate B documents or invoices", async () => {
     const doc = (kind: string, q = "") => docGet(new NextRequest(`${base}documents/${kind}${q}`), { params: Promise.resolve({ kind }) });
     p.invoice.findFirst.mockResolvedValue(null);

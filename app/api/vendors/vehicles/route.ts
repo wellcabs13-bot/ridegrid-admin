@@ -1,6 +1,7 @@
 import { legacyVendorId } from "@/lib/vendor-mobile/legacy";
 import { vendorFailure } from "@/lib/vendor-mobile/access";
 import { NextRequest, NextResponse } from "next/server";
+import { vendorSafe } from "@/lib/vendor-mobile/redact";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       statistics,
-      data: vehicles,
+      data: vendorSafe(vehicles),
     });
   } catch (error) { return vendorFailure(error); }
 }
