@@ -4,7 +4,8 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react()],
-  oxc: { tsconfig: false },
+  // Vite 8 option; not yet in vitest's config types
+  ...({ oxc: { tsconfig: false } } as object),
 
   test: {
     environment: "jsdom",
