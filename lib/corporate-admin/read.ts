@@ -221,7 +221,7 @@ export async function financeSummary(a: AdminAccess, range: Prisma.BookingWhereI
   const base: Prisma.BookingWhereInput = { ...companyBookings(a), ...range };
   const now = new Date();
   const inv = (extra: Prisma.InvoiceWhereInput = {}): Prisma.InvoiceWhereInput => ({ booking: base, ...extra });
-  const [spend, completed, billed, byStatus, overdue, due, unbilled] = await Promise.all([
+  const [spend, completed, billed, byStatus, overdue, due, unbilled, nextDue] = await Promise.all([
     prisma.booking.aggregate({ where: { ...base, status: { not: "CANCELLED" } }, _sum: { finalFare: true, taxAmount: true }, _count: { _all: true } }),
     prisma.booking.aggregate({ where: { ...base, status: "TRIP_COMPLETED" }, _sum: { finalFare: true }, _count: { _all: true } }),
     prisma.invoice.aggregate({ where: inv(), _sum: { totalAmount: true, taxAmount: true, subtotal: true }, _count: { _all: true } }),
@@ -229,10 +229,10 @@ export async function financeSummary(a: AdminAccess, range: Prisma.BookingWhereI
     prisma.invoice.aggregate({ where: inv({ paymentStatus: { in: OPEN_INVOICE }, dueDate: { lt: now } }), _sum: { totalAmount: true }, _count: { _all: true } }),
     prisma.invoice.aggregate({ where: inv({ paymentStatus: { in: OPEN_INVOICE }, OR: [{ dueDate: { gte: now } }, { dueDate: null }] }), _sum: { totalAmount: true }, _count: { _all: true } }),
     prisma.booking.aggregate({ where: { ...base, status: "TRIP_COMPLETED", invoice: { is: null } }, _sum: { finalFare: true }, _count: { _all: true } }),
+    prisma.invoice.findFirst({ where: inv({ paymentStatus: { in: OPEN_INVOICE }, dueDate: { gte: now } }), select: { dueDate: true }, orderBy: { dueDate: "asc" } }),
   ]);
   const status = (s: PaymentStatus) => byStatus.find((r) => r.paymentStatus === s);
   const outstanding = OPEN_INVOICE.reduce((sum, s) => sum.plus(status(s)?._sum.totalAmount ?? 0), zero());
-  const nextDue = await prisma.invoice.findFirst({ where: inv({ paymentStatus: { in: OPEN_INVOICE }, dueDate: { gte: now } }), select: { dueDate: true }, orderBy: { dueDate: "asc" } });
   return {
     spend: dec(spend._sum.finalFare), bookings: spend._count._all, bookedTax: dec(spend._sum.taxAmount),
     completedSpend: dec(completed._sum.finalFare), completedTrips: completed._count._all,
@@ -290,16 +290,21 @@ type Insight = { id: string; tone: "alert" | "warn" | "info" | "good"; title: st
 
 // Rules over the company's own records. Nothing here is predicted or estimated: every line states a count or
 // amount that is read from bookings, approvals, invoices, credit or budgets right now.
-async function dashboardInsights(a: AdminAccess, ctx: { now: Date; finance: Awaited<ReturnType<typeof financeSummary>>; credit: { creditLimit: number; availableCredit: number; enabled: boolean } | null; budgets: { budgetName: string; allocatedAmount: string; bookedSpend: string }[] }) {
-  const since90 = new Date(ctx.now.getTime() - 90 * 86400000), since30 = new Date(ctx.now.getTime() - 30 * 86400000);
-  const [oldPending, exceptions, rows] = await Promise.all([
-    prisma.corporateApprovalRequest.findMany({ where: { corporateId: a.corporateId, status: "PENDING", submittedAt: { lt: new Date(ctx.now.getTime() - 86400000) } }, select: { submittedAt: true }, orderBy: { submittedAt: "asc" }, take: 100 }),
+// The insight queries need nothing from the rest of the dashboard, so they are started first and awaited last.
+function insightsData(a: AdminAccess, now: Date) {
+  const since90 = new Date(now.getTime() - 90 * 86400000), since30 = new Date(now.getTime() - 30 * 86400000);
+  return Promise.all([
+    prisma.corporateApprovalRequest.findMany({ where: { corporateId: a.corporateId, status: "PENDING", submittedAt: { lt: new Date(now.getTime() - 86400000) } }, select: { submittedAt: true }, orderBy: { submittedAt: "asc" }, take: 100 }),
     prisma.corporateApprovalRequest.count({ where: { corporateId: a.corporateId, submittedAt: { gte: since30 } } }),
     prisma.booking.findMany({
-      where: { ...companyBookings(a), status: { not: "CANCELLED" }, pickupDateTime: { gte: since90, lte: ctx.now } }, take: 1500, orderBy: { pickupDateTime: "desc" },
+      where: { ...companyBookings(a), status: { not: "CANCELLED" }, pickupDateTime: { gte: since90, lte: now } }, take: 1000, orderBy: { pickupDateTime: "desc" },
       select: { finalFare: true, estimatedFare: true, pickupLocation: true, dropLocation: true, pricingPackage: { select: { city: true, fromCity: true, toCity: true } }, corporateTraveller: { select: { kind: true } }, customer: { select: { user: { select: { corporateEmployee: { select: { corporateId: true, department: { select: { departmentName: true } } } } } } } } },
     }),
   ]);
+}
+
+async function dashboardInsights(a: AdminAccess, ctx: { data: ReturnType<typeof insightsData>; now: Date; finance: Awaited<ReturnType<typeof financeSummary>>; credit: { creditLimit: number; availableCredit: number; enabled: boolean } | null; budgets: { budgetName: string; allocatedAmount: string; bookedSpend: string }[] }) {
+  const [oldPending, exceptions, rows] = await ctx.data;
   const out: Insight[] = [];
   if (oldPending.length) {
     const hours = Math.floor((ctx.now.getTime() - oldPending[0].submittedAt.getTime()) / 3600000);
@@ -344,6 +349,17 @@ async function dashboard(a: AdminAccess) {
   const base = companyBookings(a);
   const todayStart = new Date(`${dayKey(now)}T00:00:00+05:30`), todayEnd = new Date(todayStart.getTime() + 86400000);
   const month = { ...base, pickupDateTime: { gte: p.monthStart, lt: p.monthEnd } };
+  // Six months of spend by pickup month (India time) for the trend chart, plus the compliance split for 90 days.
+  const [thisYear, thisMonth] = dayKey(now).split("-").map(Number);
+  const spans = Array.from({ length: 6 }, (_, i) => indiaPeriods(new Date(Date.UTC(thisYear, thisMonth - 1 - (5 - i), 15, 6))));
+  const since90 = new Date(now.getTime() - 90 * 86400000);
+  const extrasPromise = Promise.all([
+    Promise.all(spans.map((s) => prisma.booking.aggregate({ where: { ...base, status: { not: "CANCELLED" }, pickupDateTime: { gte: s.monthStart, lt: s.monthEnd } }, _sum: { finalFare: true }, _count: { _all: true } }))),
+    prisma.booking.count({ where: { ...base, status: { not: "CANCELLED" }, createdAt: { gte: since90 } } }),
+    prisma.corporateApprovalRequest.count({ where: { corporateId: a.corporateId, bookingId: { not: null }, submittedAt: { gte: since90 } } }),
+    prisma.corporateApprovalRequest.count({ where: { corporateId: a.corporateId, status: "REJECTED", submittedAt: { gte: since90 } } }),
+  ]);
+  const insightsPromise = insightsData(a, now);
   const [employees, activeEmployees, branchCount, departmentCount, approvalCounts, pending, statusCounts, today, upcoming, monthCount, monthSpend, upcomingList, activeList, recent, credit, budgetRows, pendingAmounts, finance, unread, recentRequests] = await Promise.all([
     prisma.corporateEmployee.count({ where: { corporateId: a.corporateId } }),
     prisma.corporateEmployee.count({ where: { corporateId: a.corporateId, isActive: true } }),
@@ -367,19 +383,13 @@ async function dashboard(a: AdminAccess) {
     prisma.corporateApprovalRequest.findMany({ where: { corporateId: a.corporateId }, select: { id: true, status: true, submittedAt: true, completedAt: true, employee: { select: { employeeName: true } } }, orderBy: { updatedAt: "desc" }, take: 6 }),
   ]);
   const allIds = [...upcomingList, ...activeList, ...recent].map((b) => b.id);
-  // Six months of spend by pickup month (India time) for the trend chart, plus the compliance split for 90 days.
-  const [thisYear, thisMonth] = dayKey(now).split("-").map(Number);
-  const spans = Array.from({ length: 6 }, (_, i) => indiaPeriods(new Date(Date.UTC(thisYear, thisMonth - 1 - (5 - i), 15, 6))));
-  const since90 = new Date(now.getTime() - 90 * 86400000);
-  const [approvalsMap, trendRows, ninety, withApproval, rejected] = await Promise.all([
+  // Everything left depends only on the first batch, so it runs side by side with the queries already in flight.
+  const [approvalsMap, budgets, [trendRows, ninety, withApproval, rejected]] = await Promise.all([
     approvalsByBooking(allIds),
-    Promise.all(spans.map((s) => prisma.booking.aggregate({ where: { ...base, status: { not: "CANCELLED" }, pickupDateTime: { gte: s.monthStart, lt: s.monthEnd } }, _sum: { finalFare: true }, _count: { _all: true } }))),
-    prisma.booking.count({ where: { ...base, status: { not: "CANCELLED" }, createdAt: { gte: since90 } } }),
-    prisma.corporateApprovalRequest.count({ where: { corporateId: a.corporateId, bookingId: { not: null }, submittedAt: { gte: since90 } } }),
-    prisma.corporateApprovalRequest.count({ where: { corporateId: a.corporateId, status: "REJECTED", submittedAt: { gte: since90 } } }),
+    Promise.all(budgetRows.map((b) => budgetUsage(b, pendingAmounts))),
+    extrasPromise,
   ]);
   const prevSpend = trendRows[4];
-  const budgets = await Promise.all(budgetRows.map((b) => budgetUsage(b, pendingAmounts)));
   const company = budgets.filter((b) => b.scope === "COMPANY");
   const sum = (rows: typeof budgets, k: "allocatedAmount" | "used" | "committed" | "remaining") => dec(rows.reduce((s, r) => s.plus(r[k]), zero()));
   const counts = Object.fromEntries(approvalCounts.map((c) => [c.status, c._count._all]));
@@ -407,7 +417,7 @@ async function dashboard(a: AdminAccess) {
     budgets: budgets.slice(0, 4).map((b) => ({ id: b.id, name: b.budgetName, scope: b.scope, scopeName: b.scopeName, period: b.period, status: b.status, limit: b.allocatedAmount, bookedSpend: b.bookedSpend, endDate: b.endDate })),
     billing: { ...finance, outstandingAmount: finance.outstanding },
     unreadNotifications: unread,
-    insights: await dashboardInsights(a, { now, finance, credit: credit ? { creditLimit: credit.creditLimit, availableCredit: credit.availableCredit, enabled: credit.enabled } : null, budgets: budgets.map((b) => ({ budgetName: b.budgetName, allocatedAmount: b.allocatedAmount, bookedSpend: b.bookedSpend })) }),
+    insights: await dashboardInsights(a, { data: insightsPromise, now, finance, credit: credit ? { creditLimit: credit.creditLimit, availableCredit: credit.availableCredit, enabled: credit.enabled } : null, budgets: budgets.map((b) => ({ budgetName: b.budgetName, allocatedAmount: b.allocatedAmount, bookedSpend: b.bookedSpend })) }),
     asOf: now,
   };
 }

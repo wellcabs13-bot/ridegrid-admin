@@ -46,6 +46,18 @@ const CHANNEL_TEXT: Record<string, string> = {
 };
 const CHANNEL_NAME: Record<string, string> = { inApp: "In-app", email: "Email", push: "Push", sms: "SMS", whatsapp: "WhatsApp" };
 
+// Turns backend failures into something the administrator can act on. The server stays the source of truth;
+// this only rewrites the wording.
+function explain(e: unknown, fallback: string) {
+  const m = e instanceof Error ? e.message : fallback;
+  if (/expired/i.test(m)) return "This price expired. Select the car again to get a fresh price.";
+  if (/credit/i.test(m)) return m;
+  if (/no longer (active|available)|not available|conflict|already (booked|reserved)|overlap/i.test(m)) return "This car is no longer available for that time. Search again to see live availability.";
+  if (/price|pricing/i.test(m) && /unavailable|required|not/i.test(m)) return "Pricing is currently unavailable for this car. Choose another car or search again.";
+  if (/approval/i.test(m)) return m;
+  return m || fallback;
+}
+
 function pickupISO(date: string, time: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error("Choose a valid pickup date and time.");
   return new Date(`${date}T${time}:00+05:30`).toISOString();
@@ -166,6 +178,10 @@ export default function NewCorporateBookingPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [searchError, setSearchError] = useState("");
   const searchSubmit = useSubmit();
+  const searchSeq = useRef(0);
+  const quoting = useRef<string | null>(null);
+  const [paging, setPaging] = useState<{ page: number; totalPages: number; total: number }>({ page: 1, totalPages: 1, total: 0 });
+  const [more, setMore] = useState(false);
   const [selected, setSelected] = useState<Listing | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const quoteSubmit = useSubmit();
@@ -189,32 +205,52 @@ export default function NewCorporateBookingPage() {
 
   function resetRide() { setSelected(null); setQuote(null); setResult(null); setDone(null); confirmSubmit.setError(""); }
 
+  async function loadListings(page: number) {
+    const seq = ++searchSeq.current;
+    const query = { serviceType: svc.serviceType, tripType: svc.tripType, pickupCity: trip.pickupCity, dropCity: trip.dropCity, date: trip.date, time, days: roundTrip ? trip.days : "1", category: trip.category, packageName: trip.packageName, page };
+    try {
+      const data = await apiData<{ listings: Listing[]; pagination?: { page: number; totalPages: number; total: number } }>(`${API}/booking-search${qs({ ...query, ...(mode === "EMPLOYEE" ? { employeeId: employee!.id } : { guest: "1" }) })}`);
+      if (seq !== searchSeq.current) return; // a newer search replaced this one
+      setListings((cur) => (page > 1 ? [...cur, ...data.listings] : data.listings));
+      setPaging({ page: data.pagination?.page ?? page, totalPages: data.pagination?.totalPages ?? 1, total: data.pagination?.total ?? data.listings.length });
+    } catch (e) {
+      if (seq !== searchSeq.current) return;
+      if (page === 1) setListings([]);
+      setSearchError(explain(e, "Unable to search the marketplace right now. Please retry."));
+    }
+  }
+
   async function runSearch() {
     if (!travellerReady) return;
     setSearched(true); resetRide();
-    await searchSubmit.run(async () => {
-      setSearchError("");
-      try {
-        const query = { serviceType: svc.serviceType, tripType: svc.tripType, pickupCity: trip.pickupCity, dropCity: trip.dropCity, date: trip.date, time, days: roundTrip ? trip.days : "1", category: trip.category, packageName: trip.packageName };
-        const data = await apiData<{ listings: Listing[] }>(`${API}/booking-search${qs({ ...query, ...(mode === "EMPLOYEE" ? { employeeId: employee!.id } : { guest: "1" }) })}`);
-        setListings(data.listings);
-      } catch (e) { setListings([]); setSearchError(e instanceof Error ? e.message : "Unable to search listings."); }
-    });
+    await searchSubmit.run(async () => { setSearchError(""); await loadListings(1); });
+  }
+
+  async function showMore() {
+    setMore(true);
+    try { await loadListings(paging.page + 1); } finally { setMore(false); }
   }
 
   async function chooseListing(l: Listing) {
+    if (quoting.current === l.id) return; // already asking for this car's price
+    quoting.current = l.id;
     setSelected(l); setQuote(null); setResult(null); setDone(null);
-    await quoteSubmit.run(async () => {
-      const at = pickupISO(trip.date, time);
-      const q = await send<Quote>("booking-quote", { traveller: travellerBody(), pricingPackageId: l.pricing.pricingPackageId, at, idempotencyKey: crypto.randomUUID(), ...(roundTrip ? { days: trip.days } : {}) });
-      setQuote(q ?? null);
-    });
+    try {
+      await quoteSubmit.run(async () => {
+        try {
+          const at = pickupISO(trip.date, time);
+          const q = await send<Quote>("booking-quote", { traveller: travellerBody(), pricingPackageId: l.pricing.pricingPackageId, at, idempotencyKey: crypto.randomUUID(), ...(roundTrip ? { days: trip.days } : {}) });
+          setQuote(q ?? null);
+        } catch (e) { throw new Error(explain(e, "Unable to get a price for this car.")); }
+      });
+    } finally { quoting.current = null; }
   }
 
   async function confirm(action: "book" | "approval") {
     if (!selected || !quote) return;
     if (!pickupAddress.trim() || !dropAddress.trim()) { confirmSubmit.setError("Enter pickup and drop addresses."); return; }
     await confirmSubmit.run(async () => {
+      try {
       const at = pickupISO(trip.date, time);
       const base = { traveller: travellerBody(), quoteId: quote.id, listingId: selected.id, pricingPackageId: selected.pricing.pricingPackageId, pickupDateTime: at, pickupAddress: pickupAddress.trim(), dropAddress: dropAddress.trim() };
       if (action === "book") {
@@ -226,6 +262,12 @@ export default function NewCorporateBookingPage() {
       } else {
         const approval = await send<{ id: string }>("booking-approval", { ...base, note: note.trim() });
         if (approval) setResult({ kind: "approval", id: approval.id });
+      }
+      } catch (e) {
+        const text = explain(e, "Unable to complete the booking.");
+        // An expired price or a car that was taken needs a fresh quote, so send the administrator back to choose again.
+        if (/expired|no longer available/i.test(text)) setQuote(null);
+        throw new Error(text);
       }
     });
   }
@@ -336,11 +378,17 @@ export default function NewCorporateBookingPage() {
               </div>
             </section>
           ) : <>
+            {searched && searchSubmit.busy && (
+              <Panel title="Available cars" description="Checking live availability and prices…">
+                <div className="space-y-3 p-4" role="status" aria-label="Searching the marketplace">{[0, 1, 2].map((i) => <div key={i} className="flex animate-pulse gap-4 rounded-2xl border border-neutral-200 p-4"><div className="h-16 w-24 rounded-xl bg-neutral-100"/><div className="flex-1 space-y-2"><div className="h-4 w-1/2 rounded bg-neutral-100"/><div className="h-3 w-3/4 rounded bg-neutral-100"/><div className="h-3 w-2/5 rounded bg-neutral-100"/></div><div className="h-9 w-20 rounded-lg bg-neutral-100"/></div>)}</div>
+              </Panel>
+            )}
             {searched && !searchSubmit.busy && (
-              <Panel title="Available cars" description={`${listings.length} exact car + driver match${listings.length === 1 ? "" : "es"} · live marketplace prices`}>
+              <Panel title="Available cars" description={`${paging.total || listings.length} exact car + driver match${(paging.total || listings.length) === 1 ? "" : "es"} · live marketplace prices`}>
                 {listings.length === 0
-                  ? <p className="px-5 py-10 text-center text-sm text-neutral-500">No vehicles matched this search. Try another date, city or category.</p>
-                  : <div className="space-y-3 p-4">{listings.map((l) => <ListingCard key={l.id} l={l} selected={selected?.id === l.id} disabled={quoteSubmit.busy} onPick={() => void chooseListing(l)}/>)}</div>}
+                  ? <p className="px-5 py-10 text-center text-sm text-neutral-500">No cars are available for this route and time. Check the cities spelling, try another date or time, or remove the category filter.</p>
+                  : <div className="space-y-3 p-4">{listings.map((l) => <ListingCard key={l.id} l={l} selected={selected?.id === l.id} disabled={quoteSubmit.busy} onPick={() => void chooseListing(l)}/>)}
+                    {paging.page < paging.totalPages && <div className="pt-1 text-center"><button className="rg-secondary" disabled={more} onClick={() => void showMore()}>{more ? "Loading…" : `Show more cars (${listings.length} of ${paging.total})`}</button></div>}</div>}
               </Panel>
             )}
             {!searched && <section className="rg-card rgc-hero p-8 text-center"><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600"><SearchIcon size={22}/></span><h2 className="mt-3 text-[16px] font-bold">Exact car. Exact driver.</h2><p className="mx-auto mt-1 max-w-md text-[13px] text-neutral-500">Choose who is travelling, enter the trip and search. You will see the real vehicles, their drivers and vendors, and the central price for the date you pick.</p></section>}
@@ -348,7 +396,7 @@ export default function NewCorporateBookingPage() {
             {selected && (
               <Panel title={`${selected.vehicle.make} ${selected.vehicle.model} · ${selected.vehicle.registrationNumber}`} description={`${selected.pricing.packageName}${selected.driver ? ` · Driver ${selected.driver.name}` : ""}`}>
                 <div className="p-5">
-                  {quoteSubmit.busy && <p className="text-sm text-neutral-500">Getting a fresh price and policy check…</p>}
+                  {quoteSubmit.busy && <div role="status" className="animate-pulse space-y-2"><div className="h-4 w-1/3 rounded bg-neutral-100"/><div className="h-8 w-full rounded bg-neutral-100"/><p className="text-xs text-neutral-500">Getting a fresh price and policy check…</p></div>}
                   {quoteSubmit.error && <Notice tone="error">{quoteSubmit.error}</Notice>}
                   {quote && (quote.policy.decision === "NOT_ALLOWED"
                     ? <Notice tone="error"><ShieldAlert className="mr-1 inline" size={14}/>Not allowed by company travel policy: {quote.policy.reasons.join(" ") || "no reason given"}</Notice>

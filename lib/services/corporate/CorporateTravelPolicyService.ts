@@ -263,13 +263,16 @@ export class CorporateTravelPolicyService {
       employee.id ? this.resolvePolicy(employee.corporateId, employee) : this.getActivePolicy(employee.corporateId),
       this.employeeUsage(employee.corporateId, employee.userId, now),
     ]);
-    const results = await Promise.all(trips.map(async (trip) => {
-      const budgets = employee.id
-        ? (await applicableBudgets(employee.corporateId, { id: employee.id, userId: employee.userId, branchId: employee.branchId ?? null, departmentId: employee.departmentId ?? null }, trip.pickupDateTime))
-          .map((b) => ({ name: b.scope === "COMPANY" ? `company "${b.name}"` : `${b.scope.toLowerCase()} "${b.name}"`, remaining: b.remaining }))
-        : [];
-      return decideTravelPolicy(policy, trip, employee, usage, now, budgets);
-    }));
+    // Budget headroom depends only on who and when, so trips at the same pickup time share one lookup.
+    const headroom = new Map<number, Promise<BudgetHeadroom[]>>();
+    const budgetsFor = (at: Date) => {
+      if (!employee.id) return Promise.resolve([] as BudgetHeadroom[]);
+      const key = at.getTime();
+      if (!headroom.has(key)) headroom.set(key, applicableBudgets(employee.corporateId, { id: employee.id, userId: employee.userId, branchId: employee.branchId ?? null, departmentId: employee.departmentId ?? null }, at)
+        .then((rows) => rows.map((b) => ({ name: b.scope === "COMPANY" ? `company "${b.name}"` : `${b.scope.toLowerCase()} "${b.name}"`, remaining: b.remaining }))));
+      return headroom.get(key)!;
+    };
+    const results = await Promise.all(trips.map(async (trip) => decideTravelPolicy(policy, trip, employee, usage, now, await budgetsFor(trip.pickupDateTime))));
     return { policy, usage, results };
   }
 }

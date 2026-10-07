@@ -29,6 +29,16 @@ function route(name: string, from: string | null, to: string | null) {
   return { fromCity: m?.[1]?.trim() || null, toCity: m?.[2]?.trim() || null };
 }
 
+// Runs fn over items with at most `limit` in flight; results keep the input order.
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) { const i = next++; out[i] = await fn(items[i]); }
+  }));
+  return out;
+}
+
 export class MarketplaceListingService {
   async search(f: MarketplaceListingFilters = {}) {
     const page = Math.max(1, f.page ?? 1);
@@ -181,9 +191,12 @@ export class MarketplaceListingService {
     // 3) One cheapest matching active pricing package per vehicle.
     const byVehicle = new Map<string, (typeof eligible)[number]>();
     const quotes = new Map<string, Awaited<ReturnType<typeof quoteService.forPackage>>>();
-    for (const pkg of eligibleForQuote) {
+    // Each preview quote is its own short transaction. They are independent, so price them a few at a time
+    // (the pool is small) and then fold the results in the original order so the chosen package per vehicle
+    // is exactly what the sequential loop chose.
+    const priced = await mapLimit(eligibleForQuote, 4, async (pkg) => {
       try {
-        const quote = await quoteService.forPackage(
+        return { pkg, quote: await quoteService.forPackage(
           pkg.id,
           pickupDateTime || new Date(),
           "listing-preview",
@@ -192,7 +205,13 @@ export class MarketplaceListingService {
           serviceType === "OUTSTATION" && tripType === "ROUNDTRIP"
             ? String(roundtripDays)
             : undefined
-        );
+        ) };
+      } catch (error) { if (!(error instanceof PricingError)) throw error; return null; }
+    });
+    for (const entry of priced) {
+      if (!entry) continue;
+      const { pkg, quote } = entry;
+      {
         quotes.set(pkg.id,quote);
         const old = byVehicle.get(pkg.vehicleId);
         const multiCityRoundtrip =
@@ -211,7 +230,7 @@ export class MarketplaceListingService {
               ));
 
         if (replace) byVehicle.set(pkg.vehicleId, pkg);
-      } catch(error) { if (!(error instanceof PricingError)) throw error; }
+      }
     }
 
     const ids = [...byVehicle.keys()];

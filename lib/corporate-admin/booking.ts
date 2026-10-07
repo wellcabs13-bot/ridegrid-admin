@@ -86,9 +86,9 @@ function portalOf(a: AdminAccess, traveller: Traveller, notifications: () => Pri
 }
 
 async function accessFor(a: AdminAccess, traveller: Traveller): Promise<EmployeeAccess> {
-  const own = await ownProfile(a);
-  if (traveller.kind === "SELF") return { user: a.user, employee: own };
+  if (traveller.kind === "SELF") return { user: a.user, employee: await ownProfile(a) };
   if (traveller.kind === "GUEST") {
+    const own = await ownProfile(a);
     // Guests have no employee profile: company default policy, no personal limits, no branch/department scope.
     return {
       user: a.user, portal: portalOf(a, traveller, () => undefined),
