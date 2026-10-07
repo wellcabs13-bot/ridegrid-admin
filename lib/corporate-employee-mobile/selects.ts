@@ -92,7 +92,7 @@ export function safeApproval(r: ApprovalRow, booking?: { id: string; bookingNumb
     ride: s ? {
       pricingPackageId: s.pricingPackageId, listingId: s.listingId, serviceType: s.serviceType, tripType: s.tripType, days: s.days,
       pickupDateTime: s.pickupDateTime, pickupAddress: s.pickupAddress, dropAddress: s.dropAddress, route: s.route,
-      vehicle: s.vehicle, vendorName: s.vendorName, fare: s.fare, policyReasons: s.policyReasons, note: s.note,
+      vehicle: s.vehicle, vendorName: s.vendorName, fare: s.fare, policyReasons: s.policyReasons, note: s.note, portal: s.portal ?? null,
     } : null,
     // Approver identity is not exposed; the approver's role, stage and decision are.
     steps: r.steps.map((step) => ({ level: step.level, stage: step.stage, approver: APPROVER_LABEL[step.approverType as ApproverType] ?? null, status: step.status, actedAt: step.actedAt, remarks: step.remarks })),

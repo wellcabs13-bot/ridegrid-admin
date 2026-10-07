@@ -81,7 +81,8 @@ export default function BookingDetail({ params }: { params: Promise<{ id: string
         <div className="space-y-6 xl:col-span-2">
           <Panel title="Trip">
             <Detail items={[
-              ["Traveller", b.employee ? <Link key="e" className="font-medium text-red-700" href={`/corporate-admin/employees/${b.employee.id}`}>{b.employee.name} ({b.employee.code})</Link> : b.traveller],
+              ["Traveller", b.isGuest ? <span key="g"><b>{b.traveller}</b><span className="ml-2 rounded-full bg-neutral-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Guest booking</span><span className="block text-xs text-neutral-500">{[b.guest?.mobile, b.guest?.email, b.guest?.reference && `Ref ${b.guest.reference}`].filter(Boolean).join(" · ")}</span></span> : b.employee ? <Link key="e" className="font-medium text-red-700" href={`/corporate-admin/employees/${b.employee.id}`}>{b.employee.name} ({b.employee.code})</Link> : b.traveller],
+              ...(b.bookedBy ? [["Booked by", `${b.bookedBy} (Corporate Portal)${b.approvalBasis === "ADMIN_AUTHORISED" ? " · authorised by administrator" : ""}`] as [string, string]] : []),
               ["Branch / department", [b.employee?.branch?.name, b.employee?.department?.name].filter(Boolean).join(" · ") || "—"],
               ["Service", `${b.service.replaceAll("_", " ").toLowerCase()}${b.packageName ? ` · ${b.packageName}` : ""}${b.tripDays > 1 ? ` · ${b.tripDays} days` : ""}`],
               ["Pickup time", when(b.pickupDateTime)],

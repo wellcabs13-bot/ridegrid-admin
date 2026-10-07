@@ -14,6 +14,7 @@ export const adminBookingSelect = {
   ...bookingSelect,
   corporateId: true, driverId: true, taxAmount: true, corporateArchivedAt: true, refundAmount: true,
   vendor: { select: { id: true, companyName: true } },
+  corporateTraveller: { select: { kind: true, guestName: true, guestMobile: true, guestEmail: true, guestReference: true, bookedByName: true, approvalBasis: true } },
   customer: { select: { firstName: true, lastName: true, user: { select: { corporateEmployee: { select: employeeSummarySelect } } } } },
 } satisfies Prisma.BookingSelect;
 
@@ -48,11 +49,16 @@ export function creditStateOf(status: string, payment: { method: string; status:
 export function adminBooking(b: AdminBookingRow, corporateId: string, approval?: { id: string; status: string } | null) {
   const base = safeBooking(b, approval);
   const employee = employeeOf(b.customer.user.corporateEmployee, corporateId);
+  const guest = b.corporateTraveller?.kind === "GUEST" ? b.corporateTraveller : null;
   return {
     ...base,
     rebook: undefined,
-    traveller: employee ? employee.name : `${b.customer.firstName} ${b.customer.lastName}`.trim(),
-    employee,
+    traveller: guest ? (guest.guestName ?? "Guest") : employee ? employee.name : `${b.customer.firstName} ${b.customer.lastName}`.trim(),
+    isGuest: !!guest,
+    guest: guest ? { name: guest.guestName, mobile: guest.guestMobile, email: guest.guestEmail, reference: guest.guestReference } : null,
+    bookedBy: b.corporateTraveller?.bookedByName ?? null,
+    approvalBasis: b.corporateTraveller?.approvalBasis ?? null,
+    employee: guest ? null : employee,
     vendor: { id: b.vendor.id, companyName: b.vendor.companyName },
     assignment: assignmentOf(b),
     gst: b.taxAmount ? b.taxAmount.toFixed(2) : (base.fare?.taxAmount ?? null),

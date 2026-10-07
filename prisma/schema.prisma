@@ -270,6 +270,7 @@ model Booking {
   invoice             Invoice?
   trip                Trip?
   smartReturnListings SmartReturnListing[]
+  corporateTraveller  CorporateBookingTraveller?
 
   @@index([customerId])
   @@index([vendorId])
@@ -3637,4 +3638,28 @@ model CustomerSavedRoute {
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   @@index([customerId])
   @@unique([customerId, serviceType, tripType, pickupCity, dropCity, category, packageName], map: "customer_saved_route_identity")
+}
+
+// Who a Corporate Portal booking was made for. EMPLOYEE bookings are owned by that employee's own
+// Customer profile (this row only records who booked it and how approval was satisfied); GUEST
+// bookings have no RideGrid account, so the guest's contact details live here, scoped to the company.
+model CorporateBookingTraveller {
+  id             String   @id @default(cuid())
+  bookingId      String   @unique
+  corporateId    String
+  kind           String
+  employeeId     String?
+  guestName      String?
+  guestMobile    String?
+  guestEmail     String?
+  guestReference String?
+  bookedByUserId String
+  bookedByName   String
+  approvalBasis  String
+  notifications  Json?
+  createdAt      DateTime @default(now())
+  booking        Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([corporateId, kind])
+  @@index([employeeId])
 }

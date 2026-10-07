@@ -9,7 +9,7 @@ export type Booking = {
   payment: { method: string; status: string } | null;
   tripStatus: string | null;
   approval: { id: string; status: string } | null;
-  traveller: string; employee: EmployeeRef | null; assignment: string; gst: string | null; archived: boolean; credit: string;
+  traveller: string; isGuest?: boolean; guest?: { name: string | null; mobile: string | null; email: string | null; reference: string | null } | null; bookedBy?: string | null; approvalBasis?: string | null; employee: EmployeeRef | null; assignment: string; gst: string | null; archived: boolean; credit: string;
   fare: { vendorFare: string; platformFee: string; taxAmount: string; discount: string; finalPayable: string; passThroughTotal: string } | null;
 };
 
@@ -21,6 +21,7 @@ export type Approval = {
     serviceType: string; tripType: string; days: string; pickupDateTime: string; pickupAddress: string; dropAddress: string;
     route: { pickupCity: string; dropCity: string; packageName: string }; vehicle: { make: string; model: string; category: string };
     vendorName: string; fare: { vendorFare: string; platformFee: string; taxAmount: string; finalPayable: string }; policyReasons: string[]; note: string;
+    portal?: { bookedBy: string; guest?: { name: string; mobile: string; email: string | null; reference: string | null } } | null;
   } | null;
   steps: ApprovalStep[]; decisionNote: string | null; booking: { id: string; bookingNumber: string; status: string } | null;
   employee: EmployeeRef & { email: string; monthlyTravelLimit: string | null; yearlyTravelLimit: string | null };
@@ -33,6 +34,6 @@ export type OrgOptions = {
   departments: { id: string; departmentName: string; branchId: string | null; isActive: boolean }[];
   costCenters: { id: string; name: string; code: string }[];
   people: { id: string; employeeName: string; employeeCode: string; designation: string; branchId: string | null; departmentId: string | null; hasLogin: boolean }[];
-  policies: { id: string; policyName: string; branchId: string | null; departmentId: string | null }[];
+  policies: { id: string; policyName: string; branchId: string | null; departmentId: string | null; approvalRequired: boolean }[];
   vehicleCategories: string[];
 };

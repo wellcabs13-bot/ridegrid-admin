@@ -26,6 +26,8 @@ export default function EmployeeForm({ initial, onClose, onSaved }: { initial: E
   const set = (k: keyof EmployeeInput) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value });
   const departments = (o?.departments ?? []).filter((d) => (d.isActive || d.id === v.departmentId) && (!v.branchId || !d.branchId || d.branchId === v.branchId));
   const managers = (o?.people ?? []).filter((p) => p.id !== v.id);
+  const assigned = o?.policies.find((p) => p.id === v.travelPolicyId);
+  const approver = managers.find((p) => p.id === (v.approvalManagerId || v.reportingManagerId));
   async function save() {
     const { id, ...fields } = v;
     const r = await run(() => send("employees", { action: id ? "UPDATE" : "CREATE", ...(id ? { id } : {}), ...fields }));
@@ -62,6 +64,23 @@ export default function EmployeeForm({ initial, onClose, onSaved }: { initial: E
         <Field label="Yearly travel limit (₹)" hint="Trips above a limit need approval."><input className="rg-input" inputMode="decimal" value={v.yearlyTravelLimit} onChange={set("yearlyTravelLimit")}/></Field>
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={v.canBook} onChange={(e) => setV({ ...v, canBook: e.target.checked })}/><span>Can book rides<span className="block text-xs text-neutral-500">Turn off for approvers who do not travel.</span></span></label>
         <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={v.isApprover} onChange={(e) => setV({ ...v, isApprover: e.target.checked })}/><span>Company approver<span className="block text-xs text-neutral-500">Marks this person as someone who approves travel.</span></span></label>
+      </Section>
+      <Section title="Booking approval">
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-[13px] sm:col-span-2">
+          <p className="flex flex-wrap items-center gap-2 font-semibold">
+            {assigned
+              ? assigned.approvalRequired
+                ? <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11.5px] text-amber-800">Approval required</span>
+                : <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11.5px] text-emerald-800">Auto-approved</span>
+              : <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-[11.5px] text-neutral-700">Follows department, branch or company policy</span>}
+            {assigned && <span className="font-normal text-neutral-600">by the “{assigned.policyName}” travel policy</span>}
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-neutral-600">
+            <li>Whether this employee&apos;s rides need approval is set by their travel policy. Choose a policy above, or edit policies under Travel policy.</li>
+            <li>{approver ? <>When approval is needed, it goes to <b>{approver.employeeName}</b> ({v.approvalManagerId ? "approval manager" : "reporting manager"}) first, following your approval workflow.</> : <>No approval manager is set, so approval follows your company approval workflow. Corporate administrators can always decide.</>}</li>
+            <li>A ride outside policy (limits, budgets, hours, categories) always needs approval, even for an auto-approved employee. Rides you book for them from New booking are authorised by you unless the policy sends them to someone else.</li>
+          </ul>
+        </div>
       </Section>
       <Section title="Emergency contact">
         {input("emergencyContactName", "Name")}

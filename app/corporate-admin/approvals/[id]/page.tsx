@@ -14,6 +14,12 @@ export default function ApprovalDetail({ params }: { params: Promise<{ id: strin
   const [remarks, setRemarks] = useState("");
   const [done, setDone] = useState("");
   const { busy, error: saveError, setError, run } = useSubmit();
+  const completing = useSubmit();
+
+  async function complete() {
+    const booked = await completing.run(() => send<{ id: string; bookingNumber: string }>("booking-complete", { approvalId: id }));
+    if (booked) { setDone(`Booked as ${booked.bookingNumber} at a fresh price, paid by Corporate Credit.`); void reload(); }
+  }
 
   async function confirm() {
     if (!decision) return;
@@ -37,7 +43,9 @@ export default function ApprovalDetail({ params }: { params: Promise<{ id: strin
     </PageHeader>
     {done && <Notice tone="success">{done}</Notice>}
     <DataState loading={loading} error={error} onRetry={reload}>{data && <>
-      <div className="flex flex-wrap items-center gap-3"><Status value={data.status}/>{data.rawStatus === "PENDING" && pickupPassed && <span className="text-sm text-neutral-500">The pickup time has passed; this request can no longer be approved.</span>}{data.booking && <Link className="text-sm font-semibold text-red-700" href={`/corporate-admin/bookings/${data.booking.id}`}>Booked as {data.booking.bookingNumber} →</Link>}{data.status === "APPROVED" && !data.booking && <span className="text-sm text-neutral-500">Approved — waiting for the employee to confirm the booking at a fresh price.</span>}</div>
+      <div className="flex flex-wrap items-center gap-3"><Status value={data.status}/>{data.rawStatus === "PENDING" && pickupPassed && <span className="text-sm text-neutral-500">The pickup time has passed; this request can no longer be approved.</span>}{data.booking && <Link className="text-sm font-semibold text-red-700" href={`/corporate-admin/bookings/${data.booking.id}`}>Booked as {data.booking.bookingNumber} →</Link>}{data.status === "APPROVED" && !data.booking && <><span className="text-sm text-neutral-500">Approved — not booked yet. The employee can book it in their app, or you can book it now at a fresh price.</span><button className="rg-primary rg-sm" disabled={completing.busy} onClick={() => void complete()}>{completing.busy ? "Booking…" : "Complete booking"}</button></>}{data.ride?.portal?.guest && <span className="rounded-full bg-neutral-900 px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-white">Guest booking</span>}</div>
+      {completing.error && <Notice tone="error">{completing.error}</Notice>}
+      {data.ride?.portal?.guest && <Notice tone="info">Guest: <b>{data.ride.portal.guest.name}</b> · {data.ride.portal.guest.mobile}{data.ride.portal.guest.email ? ` · ${data.ride.portal.guest.email}` : ""}{data.ride.portal.guest.reference ? ` · Ref ${data.ride.portal.guest.reference}` : ""} — requested by {data.ride.portal.bookedBy} through the Corporate Portal.</Notice>}
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <Panel title="Requested ride" description="Snapshot captured when the employee submitted the request. The fare is re-quoted before booking.">

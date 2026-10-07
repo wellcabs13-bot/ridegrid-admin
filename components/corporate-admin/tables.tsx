@@ -13,7 +13,7 @@ export function BookingTable({ rows, empty = "No bookings match these filters." 
     <thead><tr><th>Booking</th><th>Traveller</th><th>Pickup</th><th>Route</th><th>Vendor / vehicle / driver</th><th>Status</th><th className="text-right">Fare (GST)</th></tr></thead>
     <tbody>{rows.map((b) => <tr key={b.id}>
       <td><Link className="font-semibold text-red-700" href={`/corporate-admin/bookings/${b.id}`}>{b.bookingNumber}</Link><p className="mt-1 text-xs text-neutral-500">{b.service.replaceAll("_", " ")}{b.approval ? " · approved trip" : ""}</p></td>
-      <td><p className="font-medium">{b.traveller}</p><p className="text-xs text-neutral-500">{b.employee?.department?.name ?? b.employee?.code ?? ""}</p></td>
+      <td><p className="font-semibold">{b.traveller}{b.isGuest && <span className="ml-1.5 rounded-full bg-neutral-900 px-1.5 py-0.5 align-middle text-[9.5px] font-bold uppercase tracking-wide text-white">Guest</span>}</p><p className="text-xs text-neutral-500">{b.isGuest ? (b.guest?.mobile ?? "") : b.employee?.department?.name ?? b.employee?.code ?? ""}</p></td>
       <td className="whitespace-nowrap">{when(b.pickupDateTime)}</td>
       <td>{routeOf(b)}</td>
       <td><p className="truncate">{b.vendor.companyName}</p><p className="text-xs text-neutral-500">{b.vehicle.make} {b.vehicle.model} · {b.vehicle.registrationNumber}</p><p className="text-xs text-neutral-500">{b.driver ? `Driver: ${b.driver.name}` : "Driver not assigned"}</p></td>

@@ -9,6 +9,9 @@ export type TravelPolicyInput = {
   pickupDateTime?: Date | string;
 };
 
+// The only reason on a trip that is otherwise inside policy when the policy asks for approval on every trip.
+export const EVERY_TRIP_APPROVAL_REASON = "Your company requires approval for every trip.";
+
 export type TravelDecision = "ALLOWED" | "APPROVAL_REQUIRED" | "NOT_ALLOWED";
 
 type PolicyRecord = {
@@ -147,7 +150,7 @@ export function decideTravelPolicy(
   if (limits.yearlyTravelLimit !== null && amount.plus(usage.yearUsed).gt(limits.yearlyTravelLimit))
     reasons.push("This trip exceeds your yearly travel limit.");
   if (blocked.length) return { decision: "NOT_ALLOWED", reasons: [...blocked, ...reasons], blocked };
-  if (policy?.approvalRequired && !reasons.length) reasons.push("Your company requires approval for every trip.");
+  if (policy?.approvalRequired && !reasons.length) reasons.push(EVERY_TRIP_APPROVAL_REASON);
   return { decision: reasons.length ? "APPROVAL_REQUIRED" : "ALLOWED", reasons, blocked };
 }
 
@@ -239,6 +242,8 @@ export class CorporateTravelPolicyService {
     const where = (start: Date, end: Date): Prisma.BookingWhereInput => ({
       corporateId, deletedAt: null, status: { not: "CANCELLED" },
       customer: { userId }, pickupDateTime: { gte: start, lt: end },
+      // Guest rides booked by an administrator belong to the guest, not to the administrator's own allowance.
+      NOT: { corporateTraveller: { is: { kind: "GUEST" } } },
     });
     const [month, year] = await Promise.all([
       prisma.booking.aggregate({ where: where(p.monthStart, p.monthEnd), _sum: { finalFare: true } }),

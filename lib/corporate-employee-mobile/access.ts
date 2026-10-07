@@ -21,7 +21,17 @@ export const employeeSelect = {
 } satisfies Prisma.CorporateEmployeeSelect;
 
 export type Employee = Prisma.CorporateEmployeeGetPayload<{ select: typeof employeeSelect }>;
-export type EmployeeAccess = { user: { id: string; name: string }; employee: Employee & { userId: string } };
+// Set only by the Corporate Admin Portal when a company administrator books on someone else's behalf. The
+// traveller's own identity stays in `user`/`employee` (so quotes, policy, budgets and booking ownership are
+// theirs); `portal` carries who actually acted and what the administrator is allowed to authorise.
+export type PortalGuest = { name: string; mobile: string; email: string | null; reference: string | null };
+export type PortalContext = {
+  actor: { id: string; name: string };
+  guest?: PortalGuest;
+  // Runs inside the booking transaction so the traveller record can never be lost.
+  onBooked: (tx: Prisma.TransactionClient, bookingId: string, approvalBasis: string) => Promise<void>;
+};
+export type EmployeeAccess = { user: { id: string; name: string }; employee: Employee & { userId: string }; portal?: PortalContext };
 
 // Identity fields a client could try to substitute. Company and employee identity
 // always come from the authenticated session, never from the request.

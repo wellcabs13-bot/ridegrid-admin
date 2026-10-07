@@ -2,7 +2,7 @@
 import { ReactNode, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, type LucideIcon } from "lucide-react";
 import { apiData } from "@/components/admin/Primitives";
 
 export { apiData, useAdminData, DataState, label, date } from "@/components/admin/Primitives";
@@ -70,37 +70,48 @@ export function statusText(value: string) { return STATUS_TEXT[value] ?? value.r
 
 export function Status({ value, tone }: { value: string | null | undefined; tone?: keyof typeof TONES }) {
   if (!value) return <span className="text-neutral-400">—</span>;
-  return <span className={`inline-flex whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-semibold ${TONES[tone ?? STATUS_TONE[value] ?? "gray"]}`}>{statusText(value)}</span>;
+  return <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11.5px] font-semibold ${TONES[tone ?? STATUS_TONE[value] ?? "gray"]}`}>{statusText(value)}</span>;
 }
 
 export function PageHeader({ title, description, children, back }: { title: string; description?: string; children?: ReactNode; back?: { href: string; label: string } }) {
   return <div className="flex flex-wrap items-end justify-between gap-4">
     <div className="min-w-0">
-      {back ? <Link href={back.href} className="inline-flex items-center gap-1 text-xs font-semibold text-red-700"><ChevronLeft size={14}/>{back.label}</Link> : <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-red-600">Corporate travel</p>}
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">{title}</h1>
-      {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-500">{description}</p>}
+      {back && <Link href={back.href} className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-red-700"><ChevronLeft size={14}/>{back.label}</Link>}
+      <h1 className="text-[24px] font-bold leading-tight tracking-tight text-neutral-950 md:text-[26px]">{title}</h1>
+      {description && <p className="mt-1 max-w-3xl text-[13.5px] leading-5 text-neutral-500">{description}</p>}
     </div>
     {children && <div className="flex flex-wrap gap-2">{children}</div>}
   </div>;
 }
 
-export function Kpi({ label, value, hint, href, tone }: { label: string; value: ReactNode; hint?: string; href?: string; tone?: "alert" }) {
-  const body = <><p className="text-xs font-medium text-neutral-500">{label}</p><p className={`mt-2 break-words text-xl font-semibold tabular-nums tracking-tight 2xl:text-2xl ${tone === "alert" ? "text-red-700" : ""}`}>{value}</p>{hint && <p className="mt-1 text-xs text-neutral-500">{hint}</p>}</>;
-  return href ? <Link href={href} className="rg-card block p-4 transition hover:border-red-200">{body}</Link> : <div className="rg-card p-4">{body}</div>;
+const KPI_ICON: Record<string, string> = { red: "bg-red-50 text-red-600", green: "bg-emerald-50 text-emerald-600", blue: "bg-sky-50 text-sky-600", amber: "bg-amber-50 text-amber-600", violet: "bg-violet-50 text-violet-600" };
+
+export function Kpi({ label, value, hint, href, tone, icon: Icon, accent = "red", trend }: { label: string; value: ReactNode; hint?: string; href?: string; tone?: "alert"; icon?: LucideIcon; accent?: keyof typeof KPI_ICON; trend?: { text: string; direction: "up" | "down" | "flat"; good?: boolean } }) {
+  const trendColour = !trend || trend.direction === "flat" ? "text-neutral-500" : (trend.direction === "up") === (trend.good ?? true) ? "text-emerald-600" : "text-red-600";
+  const body = <div className="flex items-start justify-between gap-3">
+    <div className="min-w-0">
+      <p className="text-[12.5px] font-medium text-neutral-500">{label}</p>
+      <p className={`mt-1.5 break-words text-[24px] font-bold leading-none tabular-nums tracking-tight ${tone === "alert" ? "text-red-600" : "text-neutral-950"}`}>{value}</p>
+      {trend && <p className={`mt-2 text-[11.5px] font-semibold ${trendColour}`}>{trend.direction === "up" ? "↑ " : trend.direction === "down" ? "↓ " : ""}{trend.text}</p>}
+      {hint && <p className="mt-1.5 text-[11.5px] text-neutral-500">{hint}</p>}
+    </div>
+    {Icon && <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${KPI_ICON[accent]}`}><Icon size={20} strokeWidth={2}/></span>}
+  </div>;
+  return href ? <Link href={href} className="rg-card block p-4 transition hover:border-red-200 hover:shadow-md">{body}</Link> : <div className="rg-card p-4">{body}</div>;
 }
 
 export function Panel({ title, description, action, children, className = "" }: { title: string; description?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return <section className={`rg-card ${className}`}>
-    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4"><div><h2 className="font-semibold">{title}</h2>{description && <p className="mt-1 text-xs text-neutral-500">{description}</p>}</div>{action}</div>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-5 py-3.5"><div><h2 className="text-[15px] font-bold text-neutral-950">{title}</h2>{description && <p className="mt-0.5 text-xs text-neutral-500">{description}</p>}</div>{action}</div>
     {children}
   </section>;
 }
 
 // Accessible tab strip used for list views (status tabs, scopes).
 export function Tabs<T extends string>({ value, onChange, items, label: aria }: { value: T; onChange: (v: T) => void; items: { value: T; label: string; count?: number | null }[]; label: string }) {
-  return <div role="tablist" aria-label={aria} className="flex gap-1 overflow-x-auto border-b border-neutral-100 px-3">
-    {items.map((t) => <button key={t.value} type="button" role="tab" aria-selected={value === t.value} onClick={() => onChange(t.value)} className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm ${value === t.value ? "border-red-600 font-semibold text-red-700" : "border-transparent text-neutral-500 hover:text-neutral-800"}`}>{t.label}{t.count !== undefined && t.count !== null ? <span className="ml-1.5 rounded-full bg-neutral-100 px-1.5 text-xs text-neutral-600">{t.count}</span> : null}</button>)}
-  </div>;
+  return <div className="border-b border-neutral-100 px-4 py-3"><div role="tablist" aria-label={aria} className="rgc-tabs">
+    {items.map((t) => <button key={t.value} type="button" role="tab" aria-selected={value === t.value} onClick={() => onChange(t.value)} className="rgc-tab">{t.label}{t.count !== undefined && t.count !== null ? <span className={`ml-1.5 rounded-full px-1.5 text-[11px] ${value === t.value ? "bg-white/25 text-white" : "bg-white text-neutral-600"}`}>{t.count}</span> : null}</button>)}
+  </div></div>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {
@@ -122,19 +133,24 @@ export function Pagination({ page, pageSize, total, onPage }: { page: number; pa
 export function Modal({ open, title, onClose, children, footer, wide }: { open: boolean; title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   const titleId = useId();
   const ref = useRef<HTMLDivElement>(null);
+  // Parents pass inline `onClose` callbacks, so a new function arrives on every render. Keeping the
+  // latest one in a ref means the focus effect below runs only when the dialog opens or closes -
+  // never on a keystroke - which is what used to throw focus back to the first field after each character.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     ref.current?.querySelector<HTMLElement>("input,select,textarea,button")?.focus();
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") onCloseRef.current(); };
     window.addEventListener("keydown", key);
     return () => { window.removeEventListener("keydown", key); previous?.focus(); };
-  }, [open, onClose]);
+  }, [open]);
   if (!open || typeof document === "undefined") return null;
   // Rendered at body level so the overlay covers the header and sidebar.
-  return createPortal(<div className="rg-admin fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-    <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} className={`flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl ${wide ? "sm:max-w-3xl" : "sm:max-w-lg"}`}>
-      <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-5 py-4"><h2 id={titleId} className="font-semibold">{title}</h2><button className="rg-icon" onClick={onClose} aria-label="Close"><X size={16}/></button></div>
+  return createPortal(<div className="rg-corp fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} className={`flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl ${wide ? "sm:max-w-3xl" : "sm:max-w-lg"}`}>
+      <div className="flex items-center justify-between gap-3 border-b border-neutral-100 px-5 py-4"><h2 id={titleId} className="text-[16px] font-bold text-neutral-950">{title}</h2><button className="rg-icon" onClick={onClose} aria-label="Close"><X size={16}/></button></div>
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
       {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-neutral-100 px-5 py-4">{footer}</div>}
     </div>
@@ -142,7 +158,7 @@ export function Modal({ open, title, onClose, children, footer, wide }: { open: 
 }
 
 export function Field({ label, children, hint, className = "" }: { label: string; children: ReactNode; hint?: string; className?: string }) {
-  return <label className={`block text-sm ${className}`}><span className="mb-1.5 block font-medium text-neutral-700">{label}</span>{children}{hint && <span className="mt-1 block text-xs text-neutral-500">{hint}</span>}</label>;
+  return <label className={`block text-[13px] ${className}`}><span className="mb-1.5 block text-[12.5px] font-semibold text-neutral-700">{label}</span>{children}{hint && <span className="mt-1 block text-xs text-neutral-500">{hint}</span>}</label>;
 }
 
 export function Notice({ tone = "info", children }: { tone?: "info" | "error" | "success"; children: ReactNode }) {

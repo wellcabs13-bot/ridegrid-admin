@@ -2,7 +2,7 @@ import { BookingSource, PaymentMethod, Prisma, TripType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertQuoteUsable, quoteService, Snapshot } from "@/lib/services/pricing/QuoteService";
 import { PricingError, nonnegative } from "@/lib/services/pricing/engine";
-import { corporateTravelPolicyService, policyServiceType } from "@/lib/services/corporate/CorporateTravelPolicyService";
+import { corporateTravelPolicyService, EVERY_TRIP_APPROVAL_REASON, policyServiceType } from "@/lib/services/corporate/CorporateTravelPolicyService";
 import { ApprovalRequestSnapshot, corporateApprovalService } from "@/lib/services/corporate/CorporateApprovalService";
 import { commitMarketplaceBooking, loadBookableListing } from "@/lib/services/booking/MarketplaceBookingService";
 import { reservationWindowFromPickup, tripDaysFromSnapshot } from "@/lib/services/marketplace/BookingAvailabilityService";
@@ -26,6 +26,16 @@ async function evaluate(a: EmployeeAccess, snapshot: Snapshot) {
     [{ amount: snapshot.finalPayable, category: snapshot.vehicleCategoryId, serviceType: policyServiceType(snapshot.service), pickupDateTime: new Date(snapshot.tripDateTime), tripType: snapshot.service === "OUTSTATION_ROUND_TRIP" ? "ROUNDTRIP" : "ONEWAY", pickupCity: snapshot.route?.origin || snapshot.route?.city || null }],
   );
   return results[0];
+}
+
+// A Corporate Administrator booking through the portal is itself an authorised approver, so a company that only
+// asks for "approval on every trip" is satisfied by that booking. Genuine policy violations (limits, budgets,
+// categories, hours...) and any workflow that names someone other than the administrator still need a real approval.
+async function portalAuthorises(a: EmployeeAccess, snapshot: Snapshot, reasons: string[]) {
+  if (!a.portal) return false;
+  if (reasons.length !== 1 || reasons[0] !== EVERY_TRIP_APPROVAL_REASON) return false;
+  const workflow = await corporateApprovalService.getWorkflow(a.employee.corporateId, Number(snapshot.finalPayable), { id: a.employee.id, branchId: a.employee.branchId, departmentId: a.employee.departmentId });
+  return workflow.stages.every((s) => s.approverType === "CORPORATE_ADMIN");
 }
 
 // The employee's bookings use their own Customer profile, created on first booking,
@@ -66,7 +76,11 @@ async function quote(a: EmployeeAccess, b: Body) {
   if (days !== undefined && (!Number.isInteger(Number(days)) || Number(days) < 1 || Number(days) > 365)) throw new CorporateMobileError(400, "Trip days must be a whole number from 1 to 365.");
   const q = await quoteService.forPackage(required(b.pricingPackageId, "pricing"), at, a.user.id, true, required(b.idempotencyKey, "request key", 100), days);
   const policy = await evaluate(a, q.snapshot);
-  return { id: q.id, expiresAt: q.expiresAt, vehicleId: q.snapshot.vehicleId, fare: safeFare(q.snapshot as unknown as Record<string, unknown>), policy: { decision: policy.decision, reasons: policy.reasons } };
+  const portalAuthorised = a.portal && policy.decision === "APPROVAL_REQUIRED" ? await portalAuthorises(a, q.snapshot, policy.reasons) : false;
+  return {
+    id: q.id, expiresAt: q.expiresAt, vehicleId: q.snapshot.vehicleId, fare: safeFare(q.snapshot as unknown as Record<string, unknown>), policy: { decision: policy.decision, reasons: policy.reasons },
+    ...(a.portal ? { portalAuthorised } : {}),
+  };
 }
 
 async function book(a: EmployeeAccess, b: Body) {
@@ -79,7 +93,8 @@ async function book(a: EmployeeAccess, b: Body) {
   if (policy.decision === "NOT_ALLOWED") throw new CorporateMobileError(403, policy.blocked[0] || "This ride is not allowed by your company travel policy.", "POLICY_NOT_ALLOWED");
   const approvalId = optional(b.approvalId, "approval", 60);
   let pickupAddress = required(b.pickupAddress, "pickup address", 300), dropAddress = required(b.dropAddress, "drop address", 300);
-  if (policy.decision === "APPROVAL_REQUIRED" && !approvalId)
+  const adminAuthorised = policy.decision === "APPROVAL_REQUIRED" && !approvalId && await portalAuthorises(a, snapshot, policy.reasons);
+  if (policy.decision === "APPROVAL_REQUIRED" && !approvalId && !adminAuthorised)
     throw new CorporateMobileError(409, "This ride needs company approval. Submit it for approval first.", "APPROVAL_REQUIRED");
   if (approvalId) {
     const approval = await prisma.corporateApprovalRequest.findFirst({ where: { id: approvalId, employeeId: a.employee.id, corporateId: a.employee.corporateId }, select: { status: true, bookingId: true, amount: true, requestSnapshot: true } });
@@ -106,25 +121,28 @@ async function book(a: EmployeeAccess, b: Body) {
     quoteId, ownerId: a.user.id, snapshot, vehicle, pricingPackageId: packageData.id, customerId,
     corporateId: a.employee.corporateId, bookingSource: BookingSource.CORPORATE, tripType,
     pickupAddress, dropAddress, pickupDateTime: pickup, window, discountAmount, finalFare: Number(snapshot.finalPayable),
-    paymentMethod, changedBy: a.user.id,
-    afterCreate: approvalId
-      ? async (tx, created) => { await corporateApprovalService.markBooked(tx, approvalId, a.employee.id, created.id); }
+    paymentMethod, changedBy: a.portal?.actor.id ?? a.user.id,
+    afterCreate: approvalId || a.portal
+      ? async (tx, created) => {
+          if (approvalId) await corporateApprovalService.markBooked(tx, approvalId, a.employee.id, created.id);
+          if (a.portal) await a.portal.onBooked(tx, created.id, approvalId ? "APPROVAL_GRANTED" : adminAuthorised ? "ADMIN_AUTHORISED" : "WITHIN_POLICY");
+        }
       : undefined,
   });
   // Traveller confirmation and vendor/driver alerts are automation rules on BOOKING_CREATED.
   await emitRideGridEvent({
     type: AutomationTrigger.BOOKING_CREATED, module: "BOOKING", bookingId: booking.id, userId: a.user.id, customerId,
     vendorId: vehicle.vendorId, driverId: vehicle.driverId ?? undefined,
-    metadata: { bookingNumber: booking.bookingNumber, source: booking.bookingSource, paymentMethod, corporateId: a.employee.corporateId },
+    metadata: { bookingNumber: booking.bookingNumber, source: booking.bookingSource, paymentMethod, corporateId: a.employee.corporateId, ...(a.portal ? { bookedByAdminId: a.portal.actor.id } : {}) },
   });
-  return { id: booking.id, bookingNumber: booking.bookingNumber, status: booking.status, paymentMethod };
+  return { id: booking.id, bookingNumber: booking.bookingNumber, status: booking.status, paymentMethod, approvalBasis: approvalId ? "APPROVAL_GRANTED" : adminAuthorised ? "ADMIN_AUTHORISED" : "WITHIN_POLICY", policyReasons: policy.reasons };
 }
 
 async function requestApproval(a: EmployeeAccess, b: Body) {
   const { snapshot, quoteId, listingId, pricingPackageId, pickup } = await ownedQuote(a, b);
   const policy = await evaluate(a, snapshot);
   if (policy.decision === "NOT_ALLOWED") throw new CorporateMobileError(403, policy.blocked[0] || "This ride is not allowed by your company travel policy.", "POLICY_NOT_ALLOWED");
-  if (policy.decision === "ALLOWED") throw new CorporateMobileError(409, "This ride is within policy. Book it directly.", "APPROVAL_NOT_NEEDED");
+  if (policy.decision === "ALLOWED" || await portalAuthorises(a, snapshot, policy.reasons)) throw new CorporateMobileError(409, "This ride is within policy. Book it directly.", "APPROVAL_NOT_NEEDED");
   const pkg = await prisma.pricingPackage.findFirst({
     where: { id: pricingPackageId, vehicleId: listingId },
     select: { packageName: true, packageType: true, city: true, fromCity: true, toCity: true, vehicle: { select: { make: true, model: true, category: true, vendor: { select: { companyName: true } } } } },
@@ -141,6 +159,7 @@ async function requestApproval(a: EmployeeAccess, b: Body) {
     vehicle: { make: pkg.vehicle.make, model: pkg.vehicle.model, category: pkg.vehicle.category }, vendorName: pkg.vehicle.vendor.companyName,
     fare: { vendorFare: fare.vendorFare, platformFee: fare.platformFee, taxAmount: fare.taxAmount, finalPayable: fare.finalPayable },
     policyReasons: policy.reasons, note: optional(b.note, "note", 500),
+    ...(a.portal ? { portal: { bookedBy: a.portal.actor.name, ...(a.portal.guest ? { guest: a.portal.guest } : {}) } } : {}),
   };
   return corporateApprovalService.submit({ corporateId: a.employee.corporateId, employeeId: a.employee.id, userId: a.user.id, amount: new Prisma.Decimal(snapshot.finalPayable), snapshot: request, subject: { id: a.employee.id, branchId: a.employee.branchId, departmentId: a.employee.departmentId } });
 }

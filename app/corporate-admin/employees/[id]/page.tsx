@@ -13,6 +13,7 @@ type Employee = {
   branch: { branchName: string } | null; department: { departmentName: string } | null; costCenter: { name: string } | null;
   reportingManager: { id: string; employeeName: string } | null; approvalManager: { id: string; employeeName: string } | null;
   effectivePolicy: { id: string; name: string; source: string } | null;
+  approval: { mode: "AUTO_APPROVED" | "APPROVAL_REQUIRED"; policyName: string | null; approvers: string } | null;
   login: { enabled: boolean; role: string | null } | null; isSelf: boolean;
   usage: { month: string; year: string } | null; bookingCount: number; approvalCount: number;
 };
@@ -70,6 +71,7 @@ export default function EmployeeDetail({ params }: { params: Promise<{ id: strin
           <Detail items={[
             ["Travel policy", e.effectivePolicy ? `${e.effectivePolicy.name} (${SOURCE[e.effectivePolicy.source] ?? ""})` : "No policy — trips are allowed within personal limits"],
             ["Booking permission", e.canBook ? "Can book" : "Cannot book"],
+            ["Booking approval", e.approval ? (e.approval.mode === "AUTO_APPROVED" ? "Auto-approved by policy" : `Approval required · ${e.approval.approvers}`) : "—"],
             ["Monthly limit", e.monthlyTravelLimit ? inr(e.monthlyTravelLimit) : "No personal limit"],
             ["Booked this month", e.usage ? inr(e.usage.month) : "—"],
             ["Yearly limit", e.yearlyTravelLimit ? inr(e.yearlyTravelLimit) : "No personal limit"],

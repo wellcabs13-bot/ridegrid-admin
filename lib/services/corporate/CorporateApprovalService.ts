@@ -39,6 +39,8 @@ export type ApprovalRequestSnapshot = {
   fare: { vendorFare: string; platformFee: string; taxAmount: string; finalPayable: string };
   policyReasons: string[];
   note: string;
+  // Present when a Corporate Administrator submitted the request through the portal (optionally for a guest).
+  portal?: { bookedBy: string; guest?: { name: string; mobile: string; email: string | null; reference: string | null } };
 };
 
 type Tx = Prisma.TransactionClient;

@@ -9,6 +9,7 @@ import { trustedTripLocation } from "@/lib/services/booking/TrustedLocationServi
 import { serviceOf } from "@/lib/corporate-employee-mobile/selects";
 import type { ApprovalRequestSnapshot } from "@/lib/services/corporate/CorporateApprovalService";
 import { AdminAccess, CorporateAdminError, id as idOf, pageOf } from "./access";
+import { approvalBehaviours } from "./approval-rule";
 import { adminApproval, adminApprovalSelect, adminBooking, adminBookingSelect, employeeOf, employeeSummarySelect } from "./selects";
 import { commercial } from "./documents";
 import { notificationCenter } from "./notification-center";
@@ -285,6 +286,58 @@ async function pendingApprovalAmounts(a: AdminAccess) {
   });
 }
 
+type Insight = { id: string; tone: "alert" | "warn" | "info" | "good"; title: string; detail: string; href: string };
+
+// Rules over the company's own records. Nothing here is predicted or estimated: every line states a count or
+// amount that is read from bookings, approvals, invoices, credit or budgets right now.
+async function dashboardInsights(a: AdminAccess, ctx: { now: Date; finance: Awaited<ReturnType<typeof financeSummary>>; credit: { creditLimit: number; availableCredit: number; enabled: boolean } | null; budgets: { budgetName: string; allocatedAmount: string; bookedSpend: string }[] }) {
+  const since90 = new Date(ctx.now.getTime() - 90 * 86400000), since30 = new Date(ctx.now.getTime() - 30 * 86400000);
+  const [oldPending, exceptions, rows] = await Promise.all([
+    prisma.corporateApprovalRequest.findMany({ where: { corporateId: a.corporateId, status: "PENDING", submittedAt: { lt: new Date(ctx.now.getTime() - 86400000) } }, select: { submittedAt: true }, orderBy: { submittedAt: "asc" }, take: 100 }),
+    prisma.corporateApprovalRequest.count({ where: { corporateId: a.corporateId, submittedAt: { gte: since30 } } }),
+    prisma.booking.findMany({
+      where: { ...companyBookings(a), status: { not: "CANCELLED" }, pickupDateTime: { gte: since90, lte: ctx.now } }, take: 1500, orderBy: { pickupDateTime: "desc" },
+      select: { finalFare: true, estimatedFare: true, pickupLocation: true, dropLocation: true, pricingPackage: { select: { city: true, fromCity: true, toCity: true } }, corporateTraveller: { select: { kind: true } }, customer: { select: { user: { select: { corporateEmployee: { select: { corporateId: true, department: { select: { departmentName: true } } } } } } } } },
+    }),
+  ]);
+  const out: Insight[] = [];
+  if (oldPending.length) {
+    const hours = Math.floor((ctx.now.getTime() - oldPending[0].submittedAt.getTime()) / 3600000);
+    out.push({ id: "approval-wait", tone: "warn", title: `${oldPending.length} approval${oldPending.length === 1 ? "" : "s"} waiting over 24 hours`, detail: `The oldest has waited ${hours >= 48 ? `${Math.floor(hours / 24)} days` : `${hours} hours`}. Decide before the pickup time passes.`, href: "/corporate-admin/approvals?status=PENDING" });
+  }
+  if (ctx.finance.overdueInvoices) out.push({ id: "overdue", tone: "alert", title: `${ctx.finance.overdueInvoices} overdue invoice${ctx.finance.overdueInvoices === 1 ? "" : "s"}`, detail: `${inrText(ctx.finance.overdue)} is past its due date.`, href: "/corporate-admin/invoices?status=OVERDUE" });
+  if (ctx.credit?.enabled && ctx.credit.creditLimit > 0 && ctx.credit.availableCredit / ctx.credit.creditLimit < 0.2)
+    out.push({ id: "credit-low", tone: "alert", title: "Corporate credit is running low", detail: `${inrText(ctx.credit.availableCredit)} of ${inrText(ctx.credit.creditLimit)} is still available. Bookings stop when it reaches zero.`, href: "/corporate-admin/billing" });
+  for (const b of ctx.budgets) {
+    const limit = Number(b.allocatedAmount), used = Number(b.bookedSpend);
+    if (limit > 0 && used / limit >= 0.9) out.push({ id: `budget-${b.budgetName}`, tone: "warn", title: `${b.budgetName} budget is ${Math.round((used / limit) * 100)}% used`, detail: `${inrText(used)} of ${inrText(limit)} booked.`, href: "/corporate-admin/budgets" });
+  }
+  if (ctx.finance.unbilledTrips) out.push({ id: "unbilled", tone: "info", title: `${ctx.finance.unbilledTrips} completed trip${ctx.finance.unbilledTrips === 1 ? "" : "s"} not invoiced yet`, detail: `${inrText(ctx.finance.unbilled)} will appear on your next invoice.`, href: "/corporate-admin/invoices" });
+  const fareOf = (r: (typeof rows)[number]) => Number(r.finalFare ?? r.estimatedFare);
+  const routes = new Map<string, { trips: number; spend: number }>();
+  const depts = new Map<string, number>();
+  let total = 0;
+  for (const r of rows) {
+    const p = r.pricingPackage;
+    const from = (p?.fromCity || p?.city || r.pickupLocation).trim(), to = (p?.toCity || "").trim();
+    const key = to ? `${from} → ${to}` : `${from} (local)`;
+    const cur = routes.get(key) ?? { trips: 0, spend: 0 };
+    routes.set(key, { trips: cur.trips + 1, spend: cur.spend + fareOf(r) });
+    total += fareOf(r);
+    const e = r.corporateTraveller?.kind === "GUEST" ? null : r.customer.user.corporateEmployee;
+    const dept = e && e.corporateId === a.corporateId ? e.department?.departmentName ?? "No department" : r.corporateTraveller?.kind === "GUEST" ? "Guest bookings" : "Unlinked";
+    depts.set(dept, (depts.get(dept) ?? 0) + fareOf(r));
+  }
+  const top = [...routes.entries()].sort((x, y) => y[1].trips - x[1].trips)[0];
+  if (top && top[1].trips >= 3) out.push({ id: "top-route", tone: "info", title: `Most travelled route: ${top[0]}`, detail: `${top[1].trips} trips · ${inrText(top[1].spend)} in the last 90 days.`, href: "/corporate-admin/reports" });
+  const topDept = [...depts.entries()].sort((x, y) => y[1] - x[1])[0];
+  if (topDept && total > 0 && depts.size > 1 && topDept[1] / total >= 0.4) out.push({ id: "concentration", tone: "info", title: `${topDept[0]} is ${Math.round((topDept[1] / total) * 100)}% of travel spend`, detail: `${inrText(topDept[1])} of ${inrText(total)} over the last 90 days.`, href: "/corporate-admin/reports" });
+  if (exceptions) out.push({ id: "exceptions", tone: "info", title: `${exceptions} ride${exceptions === 1 ? "" : "s"} needed approval in the last 30 days`, detail: "Rides outside travel policy or on a company that approves every trip.", href: "/corporate-admin/approvals" });
+  return { items: out.slice(0, 6), basis: "Rules applied to your company's bookings, approvals, invoices, credit and budgets. No forecasts." };
+}
+
+const inrText = (v: string | number) => Number(v).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+
 async function dashboard(a: AdminAccess) {
   const now = new Date();
   const p = indiaPeriods(now);
@@ -314,7 +367,18 @@ async function dashboard(a: AdminAccess) {
     prisma.corporateApprovalRequest.findMany({ where: { corporateId: a.corporateId }, select: { id: true, status: true, submittedAt: true, completedAt: true, employee: { select: { employeeName: true } } }, orderBy: { updatedAt: "desc" }, take: 6 }),
   ]);
   const allIds = [...upcomingList, ...activeList, ...recent].map((b) => b.id);
-  const approvalsMap = await approvalsByBooking(allIds);
+  // Six months of spend by pickup month (India time) for the trend chart, plus the compliance split for 90 days.
+  const [thisYear, thisMonth] = dayKey(now).split("-").map(Number);
+  const spans = Array.from({ length: 6 }, (_, i) => indiaPeriods(new Date(Date.UTC(thisYear, thisMonth - 1 - (5 - i), 15, 6))));
+  const since90 = new Date(now.getTime() - 90 * 86400000);
+  const [approvalsMap, trendRows, ninety, withApproval, rejected] = await Promise.all([
+    approvalsByBooking(allIds),
+    Promise.all(spans.map((s) => prisma.booking.aggregate({ where: { ...base, status: { not: "CANCELLED" }, pickupDateTime: { gte: s.monthStart, lt: s.monthEnd } }, _sum: { finalFare: true }, _count: { _all: true } }))),
+    prisma.booking.count({ where: { ...base, status: { not: "CANCELLED" }, createdAt: { gte: since90 } } }),
+    prisma.corporateApprovalRequest.count({ where: { corporateId: a.corporateId, bookingId: { not: null }, submittedAt: { gte: since90 } } }),
+    prisma.corporateApprovalRequest.count({ where: { corporateId: a.corporateId, status: "REJECTED", submittedAt: { gte: since90 } } }),
+  ]);
+  const prevSpend = trendRows[4];
   const budgets = await Promise.all(budgetRows.map((b) => budgetUsage(b, pendingAmounts)));
   const company = budgets.filter((b) => b.scope === "COMPANY");
   const sum = (rows: typeof budgets, k: "allocatedAmount" | "used" | "committed" | "remaining") => dec(rows.reduce((s, r) => s.plus(r[k]), zero()));
@@ -330,7 +394,9 @@ async function dashboard(a: AdminAccess) {
     organisation: { branches: branchCount, departments: departmentCount },
     approvals: { pending: counts.PENDING ?? 0, approved: counts.APPROVED ?? 0, rejected: counts.REJECTED ?? 0, cancelled: counts.CANCELLED ?? 0 },
     trips: { today, upcoming, active: byStatus.TRIP_STARTED ?? 0, completed: byStatus.TRIP_COMPLETED ?? 0, cancelled: byStatus.CANCELLED ?? 0 },
-    month: { bookings: monthCount, spend: dec(monthSpend._sum.finalFare), start: p.monthStart },
+    month: { bookings: monthCount, spend: dec(monthSpend._sum.finalFare), start: p.monthStart, previousSpend: dec(prevSpend._sum.finalFare) },
+    trend: spans.map((s, i) => ({ month: s.monthStart, spend: dec(trendRows[i]._sum.finalFare), bookings: trendRows[i]._count._all })),
+    compliance: { windowDays: 90, bookings: ninety, withApproval: Math.min(withApproval, ninety), withinPolicy: Math.max(0, ninety - withApproval), rejectedRequests: rejected },
     budget: company.length ? { allocated: sum(company, "allocatedAmount"), used: sum(company, "used"), committed: sum(company, "committed"), remaining: sum(company, "remaining"), count: company.length } : null,
     pendingApprovals: pending.map((r) => adminApproval(r)),
     upcoming: upcomingList.map((b) => adminBooking(b, a.corporateId, approvalsMap.get(b.id))),
@@ -341,6 +407,7 @@ async function dashboard(a: AdminAccess) {
     budgets: budgets.slice(0, 4).map((b) => ({ id: b.id, name: b.budgetName, scope: b.scope, scopeName: b.scopeName, period: b.period, status: b.status, limit: b.allocatedAmount, bookedSpend: b.bookedSpend, endDate: b.endDate })),
     billing: { ...finance, outstandingAmount: finance.outstanding },
     unreadNotifications: unread,
+    insights: await dashboardInsights(a, { now, finance, credit: credit ? { creditLimit: credit.creditLimit, availableCredit: credit.availableCredit, enabled: credit.enabled } : null, budgets: budgets.map((b) => ({ budgetName: b.budgetName, allocatedAmount: b.allocatedAmount, bookedSpend: b.bookedSpend })) }),
     asOf: now,
   };
 }
@@ -372,6 +439,7 @@ async function employees(request: NextRequest, a: AdminAccess) {
       ...rest, monthlyTravelLimit: e.monthlyTravelLimit?.toFixed(2) ?? null, yearlyTravelLimit: e.yearlyTravelLimit?.toFixed(2) ?? null,
       login: userId ? { enabled: !!user?.isActive, role: user?.role ?? null } : null,
       isSelf: e.id === a.adminEmployeeId,
+      approval: (await approvalBehaviours(a.corporateId, [e])).get(e.id) ?? null,
       effectivePolicy: policy ? { id: policy.id, name: policy.policyName, source: e.travelPolicyId === policy.id ? "ASSIGNED" : policy.departmentId ? "DEPARTMENT" : policy.branchId ? "BRANCH" : "COMPANY" } : null,
       usage: usage ? { month: dec(usage.monthUsed), year: dec(usage.yearUsed) } : null,
       bookingCount, approvalCount,
@@ -385,19 +453,20 @@ async function employees(request: NextRequest, a: AdminAccess) {
     ...(branchId ? { branchId: idOf(branchId, "branch") } : {}),
     ...(departmentId ? { departmentId: idOf(departmentId, "department") } : {}),
     ...(status ? { isActive: status === "ACTIVE" } : {}),
-    ...(q ? { OR: [{ employeeName: { contains: q.slice(0, 60), mode: "insensitive" } }, { employeeCode: { contains: q.slice(0, 60), mode: "insensitive" } }, { officialEmail: { contains: q.slice(0, 80), mode: "insensitive" } }] } : {}),
+    ...(q ? { OR: [{ employeeName: { contains: q.slice(0, 60), mode: "insensitive" } }, { employeeCode: { contains: q.slice(0, 60), mode: "insensitive" } }, { officialEmail: { contains: q.slice(0, 80), mode: "insensitive" } }, { mobile: { contains: q.slice(0, 20).replace(/\s+/g, "") } }, { department: { departmentName: { contains: q.slice(0, 60), mode: "insensitive" } } }] } : {}),
   };
   const [rows, total] = await Promise.all([
     prisma.corporateEmployee.findMany({
       where, orderBy: [{ employeeName: "asc" }, { id: "asc" }], skip: (n - 1) * PAGE, take: PAGE,
-      select: { ...employeeSummarySelect, officialEmail: true, mobile: true, isApprover: true, canBook: true, monthlyTravelLimit: true, yearlyTravelLimit: true, userId: true, reportingManager: { select: { employeeName: true } }, travelPolicy: { select: { policyName: true } } },
+      select: { ...employeeSummarySelect, officialEmail: true, mobile: true, isApprover: true, canBook: true, monthlyTravelLimit: true, yearlyTravelLimit: true, userId: true, travelPolicyId: true, reportingManager: { select: { employeeName: true } }, travelPolicy: { select: { policyName: true } } },
     }),
     prisma.corporateEmployee.count({ where }),
   ]);
+  const behaviour = await approvalBehaviours(a.corporateId, rows.map((r) => ({ id: r.id, travelPolicyId: r.travelPolicyId, branchId: r.branch?.id ?? null, departmentId: r.department?.id ?? null })));
   return {
     items: rows.map((r) => ({
       ...employeeOf(r, a.corporateId)!, email: r.officialEmail, mobile: r.mobile, isApprover: r.isApprover, canBook: r.canBook, hasLogin: !!r.userId,
-      reportingManager: r.reportingManager?.employeeName ?? null, policy: r.travelPolicy?.policyName ?? null,
+      reportingManager: r.reportingManager?.employeeName ?? null, policy: r.travelPolicy?.policyName ?? null, approval: behaviour.get(r.id) ?? null,
       monthlyTravelLimit: r.monthlyTravelLimit?.toFixed(2) ?? null, yearlyTravelLimit: r.yearlyTravelLimit?.toFixed(2) ?? null,
     })),
     page: n, pageSize: PAGE, total,
@@ -410,7 +479,7 @@ async function orgOptions(a: AdminAccess) {
     prisma.corporateDepartment.findMany({ where: { corporateId: a.corporateId }, select: { id: true, departmentName: true, branchId: true, isActive: true }, orderBy: { departmentName: "asc" }, take: 500 }),
     prisma.corporateCostCenter.findMany({ where: { corporateId: a.corporateId, isActive: true }, select: { id: true, name: true, code: true }, orderBy: { name: "asc" }, take: 500 }),
     prisma.corporateEmployee.findMany({ where: { corporateId: a.corporateId, isActive: true }, select: { id: true, employeeName: true, employeeCode: true, designation: true, branchId: true, departmentId: true, userId: true }, orderBy: { employeeName: "asc" }, take: 2000 }),
-    prisma.corporateTravelPolicy.findMany({ where: { corporateId: a.corporateId, isActive: true }, select: { id: true, policyName: true, branchId: true, departmentId: true }, orderBy: { policyName: "asc" }, take: 200 }),
+    prisma.corporateTravelPolicy.findMany({ where: { corporateId: a.corporateId, isActive: true }, select: { id: true, policyName: true, branchId: true, departmentId: true, approvalRequired: true }, orderBy: { policyName: "asc" }, take: 200 }),
   ]);
   return {
     branches, departments, costCenters, policies, vehicleCategories: Object.values(VehicleCategory),
@@ -558,6 +627,7 @@ async function breakdown(a: AdminAccess, where: Prisma.BookingWhereInput) {
       pricingPackage: { select: { packageType: true } }, invoice: { select: { totalAmount: true, paymentStatus: true } },
       transactions: { select: { paymentMethod: true }, take: 1, orderBy: { createdAt: "desc" } },
       customer: { select: { user: { select: { corporateEmployee: { select: employeeSummarySelect } } } } },
+      corporateTraveller: { select: { kind: true } },
     },
   });
   const truncated = rows.length > REPORT_CAP;
@@ -576,15 +646,16 @@ async function breakdown(a: AdminAccess, where: Prisma.BookingWhereInput) {
     } else if (r.status === "TRIP_COMPLETED") t.unbilled = t.unbilled.plus(fare(r));
   };
   for (const r of rows.slice(0, REPORT_CAP)) {
-    const e = employeeOf(r.customer.user.corporateEmployee, a.corporateId);
+    const guest = r.corporateTraveller?.kind === "GUEST";
+    const e = guest ? null : employeeOf(r.customer.user.corporateEmployee, a.corporateId);
     const mk = monthKey(r.pickupDateTime);
     if (!months.has(mk)) months.set(mk, agg()); add(months.get(mk)!, r);
     const bk = e?.branch?.id ?? "none";
     if (!branchesMap.has(bk)) branchesMap.set(bk, { ...agg(), name: e?.branch?.name ?? "No branch" }); add(branchesMap.get(bk)!, r);
     const dk = e?.department?.id ?? "none";
     if (!depts.has(dk)) depts.set(dk, { ...agg(), name: e?.department?.name ?? "No department" }); add(depts.get(dk)!, r);
-    const pk = e?.id ?? "unknown";
-    if (!people.has(pk)) people.set(pk, { ...agg(), name: e?.name ?? "Unlinked traveller", code: e?.code ?? "" }); add(people.get(pk)!, r);
+    const pk = e?.id ?? (guest ? "guest" : "unknown");
+    if (!people.has(pk)) people.set(pk, { ...agg(), name: e?.name ?? (guest ? "Guest bookings" : "Unlinked traveller"), code: e?.code ?? "" }); add(people.get(pk)!, r);
     // serviceOf reads only packageType and tripType.
     const sk = r.pricingPackage?.packageType?.startsWith("AIRPORT") ? "AIRPORT" : serviceOf(r as unknown as Parameters<typeof serviceOf>[0]);
     if (!services.has(sk)) services.set(sk, agg()); add(services.get(sk)!, r);
