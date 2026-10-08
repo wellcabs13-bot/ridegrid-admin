@@ -14,3 +14,9 @@ Branch: phase-4-customer-module @ c07b008 (HEAD) + large UNCOMMITTED working tre
 - Prior-session uncommitted change already present: homepage `revalidate=300` + Organization/WebSite JSON-LD.
 - Verify after deploy: re-curl TTFB for / /about /contact.
 ## Not started / pending: see FINAL_LAUNCH_ISSUES.md and FINAL_LAUNCH_BLOCKERS.md
+
+## Checkpoint 2
+- Mobile unit tests PASS: corporate 10, customer 14, driver 9, vendor 10.
+- Local commit 7561b2d (speed fix + vercel.json + reports). NOT pushed, NOT deployed.
+- Uncommitted prior-session work remains (customer-mobile UI, wallet feature, .env, google-services.json, tsconfig, .gitignore). Review before committing; never commit .env.
+- NEXT: owner go-ahead to push/deploy -> re-measure TTFB; then marketplace/pricing live repro (needs Vercel logs), Playwright e2e, EAS release builds (needs signing creds), prod data classification (read-only counts).
