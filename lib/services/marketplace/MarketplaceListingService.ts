@@ -206,7 +206,13 @@ export class MarketplaceListingService {
             ? String(roundtripDays)
             : undefined
         ) };
-      } catch (error) { if (!(error instanceof PricingError)) throw error; return null; }
+      } catch (error) {
+        if (!(error instanceof PricingError)) throw error;
+        // A vehicle is hidden when its approved rate cannot be priced (e.g. PRICE_UNAVAILABLE after the vehicle's driver changed).
+        // Log it so operators can see why a listing disappeared instead of the search silently returning nothing.
+        console.warn("marketplace listing hidden", { code: error.code, pricingPackageId: pkg.id, vehicleId: pkg.vehicleId });
+        return null;
+      }
     });
     for (const entry of priced) {
       if (!entry) continue;
