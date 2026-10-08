@@ -20,3 +20,6 @@ Branch: phase-4-customer-module @ c07b008 (HEAD) + large UNCOMMITTED working tre
 - Local commit 7561b2d (speed fix + vercel.json + reports). NOT pushed, NOT deployed.
 - Uncommitted prior-session work remains (customer-mobile UI, wallet feature, .env, google-services.json, tsconfig, .gitignore). Review before committing; never commit .env.
 - NEXT: owner go-ahead to push/deploy -> re-measure TTFB; then marketplace/pricing live repro (needs Vercel logs), Playwright e2e, EAS release builds (needs signing creds), prod data classification (read-only counts).
+
+## Checkpoint 3
+Marketplace root cause found (driver mismatch), logging + check script committed (aef35cd). .env untracked (1ae92b8). EAS production build BLOCKED (free-plan quota until 2026-11-01). Master report + handover written. Remaining: deploy, post-deploy timing, admin/corporate optimization, e2e, data cleanup (needs approval).
