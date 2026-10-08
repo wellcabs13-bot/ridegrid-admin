@@ -6,8 +6,7 @@ import CorporateEnquiryForm from "@/components/website-public/CorporateEnquiryFo
 import { Hero } from "@/components/website-public/Content";
 import s from "@/components/website-public/public.module.css";
 import { WELLCABS } from "@/lib/website-public/brand";
-import { publicNavigation } from "@/lib/website-public/navigation";
-import { websitePublicNavigationRepository } from "@/lib/website-seo/public-navigation/repository";
+import { resolvePhase1Chrome } from "@/lib/website-public/repository";
 
 const canonical = "https://www.wellcabs.com/corporate-travel";
 export const metadata: Metadata = {
@@ -26,8 +25,8 @@ const FEATURES = [
 ];
 
 export default async function CorporateTravelPage() {
-  const nav = await websitePublicNavigationRepository.list().catch(() => ({ items: [], configured: false }));
-  return <PublicShell navigation={publicNavigation(nav.items, nav.configured)}>
+  const chrome = await resolvePhase1Chrome();
+  return <PublicShell navigation={chrome.navigation}>
     <Hero title="Corporate travel, under control." eyebrow="Corporate car rental" description="Business travel and employee mobility on one account: your employees book verified cars and drivers in the RideGrid app, your policies and approvals apply automatically, and you receive one consolidated bill." links={[{ label: "Get Corporate Quote", href: "#enquiry" }, { label: "Corporate Login", href: "/corporate-login" }]} breadcrumbs={[{ label: "Home", href: "/" }, { label: "Corporate travel", href: "/corporate-travel" }]} />
     <section className={s.section}><div className={s.container}>
       <p className={s.eyebrow}>What your company gets</p>
