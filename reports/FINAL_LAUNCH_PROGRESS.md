@@ -37,3 +37,12 @@ Marketplace root cause found (driver mismatch), logging + check script committed
 - 4 local debug-signed arm64 APKs built (release-artifacts/android-apk/debug-signed, git-ignored; manifest alongside). Install OK on emulator; launch untestable on x86_64 emulator (arm64-only libs). Real-phone test pending. Release signing pending EAS keystore download by owner.
 - Local build recipe: build from short path copies (C:\b\{c,d,e}); JDK17 from ~/.gradle/jdks; foojay-resolver 1.0.0 patch in node_modules; local.properties must use forward slashes.
 - Not pushed / not deployed. Emulator stopped.
+
+## Checkpoint 6 (2026-10-10, v5.0 continuation)
+- Production = 270bb9d (bom1 verified; search 0.16-0.43 s). No web code changed since, so NO web redeploy is needed or planned.
+- fa74ae8: Customer-app UI/wallet work reviewed (no mock data/secrets, all router targets exist; tsc + 14 tests pass) and committed locally. Not pushed.
+- Phase 8 isolated integration QA: BLOCKED - no local Postgres/Docker and no test DB; Playwright/e2e NOT run against production DB. Unit/mocked tests (943 web, 43 mobile) pass.
+- Phase 9: no deletion. reports/DATA_CLEANUP_MANIFEST.md lists the exact records and a proposed dependency order; waiting for owner scope.
+- Phase 6 signing: credentials.json still absent in all 4 app folders -> APKs remain DEBUG-SIGNED / NOT RELEASE-READY.
+- Secrets rotation: BLOCKED (provider access) - CRITICAL owner action.
+- Release gate: web has nothing new to deploy; mobile APKs not releasable until signed + phone-tested.
