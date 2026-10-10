@@ -76,3 +76,4 @@ GoogleService-Info.plist
 /release-artifacts/
 *.apk
 *.aab
+credentials.json
