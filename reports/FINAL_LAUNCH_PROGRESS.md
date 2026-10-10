@@ -23,3 +23,11 @@ Branch: phase-4-customer-module @ c07b008 (HEAD) + large UNCOMMITTED working tre
 
 ## Checkpoint 3
 Marketplace root cause found (driver mismatch), logging + check script committed (aef35cd). .env untracked (1ae92b8). EAS production build BLOCKED (free-plan quota until 2026-11-01). Master report + handover written. Remaining: deploy, post-deploy timing, admin/corporate optimization, e2e, data cleanup (needs approval).
+
+## Checkpoint 4 (2026-10-10)
+- Commits: 23afcdc (pricing alignment notice + rateWarnings on driver/vehicle reassignment, +4 tests, vitest 943 pass), b75c8e5/.gitignore (env, google-services, keystores, apk/aab, credentials.json), 13e4aa4 (lint fix). Not pushed.
+- `next build` failed once on a lint error in my new notice (apostrophe) -> fixed 13e4aa4; full rebuild still to re-run before push.
+- Local Android toolchain WORKS: JDK 17 (Gradle-provisioned, ~/.gradle/jdks), SDK build-tools 36, platform 36. Fixes needed: subst R: -> apps (short paths, avoids CMake/ninja path-length failure); local-only patch of node_modules/@react-native/gradle-plugin/settings.gradle.kts foojay-resolver 0.5.0->1.0.0 (Gradle 9 incompat; .orig backup kept per app); JDK 25 (Android Studio jbr) fails CMake.
+- Vendor release APK built (arm64-v8a, DEBUG-signed, com.ridegrid.vendor 1.0.0 code 1, 36 MB). Customer, Corporate, Driver (needed `expo prebuild`) building.
+- Release signing: no keystore on PC. Owner chose "download existing EAS keystores". Needs `eas credentials` (interactive) per app -> credentials.json; then `node scripts/android/sign-apk.cjs <apk> <credentials.json> <out.apk>`.
+- Dead mock-data components (68 files) listed in reports/DEAD_CODE_CLEANUP_PENDING.md; bulk delete was blocked, awaiting approval.
