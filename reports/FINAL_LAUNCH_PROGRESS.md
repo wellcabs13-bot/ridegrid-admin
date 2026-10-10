@@ -31,3 +31,9 @@ Marketplace root cause found (driver mismatch), logging + check script committed
 - Vendor release APK built (arm64-v8a, DEBUG-signed, com.ridegrid.vendor 1.0.0 code 1, 36 MB). Customer, Corporate, Driver (needed `expo prebuild`) building.
 - Release signing: no keystore on PC. Owner chose "download existing EAS keystores". Needs `eas credentials` (interactive) per app -> credentials.json; then `node scripts/android/sign-apk.cjs <apk> <credentials.json> <out.apk>`.
 - Dead mock-data components (68 files) listed in reports/DEAD_CODE_CLEANUP_PENDING.md; bulk delete was blocked, awaiting approval.
+
+## Checkpoint 5 (2026-10-10)
+- e5a8b8a removed 68 orphan mock components + 9 data modules (owner-approved). tsc, vitest 943, next build PASS.
+- 4 local debug-signed arm64 APKs built (release-artifacts/android-apk/debug-signed, git-ignored; manifest alongside). Install OK on emulator; launch untestable on x86_64 emulator (arm64-only libs). Real-phone test pending. Release signing pending EAS keystore download by owner.
+- Local build recipe: build from short path copies (C:\b\{c,d,e}); JDK17 from ~/.gradle/jdks; foojay-resolver 1.0.0 patch in node_modules; local.properties must use forward slashes.
+- Not pushed / not deployed. Emulator stopped.
