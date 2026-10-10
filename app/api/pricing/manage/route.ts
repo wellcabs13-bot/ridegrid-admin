@@ -5,6 +5,7 @@ import { Actor, createRate, savePolicy, transitionRate, lock, evidence } from "@
 import { PricingError, SERVICES, money, nonnegative, normalize } from "@/lib/services/pricing/engine";
 import { object, text } from "@/lib/services/pricing/config";
 import { VehicleCategory } from "@prisma/client";
+import { findAlignmentIssues } from "@/lib/services/pricing/alignment";
 import { saveBulkRates, saveSimplePolicy, saveSimpleRates, simplePricingData } from "@/lib/services/pricing/SimplePricingService";
 
 // Bulk route-grid saves write many versions in one transaction.
@@ -13,7 +14,7 @@ export const maxDuration = 300;
 export async function GET(request: NextRequest) {
   try {
     const access = await pricingAccess(request, request.nextUrl.searchParams.get("vendorId"));
-    if (request.nextUrl.searchParams.get("view") === "simple") return NextResponse.json({ success: true, data: await simplePricingData({ id: access.user.id, admin: access.admin, finance: access.finance, vendorId: access.vendorId }, access.user.role) });
+    if (request.nextUrl.searchParams.get("view") === "simple") return NextResponse.json({ success: true, data: { ...(await simplePricingData({ id: access.user.id, admin: access.admin, finance: access.finance, vendorId: access.vendorId }, access.user.role)), alignment: await findAlignmentIssues(prisma, { vendorId: access.vendorId }) } });
     const vendorId = access.vendorId, now = new Date();
     const [rates, rules, packages, policies, vendors, audit, vehicles] = await Promise.all([
       prisma.pricingRateVersion.findMany({ where: { ...(vendorId ? { vendorId } : {}) }, orderBy: { createdAt:"desc" }, take:500 }),
@@ -35,7 +36,8 @@ export async function GET(request: NextRequest) {
       prisma.pricingPackage.count({ where:{ isActive:true, vehicle:{ ...scoped, deletedAt:null }, versions:{ none:{ status:"APPROVED", effectiveFrom:{ lte:now }, OR:[{ effectiveTo:null }, { effectiveTo:{ gt:now } }] } } } }),
     ]);
     const visiblePolicies = vendorId ? policies.filter(p => !p.vendorId || p.vendorId === vendorId) : policies;
-    return NextResponse.json({ success:true, data:{ role:access.user.role, vendorId, vendors, vehicles, rates, rules, packages, policies:visiblePolicies, audit, services:SERVICES, categories:Object.values(VehicleCategory), overview:{ active, pending, rejected, expiring, smartReturn, packagesWithoutDedicatedRate:missingPackages, feeConfigured:policies.some(p => p.kind === "FEE" && p.active && p.effectiveFrom <= now && (!p.effectiveTo || p.effectiveTo > now)), taxConfigured:policies.some(p => p.kind === "TAX" && p.active && p.effectiveFrom <= now && (!p.effectiveTo || p.effectiveTo > now)) }, limits:{ rates:500, packages:1000, policies:1000, audit:100 } } });
+    const alignment = await findAlignmentIssues(prisma, { vendorId });
+    return NextResponse.json({ success:true, data:{ alignment, role:access.user.role, vendorId, vendors, vehicles, rates, rules, packages, policies:visiblePolicies, audit, services:SERVICES, categories:Object.values(VehicleCategory), overview:{ active, pending, rejected, expiring, smartReturn, packagesWithoutDedicatedRate:missingPackages, feeConfigured:policies.some(p => p.kind === "FEE" && p.active && p.effectiveFrom <= now && (!p.effectiveTo || p.effectiveTo > now)), taxConfigured:policies.some(p => p.kind === "TAX" && p.active && p.effectiveFrom <= now && (!p.effectiveTo || p.effectiveTo > now)) }, limits:{ rates:500, packages:1000, policies:1000, audit:100 } } });
   } catch (error) { return pricingResponse(error); }
 }
 export async function POST(request: NextRequest) {

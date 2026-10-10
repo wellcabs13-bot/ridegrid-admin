@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import AlignmentNotice from "./AlignmentNotice";
+import type { AlignmentIssue } from "@/lib/services/pricing/alignment";
 import dynamic from "next/dynamic";
 import type { Terms } from "@/lib/services/pricing/engine";
 import { Catalog, CurrentPrice, GridRow, RouteGrid } from "./RouteGrid";
@@ -10,7 +12,7 @@ type Service = "LOCAL" | "ONE_WAY" | "ROUNDTRIP" | "TOURS";
 type Pair = { id: string; driverId: string; make: string; model: string; registrationNumber: string; driver: { id: string; firstName: string; lastName: string } };
 type Policy = { id: string; key: string; kind: string; version: number; active: boolean; effectiveFrom: string; effectiveTo: string | null; data: any };
 type Rate = { id: string; scopeKey: string; version: number; service: string; city: string; origin: string; destination: string; fare: string; status: string; createdAt: string; reviewedAt?: string | null; deactivatedAt?: string | null; effectiveFrom: string; effectiveTo: string | null; terms: Terms; pricingPackage: { vehicleId: string; packageName: string; vehicle: { make: string; model: string; registrationNumber: string; driver: { id: string; firstName: string; lastName: string } | null } } | null };
-type Data = { role: string; vendorId?: string; vendors: { id: string; companyName: string }[]; pairs: Pair[]; cities: string[]; catalog: Catalog; prices: CurrentPrice[]; rates: Rate[]; policies: Policy[] };
+type Data = { alignment?: AlignmentIssue[]; role: string; vendorId?: string; vendors: { id: string; companyName: string }[]; pairs: Pair[]; cities: string[]; catalog: Catalog; prices: CurrentPrice[]; rates: Rate[]; policies: Policy[] };
 const names: Record<string, string> = { LOCAL: "Local", ONE_WAY: "One-way", ROUNDTRIP: "Roundtrip", TOURS: "Tours", TOUR: "Tour", LOCAL_HOURLY: "Local", LOCAL_POINT_TO_POINT: "Local", OUTSTATION_ONE_WAY: "One-way", OUTSTATION_ROUND_TRIP: "Roundtrip", TOUR_PACKAGE: "Tour" };
 const control = "mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 disabled:bg-slate-100";
 const button = "min-h-11 rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white disabled:opacity-40";
@@ -78,6 +80,7 @@ export default function SimplePricing() {
   return <div className="mx-auto max-w-7xl space-y-6 p-4 text-slate-900 md:p-8">
     <header><h1 className="text-3xl font-bold tracking-tight">Pricing</h1><p className="mt-2 text-slate-600">Choose a vendor, select their cars and drivers, then set the price for a service.</p></header>
     <div className="flex flex-wrap gap-2" role="tablist" aria-label="Pricing sections">{["Vendor Rates", "GST & Platform Fee", "Advanced"].map(name => <button key={name} type="button" role="tab" aria-selected={tab === name} className={tab === name ? button : secondary} onClick={() => setTab(name)}>{name}</button>)}</div>
+    <AlignmentNotice issues={data?.alignment} />
     {error && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">{error}</p>}{notice && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">{notice}</p>}
     {tab === "Advanced" ? <Advanced/> : <>
       {loading && <p role="status">Loading current pricing…</p>}

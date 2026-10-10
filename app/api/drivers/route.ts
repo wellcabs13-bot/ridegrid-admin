@@ -1,4 +1,5 @@
 import { centralFleetAccess } from "@/lib/vendor-mobile/legacy";
+import { findAlignmentIssues } from "@/lib/services/pricing/alignment";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { UserRole, DriverStatus } from "@prisma/client";
@@ -1053,11 +1054,19 @@ export async function PUT(
         }
       );
 
+    // A vehicle/driver change can strand approved fares (priced for one exact car + driver). Report, never rewrite.
+    const rateWarnings = requestedVehicleId !== undefined
+      ? (await findAlignmentIssues(prisma).catch(() => [])).filter((i) => i.pinnedDriverId === id || i.currentDriverId === id)
+      : [];
+
     return NextResponse.json({
       success: true,
+      rateWarnings,
 
       message:
-        "Driver updated successfully.",
+        rateWarnings.length
+          ? "Driver updated. Some approved fares no longer match this car and driver and will not be sold until they are fixed."
+          : "Driver updated successfully.",
 
       data:
         serializeDriver(

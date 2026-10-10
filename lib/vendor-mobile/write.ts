@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { findAlignmentIssues } from "@/lib/services/pricing/alignment";
 import crypto from "crypto";
 import {
   DriverStatus,
@@ -422,7 +423,11 @@ export async function writeVendor(
       { isolationLevel: "Serializable" },
     );
     if (assigned) void sendPush([assigned]);
-    return result;
+    // Re-aligning a driver can strand approved fares priced for the previous car/driver pair; tell the vendor, change nothing.
+    const rateWarnings = result && typeof result === "object" && "id" in result && !assigned
+      ? (await findAlignmentIssues(prisma, { vehicleId: String(result.id) }).catch(() => []))
+      : [];
+    return rateWarnings.length ? { ...result, rateWarnings } : result;
   }
   throw new VendorError(404, "Action not found.");
 }
