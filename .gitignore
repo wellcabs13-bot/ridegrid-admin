@@ -60,3 +60,19 @@ apps/*/ios/
 /docs/website-seo/*.json
 /docs/website-seo/.build-directory.txt
 /docs/website-seo/phase1-qa/
+
+# Firebase / Google service-account private keys (never commit)
+*-firebase-adminsdk-*.json
+/secrets/
+
+.env*
+
+# Mobile service config, signing keys and built binaries (never commit)
+google-services.json
+GoogleService-Info.plist
+*.jks
+*.keystore
+!debug.keystore
+/release-artifacts/
+*.apk
+*.aab
