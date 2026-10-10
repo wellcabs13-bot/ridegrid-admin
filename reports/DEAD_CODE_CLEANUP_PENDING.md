@@ -1,4 +1,4 @@
-# Dead mock-data code — pending owner approval (nothing deleted)
+# Dead mock-data code — REMOVED 2026-10-10 (owner approved; restorable from git)
 
 Verified 2026-10-10: no file under app/, lib/, hooks/, contexts/, services/, tests/ or e2e/ imports these (live pages /reports, /support, /notifications use real APIs via components/admin/*). They render hardcoded fake KPIs/tickets.
 
