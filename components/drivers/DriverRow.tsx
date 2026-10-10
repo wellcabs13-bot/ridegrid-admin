@@ -1,102 +1,86 @@
 'use client';
 
-import Image from 'next/image';
+import { Pill } from '@/components/admin/kit';
 import { Driver } from '../../data/drivers';
 
 interface DriverRowProps {
   driver: Driver;
   onView: (driver: Driver) => void;
+  onEdit: (driver: Driver) => void;
+  onDelete: (driver: Driver) => void;
 }
+
+const STATUS_PILL: Record<string, string> = {
+  Active: 'ACTIVE',
+  Inactive: 'INACTIVE',
+  Blocked: 'SUSPENDED',
+  Suspended: 'SUSPENDED',
+};
 
 export default function DriverRow({
   driver,
   onView,
+  onEdit,
+  onDelete,
 }: DriverRowProps) {
+  const status = String(driver.status);
+
   return (
-    <tr className="border-b border-slate-200 transition hover:bg-slate-50">
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="relative h-12 w-12 overflow-hidden rounded-full border">
-            <Image
-              src={driver.photo}
-              alt={driver.name}
-              fill
-              className="object-cover"
-              sizes="48px"
-            />
-          </div>
+    <tr className="cursor-pointer" onClick={() => onView(driver)}>
+      <td>
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-xs font-bold text-neutral-600">
+            {(driver.name || '?').slice(0, 1).toUpperCase()}
+          </span>
 
-          <div>
-            <h3 className="font-semibold text-slate-800">
-              {driver.name}
-            </h3>
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{driver.name}</p>
 
-            <p className="text-sm text-slate-500">
-              {driver.mobile}
+            <p className="truncate text-xs text-neutral-500">
+              {driver.mobile || 'No mobile'}
+              {driver.email ? ` · ${driver.email}` : ''}
             </p>
           </div>
         </div>
       </td>
 
-      <td className="px-6 py-4">
-        <div>
-          <p className="font-medium text-slate-700">
-            {driver.vehicle}
-          </p>
+      <td>
+        <p className="font-medium">{driver.vehicle || 'No vehicle'}</p>
 
-          <p className="text-sm text-slate-500">
-            {driver.vehicleNumber}
-          </p>
+        <p className="text-xs text-neutral-500">{driver.vehicleNumber || '—'}</p>
+      </td>
+
+      <td>
+        <Pill value={STATUS_PILL[status] ?? 'PENDING'} label={status} />
+      </td>
+
+      <td className="text-right">{driver.trips ?? 0}</td>
+
+      <td className="text-right font-semibold">
+        ₹{Number(driver.earnings ?? 0).toLocaleString('en-IN')}
+      </td>
+
+      <td>
+        <div
+          className="flex items-center justify-end gap-2 whitespace-nowrap"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button type="button" onClick={() => onView(driver)} className="rg-outline">
+            View
+          </button>
+
+          <button type="button" onClick={() => onEdit(driver)} className="rg-secondary !px-3 !py-1 !text-xs">
+            Edit
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onDelete(driver)}
+            className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+          >
+            Delete
+          </button>
         </div>
-      </td>
-
-      <td className="px-6 py-4">
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-medium ${
-            driver.availability === 'Available'
-              ? 'bg-green-100 text-green-700'
-              : driver.availability === 'On Trip'
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-slate-200 text-slate-700'
-          }`}
-        >
-          {driver.availability}
-        </span>
-      </td>
-
-      <td className="px-6 py-4">
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-medium ${
-            driver.status === 'Active'
-              ? 'bg-green-100 text-green-700'
-              : driver.status === 'Inactive'
-                ? 'bg-yellow-100 text-yellow-700'
-                : 'bg-red-100 text-red-700'
-          }`}
-        >
-          {driver.status}
-        </span>
-      </td>
-
-      <td className="px-6 py-4 text-slate-700">
-        {driver.trips}
-      </td>
-
-      <td className="px-6 py-4 text-slate-700">
-        ⭐ {driver.rating}
-      </td>
-
-      <td className="px-6 py-4 text-slate-700">
-        ₹{driver.earnings.toLocaleString()}
-      </td>
-
-      <td className="px-6 py-4">
-        <button
-          onClick={() => onView(driver)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
-        >
-          View
-        </button>
       </td>
     </tr>
   );

@@ -1,59 +1,70 @@
 'use client';
 
-export default function FinanceStats() {
+interface FinanceStatsProps {
+  totalRevenue: number;
+  totalExpenses: number;
+  netProfit: number;
+  pendingPayments: number;
+  completedTransactions: number;
+  refunds: number;
+}
+
+const formatINR = (value: number) =>
+  `₹${value.toLocaleString('en-IN', {
+    maximumFractionDigits: 0,
+  })}`;
+
+export default function FinanceStats({
+  totalRevenue,
+  totalExpenses,
+  netProfit,
+  pendingPayments,
+  completedTransactions,
+  refunds,
+}: FinanceStatsProps) {
   const stats = [
     {
       title: 'Total Revenue',
-      value: '₹48,76,500',
-      change: '+12.8%',
+      value: formatINR(totalRevenue),
+      change: 'Paid transactions',
       color: 'text-green-600',
     },
     {
       title: 'Total Expenses',
-      value: '₹29,85,400',
-      change: '+6.2%',
+      value: formatINR(totalExpenses),
+      change: 'Paid expenses',
       color: 'text-red-600',
     },
     {
       title: 'Net Profit',
-      value: '₹18,91,100',
-      change: '+18.5%',
+      value: formatINR(netProfit),
+      change: totalRevenue > 0
+        ? `${((netProfit / totalRevenue) * 100).toFixed(1)}% margin`
+        : '0% margin',
       color: 'text-indigo-600',
     },
     {
       title: 'Pending Payments',
-      value: '₹1,54,300',
-      change: '14 Vendors',
+      value: formatINR(pendingPayments),
+      change: 'Vendor settlements',
       color: 'text-orange-600',
     },
     {
-      title: 'Wallet Balance',
-      value: '₹3,82,600',
-      change: 'Available',
-      color: 'text-blue-600',
-    },
-    {
-      title: 'GST Payable',
-      value: '₹88,000',
-      change: 'This Month',
-      color: 'text-purple-600',
-    },
-    {
       title: 'Completed Transactions',
-      value: '1,248',
-      change: '+96 Today',
+      value: completedTransactions.toLocaleString('en-IN'),
+      change: 'Paid transactions',
       color: 'text-emerald-600',
     },
     {
       title: 'Refunds',
-      value: '₹42,100',
-      change: '18 Requests',
+      value: formatINR(refunds),
+      change: 'Processed refunds',
       color: 'text-pink-600',
     },
   ];
 
   return (
-    <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
       {stats.map((item) => (
         <div
           key={item.title}

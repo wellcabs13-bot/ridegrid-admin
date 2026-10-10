@@ -1,0 +1,185 @@
+import { websiteHomepageRepository } from "../website-seo/homepage/repository";
+import type { WebsiteHomepageConfig } from "../website-seo/homepage/types";
+
+import { publicHref } from "./safety";
+import { publicNavigation } from "./navigation";
+import {
+  resolveDiscovery,
+  resolvePublicChrome,
+} from "./repository";
+
+// The homepage hero assigned in the Website & SEO Media Manager (a 2.5 MB PNG) is
+// served from optimised AVIF/WebP copies in /public/media/home. Assigning a different
+// hero in the Media Manager replaces it as before.
+export const HOMEPAGE_HERO = {
+  managedSource: "/api/files/95e4e7ff-6990-47bb-bbd2-f6a9a94b1f97",
+  src: "/media/home/hero-night-sedan.webp",
+  alt: "White sedan on a city highway at night with red light trails",
+} as const;
+
+// Presentation fallback only.
+// Dashboard configuration always wins when configured.
+const fallback: WebsiteHomepageConfig = {
+  version: 1,
+
+  hero: {
+    eyebrow: "RIDEGRID  /  WELLCABS",
+    title:
+      "Travel Further With Confidence",
+    subtitle:
+      "Search current RideGrid options for outstation, local, airport and business travel with Wellcabs.",
+
+    primaryCtaLabel:
+      "Find your ride",
+
+    primaryCtaHref:
+      "/marketplace",
+
+    secondaryCtaLabel:
+      "Explore vehicles",
+
+    secondaryCtaHref:
+      "/marketplace",
+  },
+
+  sections: [
+    {
+      id: "hero",
+      type: "HERO",
+      enabled: true,
+      order: 0,
+      heading: "",
+      description: "",
+    },
+
+    {
+      id: "search",
+      type: "SEARCH",
+      enabled: true,
+      order: 1,
+      heading:
+        "Where are we taking you?",
+      description:
+        "Choose your journey and search current vehicle options.",
+    },
+
+    {
+      id: "routes",
+      type: "ROUTES",
+      enabled: true,
+      order: 2,
+      heading:
+        "Fresh journeys from RideGrid.",
+      description:
+        "Explore published routes, cities and services.",
+    },
+
+    {
+      id: "marketplace",
+      type: "MARKETPLACE",
+      enabled: true,
+      order: 3,
+      heading:
+        "Find the right ride for your plans.",
+      description:
+        "Search your route and travel details to see current marketplace options and fares.",
+    },
+
+    {
+      id: "cta",
+      type: "CTA",
+      enabled: true,
+      order: 4,
+      heading:
+        "Ready when you are.",
+      description:
+        "Search RideGrid for your next journey.",
+    },
+  ],
+};
+
+export function homepagePresentation(
+  config: WebsiteHomepageConfig | null,
+) {
+  const source =
+    config ?? fallback;
+
+  return {
+    hero: {
+      ...source.hero,
+
+      primaryCtaHref:
+        publicHref(
+          source.hero.primaryCtaHref,
+        ) || "",
+
+      secondaryCtaHref:
+        publicHref(
+          source.hero.secondaryCtaHref,
+        ) || "",
+    },
+
+    sections:
+      source.sections
+        .filter(
+          (section) =>
+            section.enabled,
+        )
+        .sort(
+          (a, b) =>
+            a.order - b.order,
+        )
+        .map(
+          (section) => ({
+            id: section.id,
+            type: section.type,
+            heading:
+              section.heading,
+            description:
+              section.description,
+          }),
+        ),
+  };
+}
+
+export async function resolveHomepage() {
+  try {
+    const setting =
+      await websiteHomepageRepository.get();
+
+    const chrome =
+      await resolvePublicChrome(
+        "HOMEPAGE",
+      );
+
+    const discovery =
+      await resolveDiscovery();
+
+    return {
+      ...homepagePresentation(
+        setting.config,
+      ),
+      chrome,
+      discovery,
+    };
+  } catch (error) {
+    console.error(
+      "[website-public] Homepage data unavailable; using safe fallback.",
+      error,
+    );
+
+    return {
+      ...homepagePresentation(null),
+
+      chrome: {
+        navigation:
+          publicNavigation([], false),
+        blocks: [],
+        media: [],
+        images: {},
+      },
+
+      discovery: [],
+    };
+  }
+}

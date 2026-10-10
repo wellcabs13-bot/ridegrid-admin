@@ -1,4 +1,4 @@
-import {
+﻿import {
   LayoutDashboard,
 
   CalendarCheck,
@@ -50,6 +50,10 @@ import {
   Megaphone,
 
   Wrench,
+  Globe2,
+  Radar,
+  Sparkles,
+
 
   ChevronRight,
 } from "lucide-react";
@@ -107,5 +111,10 @@ export const NavigationIcons = {
 
   maintenance: Wrench,
 
-  arrow: ChevronRight,
+  
+  websiteSeo: Globe2,
+  liveOps: Radar,
+  aiHub: Sparkles,
+arrow: ChevronRight,
 };
+

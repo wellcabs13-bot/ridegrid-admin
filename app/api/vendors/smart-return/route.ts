@@ -1,50 +1,141 @@
+import { legacyVendorId } from "@/lib/vendor-mobile/legacy";
+import { vendorFailure } from "@/lib/vendor-mobile/access";
 import { NextRequest, NextResponse } from "next/server";
+import { TripType } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
+import {
+  evaluateSmartReturnEligibility,
+} from "@/lib/services/smart-return/SmartReturnEligibilityService";
 
 export async function GET(req: NextRequest) {
   try {
-    const vendorId = req.nextUrl.searchParams.get("vendorId");
+    const vendorId = await legacyVendorId(req);
 
     if (!vendorId) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Vendor ID is required.",
-        },
+        { success: false, message: "Vendor ID is required." },
         { status: 400 }
       );
     }
 
-    const completedTrips = await prisma.trip.findMany({
+    const trips = await prisma.trip.findMany({
       where: {
+        status: "COMPLETED",
+        deletedAt: null,
         vehicle: {
           vendorId,
+          deletedAt: null,
         },
-        status: "COMPLETED",
+        booking: {
+          deletedAt: null,
+        },
       },
       include: {
         vehicle: true,
         booking: true,
+        returnApprovals: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
       orderBy: {
-        createdAt: "desc",
+        tripCompletedAt: "desc",
       },
-      take: 20,
+      take: 100,
     });
+
+    const candidates = trips.map((trip) => {
+      const booking = trip.booking;
+      const vehicle = trip.vehicle;
+
+      const eligibility = evaluateSmartReturnEligibility({
+        tripId: trip.id,
+        bookingId: booking.id,
+        bookingNumber: booking.bookingNumber,
+        pickupLocation: booking.pickupLocation,
+        dropLocation: booking.dropLocation,
+        tripType: booking.tripType,
+        tripCompletedAt: trip.tripCompletedAt,
+        vendorId: vehicle.vendorId,
+        vehicleId: vehicle.id,
+      });
+
+      const approval = trip.returnApprovals[0];
+
+      return {
+        trip,
+        booking,
+        vehicle,
+        eligibility,
+        approval,
+      };
+    });
+
+    const opportunities = candidates
+      .filter(({ eligibility, approval }) => {
+        if (!eligibility.eligible) return false;
+
+        return !approval || approval.status === "REJECTED";
+      })
+      .map(({ trip, booking, vehicle, approval }) => {
+        const baseFare = Number(vehicle.baseFare);
+        const suggestedFare =
+          Math.round(baseFare * 0.85 * 100) / 100;
+
+        return {
+          tripId: trip.id,
+          bookingId: booking.id,
+          bookingNumber: booking.bookingNumber,
+
+          eligibility: {
+            eligible: true,
+            tripType: TripType.ONEWAY,
+            rule: "OUTSTATION_ONE_WAY_COMPLETED",
+          },
+
+          route: {
+            originalPickup: booking.pickupLocation,
+            originalDrop: booking.dropLocation,
+            suggestedPickup: booking.dropLocation,
+            suggestedDrop: booking.pickupLocation,
+          },
+
+          completedAt: trip.tripCompletedAt,
+
+          vehicle: {
+            id: vehicle.id,
+            make: vehicle.make,
+            model: vehicle.model,
+            category: vehicle.category,
+            registrationNumber: vehicle.registrationNumber,
+            homeCity: vehicle.homeCity,
+          },
+
+          vendor: {
+            id: vehicle.vendorId,
+          },
+
+          pricing: {
+            baseFare,
+            suggestedReturnFare: suggestedFare,
+            suggestedDiscountPercent: 15,
+          },
+
+          approvalStatus: approval?.status ?? "NOT_REQUESTED",
+
+          status: "PENDING_APPROVAL",
+        };
+      });
 
     return NextResponse.json({
       success: true,
-      data: completedTrips,
-    });
-  } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to fetch smart return trips.",
+      data: {
+        vendorId,
+        opportunities,
+        total: opportunities.length,
+        eligibilityRule: "COMPLETED_OUTSTATION_ONE_WAY_ONLY",
       },
-      { status: 500 }
-    );
-  }
+    });
+  } catch (error) { return vendorFailure(error); }
 }

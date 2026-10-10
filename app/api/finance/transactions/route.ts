@@ -1,13 +1,18 @@
+import { staffGuard } from "@/lib/request-access";
+import { Permission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 
 import { financeService } from "@/lib/services/finance/FinanceService";
 
 export async function GET(request: NextRequest) {
+  const denied = await staffGuard(request, Permission.FINANCE_VIEW); if (denied) return denied;
   try {
     const { searchParams } = new URL(request.url);
 
     const bookingId = searchParams.get("bookingId");
     const vendorId = searchParams.get("vendorId");
+    const status = searchParams.get("status");
+    const type = searchParams.get("type");
 
     if (bookingId) {
       const data =
@@ -33,8 +38,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const where: Record<string, unknown> = {};
+
+    if (status) {
+      where.paymentStatus = status;
+    }
+
+    if (type) {
+      where.transactionType = type;
+    }
+
     const data =
-      await financeService.getTransactions();
+      await financeService.getTransactions(where);
 
     return NextResponse.json({
       success: true,
@@ -59,13 +74,12 @@ export async function GET(request: NextRequest) {
 export async function POST(
   request: NextRequest
 ) {
+  const denied = await staffGuard(request, Permission.FINANCE_MANAGE); if (denied) return denied;
   try {
     const body = await request.json();
 
     const transaction =
-      await financeService.createTransaction(
-        body
-      );
+      await financeService.createTransaction(body);
 
     return NextResponse.json(
       {

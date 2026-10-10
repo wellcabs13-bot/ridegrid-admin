@@ -1,0 +1,725 @@
+import { pricingAccess, pricingResponse } from "@/lib/services/pricing/access";
+import { PricingError } from "@/lib/services/pricing/engine";
+﻿import { NextRequest, NextResponse } from "next/server";
+
+import {
+  PricingType,
+  TripType,
+  ChargeType,
+} from "@prisma/client";
+
+import { prisma } from "@/lib/prisma";
+import { authenticate } from "@/lib/auth/middleware";
+
+async function getUser(request: NextRequest) {
+  const vendorId = request.method === "GET" ? request.nextUrl.searchParams.get("vendorId") : (await request.clone().json()).vendorId;
+  const access = await pricingAccess(request, vendorId);
+  if (request.method !== "GET" && access.finance) throw new PricingError("FORBIDDEN", "Finance may configure policies but cannot change vendor fares", 403);
+  return access.user;
+}
+
+function enumValue<T extends Record<string, string>>(
+  value: unknown,
+  object: T
+): value is T[keyof T] {
+  return (
+    typeof value === "string" &&
+    Object.values(object).includes(value)
+  );
+}
+
+function numberOrNull(value: unknown) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number < 0) {
+    throw new Error(
+      "Invalid numeric pricing value."
+    );
+  }
+
+  return number;
+}
+
+export async function GET(
+  request: NextRequest
+) {
+  try {
+    const user = await getUser(request);
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } =
+      new URL(request.url);
+
+    const vendorId =
+      searchParams.get("vendorId");
+
+    const vehicleId =
+      searchParams.get("vehicleId");
+
+    const city =
+      searchParams.get("city");
+
+    if (!vendorId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "vendorId is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const packages =
+      await prisma.pricingPackage.findMany({
+        where: {
+          vehicle: {
+            vendorId,
+            deletedAt: null,
+          },
+
+          ...(vehicleId
+            ? { vehicleId }
+            : {}),
+
+          ...(city
+            ? { city }
+            : {}),
+        },
+
+        include: {
+          vehicle: {
+            include: {
+              driver: {
+                include: {
+                  user: true,
+                },
+              },
+            },
+          },
+
+          pricingRule: true,
+        },
+
+        orderBy: [
+          {
+            city: "asc",
+          },
+          {
+            createdAt: "desc",
+          },
+        ],
+      });
+
+    return NextResponse.json({
+      success: true,
+      data: packages,
+      count: packages.length,
+    });
+  } catch (error) {
+    if (error instanceof PricingError) return pricingResponse(error);
+    console.error(
+      "GET /api/pricing/packages:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Failed to fetch pricing packages.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  request: NextRequest
+) {
+  try {
+    const user = await getUser(request);
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+
+    const {
+      vendorId,
+      vehicleId,
+      city,
+      fromCity,
+      toCity,
+      extraPickupCharge,
+      extraDropCharge,
+      pricingType,
+      tripType,
+      chargeType,
+      packageType,
+      packageName,
+      includedHours,
+      includedKm,
+      baseFare,
+      extraKmRate,
+      extraHourRate,
+      driverAllowance,
+      nightCharge,
+      tollCharge,
+      parkingCharge,
+      otherCharges,
+      airportName,
+      transferDirection,
+      isActive,
+    } = body;
+
+    if (
+      typeof vendorId !== "string" ||
+      !vendorId.trim()
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vendor is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      typeof vehicleId !== "string" ||
+      !vehicleId.trim()
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Vehicle is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const effectiveTripType =
+      enumValue(tripType, TripType)
+        ? tripType
+        : TripType.ONEWAY;
+
+    const isOutstationOneway =
+      pricingType === PricingType.OUTSTATION &&
+      effectiveTripType === TripType.ONEWAY;
+
+    /*
+     * OUTSTATION ONEWAY canonical route:
+     * From City -> To City
+     *
+     * `city` and `fromCity` are normalized so the API
+     * remains compatible with the existing PricingPackage
+     * database model.
+     */
+    const normalizedFromCity =
+      isOutstationOneway
+        ? (
+            typeof fromCity === "string" &&
+            fromCity.trim()
+              ? fromCity.trim()
+              : typeof city === "string"
+                ? city.trim()
+                : ""
+          )
+        : typeof city === "string"
+          ? city.trim()
+          : "";
+
+    const normalizedToCity =
+      isOutstationOneway &&
+      typeof toCity === "string"
+        ? toCity.trim()
+        : "";
+
+    if (isOutstationOneway) {
+      if (!normalizedFromCity) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "From City is required for Outstation One Way pricing.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!normalizedToCity) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "To City is required for Outstation One Way pricing.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (
+        normalizedFromCity.toLowerCase() ===
+        normalizedToCity.toLowerCase()
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "From City and To City must be different.",
+          },
+          { status: 400 }
+        );
+      }
+    } else if (!normalizedFromCity) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Pricing city is required.",
+        },
+        { status: 400 }
+      );
+    }
+    if (
+      !enumValue(
+        pricingType,
+        PricingType
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Invalid pricing type.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (pricingType === PricingType.AIRPORT) {
+      const airportNameValue =
+        typeof airportName === "string"
+          ? airportName.trim()
+          : "";
+
+      const transferDirectionValue =
+        typeof transferDirection === "string"
+          ? transferDirection.trim().toUpperCase()
+          : "";
+
+      const airportSlab = Number(includedKm);
+      const allowedAirportSlabs = [5, 10, 15, 20, 30];
+
+      if (!airportNameValue) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Airport is required for Airport pricing.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!["PICKUP", "DROP"].includes(transferDirectionValue)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Airport service must be Pickup or Drop.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!allowedAirportSlabs.includes(airportSlab)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Airport distance slab must be 5, 10, 15, 20 or 30 KM.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+
+    const effectiveChargeType =
+      enumValue(
+        chargeType,
+        ChargeType
+      )
+        ? chargeType
+        : ChargeType.FIXED;
+
+    if (!isOutstationOneway && pricingType !== PricingType.AIRPORT) {
+      if (
+        typeof packageName !==
+          "string" ||
+        !packageName.trim()
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Package name is required.",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const base =
+      Number(baseFare);
+
+    if (
+      !Number.isFinite(base) ||
+      base < 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Valid base fare is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const vehicle =
+      await prisma.vehicle.findFirst({
+        where: {
+          id: vehicleId,
+          vendorId,
+          deletedAt: null,
+        },
+
+        select: {
+          id: true,
+          vendorId: true,
+          category: true,
+        },
+      });
+
+    if (!vehicle) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Vehicle does not belong to the selected vendor.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const saved = await prisma.$transaction(async tx => {
+    const rule =
+      await tx.pricingRule.upsert({
+        where: {
+          vendorId_vehicleCategory_pricingType_tripType:
+            {
+              vendorId,
+              vehicleCategory:
+                vehicle.category,
+              pricingType,
+              tripType:
+                effectiveTripType,
+            },
+        },
+
+        update: {
+          chargeType:
+            effectiveChargeType,
+
+          baseFare: base,
+
+          includedKm:
+            numberOrNull(includedKm),
+
+          pricePerKm:
+            numberOrNull(
+              extraKmRate
+            ),
+
+          pricePerHour:
+            numberOrNull(
+              extraHourRate
+            ),
+
+          driverAllowance:
+            numberOrNull(
+              driverAllowance
+            ),
+
+          nightCharge:
+            numberOrNull(
+              nightCharge
+            ),
+
+          isActive:
+            isActive !== false,
+        },
+
+        create: {
+          vendorId,
+
+          vehicleCategory:
+            vehicle.category,
+
+          pricingType,
+
+          tripType:
+            effectiveTripType,
+
+          chargeType:
+            effectiveChargeType,
+
+          baseFare: base,
+
+          includedKm:
+            numberOrNull(includedKm),
+
+          pricePerKm:
+            numberOrNull(
+              extraKmRate
+            ),
+
+          pricePerHour:
+            numberOrNull(
+              extraHourRate
+            ),
+
+          driverAllowance:
+            numberOrNull(
+              driverAllowance
+            ),
+
+          nightCharge:
+            numberOrNull(
+              nightCharge
+            ),
+
+          isActive:
+            isActive !== false,
+        },
+      });
+
+    const normalizedCity =
+      normalizedFromCity;
+
+    const normalizedPackageName =
+      isOutstationOneway
+        ? `${normalizedFromCity} to ${normalizedToCity}`
+        : pricingType === PricingType.AIRPORT
+      ? `${String(airportName || "").trim()} - ${String(transferDirection || "").trim()} - ${String(includedKm || "").trim()} KM`
+      : packageName.trim();
+
+    const existing =
+      await tx.pricingPackage.findFirst({
+        where: {
+          vehicleId,
+          pricingRuleId: rule.id,
+          city: normalizedCity,
+          packageName:
+            normalizedPackageName,
+          fromCity:
+            pricingType === PricingType.OUTSTATION
+              ? fromCity.trim()
+              : null,
+          toCity:
+            pricingType === PricingType.OUTSTATION
+              ? toCity.trim()
+              : null,
+          ...(pricingType === PricingType.AIRPORT
+            ? {
+                airportName:
+                  typeof airportName === "string"
+                    ? airportName.trim()
+                    : null,
+                transferDirection:
+                  typeof transferDirection === "string"
+                    ? transferDirection.trim().toUpperCase()
+                    : null,
+                includedKm: Number(includedKm),
+              }
+            : {}),
+        },
+      });
+
+    const packageData = {
+      fromCity: pricingType === PricingType.OUTSTATION ? fromCity.trim() : null,
+      toCity: pricingType === PricingType.OUTSTATION ? toCity.trim() : null,
+      packageType:
+        typeof packageType ===
+          "string" &&
+        packageType.trim()
+          ? packageType.trim()
+          : pricingType,
+
+      packageName:
+        normalizedPackageName,
+
+      city:
+        normalizedCity,
+
+      includedHours:
+        includedHours === "" ||
+        includedHours === null ||
+        includedHours ===
+          undefined
+          ? null
+          : Number(includedHours),
+
+      includedKm:
+        numberOrNull(includedKm),
+
+      baseFare: base,
+
+      extraKmRate:
+        pricingType === PricingType.AIRPORT
+          ? null
+          : numberOrNull(extraKmRate),
+
+      extraHourRate:
+        pricingType === PricingType.AIRPORT
+          ? null
+          : numberOrNull(extraHourRate),
+
+      driverAllowance:
+        numberOrNull(
+          driverAllowance
+        ),
+
+      nightCharge:
+        numberOrNull(
+          nightCharge
+        ),
+
+      tollCharge:
+        numberOrNull(
+          tollCharge
+        ),
+
+      parkingCharge:
+        numberOrNull(
+          parkingCharge
+        ),
+
+      otherCharges:
+        numberOrNull(
+          otherCharges
+        ),
+
+      airportName:
+        pricingType === PricingType.AIRPORT &&
+        typeof airportName === "string" &&
+        airportName.trim()
+          ? airportName.trim()
+          : null,
+
+      transferDirection:
+        pricingType === PricingType.AIRPORT &&
+        typeof transferDirection === "string" &&
+        transferDirection.trim()
+          ? transferDirection.trim().toUpperCase()
+          : null,
+
+      isActive:
+        isActive !== false,
+    };
+
+    const saved =
+      existing
+        ? await tx.pricingPackage.update({
+            where: {
+              id: existing.id,
+            },
+
+            data: packageData,
+          })
+        : await tx.pricingPackage.create({
+            data: {
+              pricingRuleId:
+                rule.id,
+
+              vehicleId,
+
+              ...packageData,
+            },
+          });
+
+    await tx.auditLog.create({data:{userId:user.id,action:existing ? "UPDATE" : "CREATE",entityName:"Pricing",entityId:saved.id,...(existing ? {oldValue:JSON.parse(JSON.stringify(existing))} : {}),newValue:JSON.parse(JSON.stringify({...saved,vendorId}))}});
+    return { value:saved, existed:!!existing };
+    });
+    return NextResponse.json(
+      {
+        success: true,
+
+        message:
+          saved.existed
+            ? "Pricing package updated successfully."
+            : "Pricing package created successfully.",
+
+        data: saved.value,
+      },
+
+      {
+        status:
+          saved.existed ? 200 : 201,
+      }
+    );
+  } catch (error) {
+    if (error instanceof PricingError) return pricingResponse(error);
+    console.error(
+      "POST /api/pricing/packages:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to save pricing package.",
+      },
+
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+
+
+
+
+
+
+

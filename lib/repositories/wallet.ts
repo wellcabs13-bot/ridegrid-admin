@@ -1,4 +1,4 @@
-import {
+﻿import {
   Prisma,
   WalletTransactionType,
 } from "@prisma/client";
@@ -98,7 +98,7 @@ export class WalletRepository {
   }
 
   async getBalance(vendorId: string) {
-    const wallet = await prisma.vendorWallet.findUnique({
+    return prisma.vendorWallet.findUnique({
       where: { vendorId },
       select: {
         id: true,
@@ -106,8 +106,132 @@ export class WalletRepository {
         balance: true,
       },
     });
+  }
 
-    return wallet;
+  async adjustBalance(
+    vendorId: string,
+    transactionType: WalletTransactionType,
+    amount: Prisma.Decimal | number | string,
+    options?: {
+      referenceId?: string;
+      referenceType?: string;
+      performedBy?: string;
+      description?: string;
+    }
+  ) {
+    const value = new Prisma.Decimal(amount);
+
+    if (value.lte(0)) {
+      throw new Error(
+        "Wallet transaction amount must be greater than zero."
+      );
+    }
+
+    return prisma.$transaction(
+      async (tx) => {
+        const wallet =
+          await tx.vendorWallet.findUnique({
+            where: {
+              vendorId,
+            },
+          });
+
+        if (!wallet) {
+          throw new Error(
+            "Vendor wallet not found."
+          );
+        }
+
+        const balanceBefore =
+          new Prisma.Decimal(wallet.balance);
+
+        const balanceAfter =
+          transactionType ===
+          WalletTransactionType.CREDIT
+            ? balanceBefore.add(value)
+            : balanceBefore.sub(value);
+
+        if (balanceAfter.lt(0)) {
+          throw new Error(
+            "Insufficient wallet balance."
+          );
+        }
+
+        const updatedWallet =
+          await tx.vendorWallet.update({
+            where: {
+              id: wallet.id,
+            },
+            data: {
+              balance: balanceAfter,
+            },
+          });
+
+        const transaction =
+          await tx.walletTransaction.create({
+            data: {
+              walletId: wallet.id,
+              transactionType,
+              amount: value,
+              balanceBefore,
+              balanceAfter,
+              referenceId:
+                options?.referenceId,
+              referenceType:
+                options?.referenceType,
+              performedBy:
+                options?.performedBy,
+              description:
+                options?.description,
+            },
+          });
+
+        return {
+          wallet: updatedWallet,
+          transaction,
+        };
+      },
+      {
+        isolationLevel:
+          Prisma.TransactionIsolationLevel.Serializable,
+      }
+    );
+  }
+
+  async credit(
+    vendorId: string,
+    amount: Prisma.Decimal | number | string,
+    options?: {
+      referenceId?: string;
+      referenceType?: string;
+      performedBy?: string;
+      description?: string;
+    }
+  ) {
+    return this.adjustBalance(
+      vendorId,
+      WalletTransactionType.CREDIT,
+      amount,
+      options
+    );
+  }
+
+  async debit(
+    vendorId: string,
+    amount: Prisma.Decimal | number | string,
+    options?: {
+      referenceId?: string;
+      referenceType?: string;
+      performedBy?: string;
+      description?: string;
+    }
+  ) {
+    return this.adjustBalance(
+      vendorId,
+      WalletTransactionType.DEBIT,
+      amount,
+      options
+    );
   }
 }
 

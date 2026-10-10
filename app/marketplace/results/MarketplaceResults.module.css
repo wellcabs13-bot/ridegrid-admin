@@ -1,0 +1,42 @@
+/* Final-fare emphasis: a soft red halo that breathes every few seconds.
+   The amount itself never moves or blinks; reduced-motion users get a static glow. */
+.fareCard {
+  position: relative;
+  isolation: isolate;
+  box-shadow: 0 0 0 1px rgba(225, 29, 46, .06), 0 14px 32px -18px rgba(225, 29, 46, .45);
+}
+.fareCard::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  z-index: -1;
+  border-radius: 22px;
+  background: radial-gradient(120% 90% at 50% 0%, rgba(225, 29, 46, .22), rgba(255, 90, 95, .08) 55%, transparent 75%);
+  filter: blur(10px);
+  opacity: .55;
+  animation: fareHalo 4.5s ease-in-out infinite;
+}
+.fareCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .7) 48%, transparent 66%);
+  background-size: 250% 100%;
+  background-position: 120% 0;
+  mix-blend-mode: soft-light;
+  animation: fareSheen 6s ease-in-out infinite;
+}
+@keyframes fareHalo {
+  0%, 100% { opacity: .4; transform: scale(.985); }
+  50% { opacity: .85; transform: scale(1.01); }
+}
+@keyframes fareSheen {
+  0%, 70% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fareCard::before, .fareCard::after { animation: none; }
+  .fareCard::before { opacity: .55; }
+}

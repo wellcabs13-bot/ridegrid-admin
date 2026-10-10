@@ -1,9 +1,8 @@
+import { requireAdmin } from "@/lib/admin-access";
 import {
   NextRequest,
   NextResponse,
 } from "next/server";
-
-import { Prisma } from "@prisma/client";
 
 import {
   corporateService,
@@ -13,6 +12,8 @@ export async function GET(
   request: NextRequest
 ) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const { searchParams } =
       new URL(request.url);
 
@@ -182,6 +183,8 @@ export async function POST(
   request: NextRequest
 ) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const body = await request.json();
 
     const {
@@ -213,7 +216,7 @@ export async function POST(
       );
     }
 
-    const data: Prisma.CorporateCreateInput = {
+    const data: any = {
       companyName,
       legalName: body.legalName ?? null,
       gstNumber: body.gstNumber ?? null,
@@ -274,6 +277,8 @@ export async function PATCH(
   request: NextRequest
 ) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const body = await request.json();
 
     if (!body.id) {
@@ -288,6 +293,17 @@ export async function PATCH(
 
     const { id, ...updates } = body;
 
+    // Remove Corporate Commercial Profile fields before Prisma Corporate.update().
+    delete updates.expectedMonthlyBookings;
+    delete updates.customerTier;
+    delete updates.serviceTypes;
+    delete updates.quotationFile;
+    delete updates.quotationFileUrl;
+    delete updates.quotationFileName;
+    delete updates.agreementFile;
+    delete updates.agreementFileUrl;
+    delete updates.agreementFileName;
+
     delete updates.createdAt;
     delete updates.updatedAt;
     delete updates.deletedAt;
@@ -295,7 +311,7 @@ export async function PATCH(
     const corporate =
       await corporateService.update(
         id,
-        updates as Prisma.CorporateUpdateInput
+        updates as any
       );
 
     return NextResponse.json({
@@ -325,6 +341,8 @@ export async function DELETE(
   request: NextRequest
 ) {
   try {
+    const denied = await requireAdmin(request);
+    if (denied) return denied;
     const { searchParams } =
       new URL(request.url);
 
@@ -363,3 +381,4 @@ export async function DELETE(
     );
   }
 }
+

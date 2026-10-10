@@ -1,86 +1,108 @@
-'use client';
+"use client";
 
-import { Vehicle } from '../../data/vehicles';
+import { CarFront } from "lucide-react";
+import { Pill } from "@/components/admin/kit";
+import { Vehicle } from "../../data/vehicles";
 
 interface VehicleRowProps {
   vehicle: Vehicle;
   onView?: (vehicle: Vehicle) => void;
+  onEdit?: (vehicle: Vehicle) => void;
+  onDelete?: (vehicle: Vehicle) => void;
+  onVerify?: (vehicle: Vehicle) => void;
+  isVerified?: boolean;
 }
 
-export default function VehicleRow({ vehicle, onView }: VehicleRowProps) {
-  const statusColor = {
-    Available: 'bg-green-100 text-green-700',
-    'On Trip': 'bg-blue-100 text-blue-700',
-    Maintenance: 'bg-orange-100 text-orange-700',
-    Inactive: 'bg-red-100 text-red-700',
-  };
+const STATUS_PILL: Record<string, string> = {
+  Available: "ACTIVE",
+  "On Trip": "TRIP_STARTED",
+  Maintenance: "PENDING",
+  Inactive: "INACTIVE",
+};
 
-  const availabilityColor = {
-    Available: 'bg-green-100 text-green-700',
-    Booked: 'bg-indigo-100 text-indigo-700',
-    Blocked: 'bg-red-100 text-red-700',
-  };
-
+export default function VehicleRow({
+  vehicle,
+  onView,
+  onEdit,
+  onDelete,
+  onVerify,
+  isVerified = false,
+}: VehicleRowProps) {
   return (
-    <tr className="border-b transition hover:bg-slate-50">
-      <td className="px-4 py-4 font-semibold">{vehicle.registrationNo}</td>
+    <tr className="cursor-pointer" onClick={() => onView?.(vehicle)}>
+      <td>
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500">
+            <CarFront size={18} />
+          </span>
 
-      <td className="px-4 py-4">
-        <div className="font-semibold">{vehicle.vehicleName}</div>
+          <div className="min-w-0">
+            <p className="font-semibold">{vehicle.registrationNo}</p>
 
-        <div className="text-sm text-slate-500">
-          {vehicle.brand} • {vehicle.model}
+            <p className="truncate text-xs text-neutral-500">
+              {vehicle.brand} {vehicle.model}
+            </p>
+          </div>
         </div>
       </td>
 
-      <td className="px-4 py-4">{vehicle.vendorName}</td>
+      <td className="text-[13px]">{vehicle.category || "-"}</td>
 
-      <td className="px-4 py-4">{vehicle.driverName}</td>
+      <td>{vehicle.vendorName || "-"}</td>
 
-      <td className="px-4 py-4">{vehicle.city}</td>
+      <td>{vehicle.driverName || "-"}</td>
 
-      <td className="px-4 py-4 text-center">{vehicle.totalTrips}</td>
+      <td>{vehicle.city || "-"}</td>
 
-      <td className="px-4 py-4 font-semibold text-green-600">
-        {vehicle.earnings}
+      <td className="text-right">{vehicle.totalTrips}</td>
+
+      <td>
+        <Pill
+          value={STATUS_PILL[vehicle.status] ?? "PENDING"}
+          label={vehicle.status}
+        />
       </td>
 
-      <td className="px-4 py-4 whitespace-nowrap">{vehicle.insuranceExpiry}</td>
+      <td>
+        {isVerified ? (
+          <Pill value="VERIFIED" label="Verified" />
+        ) : (
+          <Pill value="UNVERIFIED" label="Not verified" />
+        )}
+      </td>
 
-      <td className="px-4 py-4">
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            statusColor[vehicle.status]
-          }`}
+      <td>
+        <div
+          className="flex flex-wrap items-center justify-end gap-2"
+          onClick={(event) => event.stopPropagation()}
         >
-          {vehicle.status}
-        </span>
-      </td>
-
-      <td className="px-4 py-4">
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            availabilityColor[vehicle.availability]
-          }`}
-        >
-          {vehicle.availability}
-        </span>
-      </td>
-
-      <td className="px-4 py-4">
-        <div className="flex gap-2">
-          <button
-            onClick={() => onView?.(vehicle)}
-            className="rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
-          >
+          <button type="button" onClick={() => onView?.(vehicle)} className="rg-outline">
             View
           </button>
 
-          <button className="rounded-lg bg-amber-500 px-3 py-2 text-sm text-white hover:bg-amber-600">
+          <button
+            type="button"
+            onClick={() => onEdit?.(vehicle)}
+            className="rg-secondary !px-3 !py-1 !text-xs"
+          >
             Edit
           </button>
 
-          <button className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700">
+          {!isVerified && (
+            <button
+              type="button"
+              onClick={() => onVerify?.(vehicle)}
+              className="rg-secondary !px-3 !py-1 !text-xs"
+            >
+              Verify
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onDelete?.(vehicle)}
+            className="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50"
+          >
             Delete
           </button>
         </div>

@@ -1,0 +1,23 @@
+/* About, legal and policy pages. Same light system as the rest of the public site. */
+.container { width: min(1180px, calc(100% - 40px)); margin-inline: auto; }
+.hero { padding: clamp(48px, 7vw, 92px) 0; background: radial-gradient(ellipse at 88% 0%, rgba(225, 29, 46, .24), transparent 60%), #0b0b0d; color: #fff; }
+.hero h1 { max-width: 950px; margin: 16px 0; font-size: clamp(2.3rem, 5.5vw, 4.6rem); font-weight: 850; line-height: 1.05; letter-spacing: -.04em; }
+.hero p { max-width: 720px; margin-bottom: 20px; color: #cfcfd6; font-size: 1.1rem; line-height: 1.75; }
+.hero .eyebrow { color: #ff5a67; font-size: .8rem; font-weight: 750; letter-spacing: .14em; }
+.hero a { text-decoration: underline; text-underline-offset: 5px; }
+.layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: clamp(28px, 6vw, 80px); padding-block: 64px 96px; }
+.contents { position: sticky; top: 110px; align-self: start; display: grid; gap: 10px; padding: 22px; border: 1px solid #e6e6ea; border-radius: 16px; background: #fff; font-size: .9rem; }
+.contents a { display: flex; align-items: center; min-height: 32px; color: #4b4b53; line-height: 1.4; }
+.contents a:hover { color: #b3121f; }
+.body { min-width: 0; max-width: 760px; }
+.body section { scroll-margin-top: 120px; margin-bottom: 32px; padding-bottom: 28px; border-bottom: 1px solid #e6e6ea; }
+.body h2 { margin-bottom: 14px; color: #0d0d10; font-size: clamp(1.4rem, 2.4vw, 1.9rem); font-weight: 800; line-height: 1.2; letter-spacing: -.02em; }
+.body p { margin: 12px 0; color: #3f3f46; font-size: 1rem; line-height: 1.85; overflow-wrap: anywhere; }
+.review { margin-bottom: 36px; padding: 22px; border-left: 3px solid #e11d2e; border-radius: 0 14px 14px 0; background: #fff4f5; }
+.review strong { color: #b3121f; }
+.actions { display: flex; flex-wrap: wrap; gap: 20px; padding-top: 24px; border-top: 1px solid #e6e6ea; }
+.actions a { color: #b3121f; font-weight: 750; text-decoration: underline; text-underline-offset: 4px; }
+@media (max-width: 760px) {
+  .layout { grid-template-columns: minmax(0, 1fr); padding-block: 30px 60px; }
+  .contents { position: static; }
+}

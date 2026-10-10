@@ -1,0 +1,39 @@
+export type EmployeeRef = { id: string; name: string; code: string; designation: string; isActive: boolean; branch: { id: string; name: string } | null; department: { id: string; name: string } | null };
+
+export type Booking = {
+  id: string; bookingNumber: string; status: string; tripType: string; tripDays: number; service: string;
+  pickupLocation: string; dropLocation: string; pickupDateTime: string; createdAt: string; finalFare: string; packageName: string | null;
+  vehicle: { make: string; model: string; category: string; registrationNumber: string; seatingCapacity: number };
+  vendor: { id: string; companyName: string };
+  driver: { name: string; mobile: string | null } | null;
+  payment: { method: string; status: string } | null;
+  tripStatus: string | null;
+  approval: { id: string; status: string } | null;
+  traveller: string; isGuest?: boolean; guest?: { name: string | null; mobile: string | null; email: string | null; reference: string | null } | null; bookedBy?: string | null; approvalBasis?: string | null; employee: EmployeeRef | null; assignment: string; gst: string | null; archived: boolean; credit: string;
+  fare: { vendorFare: string; platformFee: string; taxAmount: string; discount: string; finalPayable: string; passThroughTotal: string } | null;
+};
+
+export type ApprovalStep = { level: number; stage: string; status: string; actedAt: string | null; remarks: string | null; approver: string | null; assignedTo: string; approverType: string };
+
+export type Approval = {
+  id: string; status: string; rawStatus: string; amount: string | null; currentStage: string; submittedAt: string; completedAt: string | null;
+  ride: {
+    serviceType: string; tripType: string; days: string; pickupDateTime: string; pickupAddress: string; dropAddress: string;
+    route: { pickupCity: string; dropCity: string; packageName: string }; vehicle: { make: string; model: string; category: string };
+    vendorName: string; fare: { vendorFare: string; platformFee: string; taxAmount: string; finalPayable: string }; policyReasons: string[]; note: string;
+    portal?: { bookedBy: string; guest?: { name: string; mobile: string; email: string | null; reference: string | null } } | null;
+  } | null;
+  steps: ApprovalStep[]; decisionNote: string | null; booking: { id: string; bookingNumber: string; status: string } | null;
+  employee: EmployeeRef & { email: string; monthlyTravelLimit: string | null; yearlyTravelLimit: string | null };
+};
+
+export type Paged<T> = { items: T[]; page: number; pageSize: number; total: number };
+
+export type OrgOptions = {
+  branches: { id: string; branchName: string; city: string | null; isActive: boolean }[];
+  departments: { id: string; departmentName: string; branchId: string | null; isActive: boolean }[];
+  costCenters: { id: string; name: string; code: string }[];
+  people: { id: string; employeeName: string; employeeCode: string; designation: string; branchId: string | null; departmentId: string | null; hasLogin: boolean }[];
+  policies: { id: string; policyName: string; branchId: string | null; departmentId: string | null; approvalRequired: boolean }[];
+  vehicleCategories: string[];
+};

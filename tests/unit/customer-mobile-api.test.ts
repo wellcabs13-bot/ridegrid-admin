@@ -1,0 +1,19 @@
+// @vitest-environment node
+import {beforeEach,describe,it,expect,vi} from 'vitest';
+import {NextRequest} from 'next/server';
+const mocks=vi.hoisted(()=>({requestUser:vi.fn(),booking:{findMany:vi.fn()},customer:{findFirst:vi.fn(),update:vi.fn()},notification:{findMany:vi.fn(),count:vi.fn(),updateMany:vi.fn()}}));
+vi.mock('@/lib/request-access',()=>({requestUser:mocks.requestUser}));
+vi.mock('@/lib/prisma',()=>({prisma:mocks}));
+import {GET as bookings} from '@/app/api/mobile/bookings/route';
+import {GET as profile,PATCH as edit} from '@/app/api/mobile/profile/route';
+import {GET as notifications,PATCH as read} from '@/app/api/mobile/notifications/route';
+const request=(path:string,method='GET',body?:unknown,origin?:string)=>new NextRequest(`https://ridegrid.test/api/mobile/${path}`,{method,headers:{...(body?{'Content-Type':'application/json'}:{}),...(origin?{origin}:{})},...(body?{body:JSON.stringify(body)}:{})});
+beforeEach(()=>{vi.resetAllMocks();mocks.requestUser.mockResolvedValue({id:'customer-user',role:'CUSTOMER'});mocks.booking.findMany.mockResolvedValue([]);mocks.customer.findFirst.mockResolvedValue({id:'own-customer'});mocks.notification.findMany.mockResolvedValue([]);mocks.notification.count.mockResolvedValue(0);mocks.notification.updateMany.mockResolvedValue({count:0});});
+describe('mobile customer boundaries',()=>{
+  it('rejects anonymous access and non-customer roles before any database read',async()=>{mocks.requestUser.mockResolvedValue(null);expect((await bookings(request('bookings'))).status).toBe(401);mocks.requestUser.mockResolvedValue({id:'vendor',role:'VENDOR'});expect((await profile(request('profile'))).status).toBe(403);expect(mocks.booking.findMany).not.toHaveBeenCalled();expect(mocks.customer.findFirst).not.toHaveBeenCalled();});
+  it('ignores attacker-supplied customer identifiers and scopes booking deep links',async()=>{expect((await bookings(request('bookings?id=other-booking&customerId=other'))).status).toBe(404);const query=mocks.booking.findMany.mock.calls[0][0];expect(query.where).toMatchObject({id:'other-booking',customer:{userId:'customer-user',deletedAt:null},deletedAt:null});expect(query.select.customer).toBeUndefined();expect(query.select.vendor).toEqual({select:{companyName:true}});});
+  it('bounds invalid pagination and omits account secrets',async()=>{await bookings(request('bookings?page=NaN'));expect(mocks.booking.findMany.mock.calls[0][0]).toMatchObject({take:20,skip:0});await profile(request('profile?id=other'));const query=mocks.customer.findFirst.mock.calls[0][0];expect(query.where.userId).toBe('customer-user');expect(query.select.user.select.password).toBeUndefined();});
+  it('edits only the authenticated profile using an allowlist',async()=>{mocks.customer.update.mockResolvedValue({id:'own-customer'});const result=await edit(request('profile','PATCH',{firstName:'Ada',lastName:'Lovelace',id:'other',role:'SUPER_ADMIN',isActive:false}));expect(result.status).toBe(200);expect(mocks.customer.update.mock.calls[0][0]).toMatchObject({where:{id:'own-customer'},data:{firstName:'Ada',lastName:'Lovelace',user:{update:{name:'Ada Lovelace'}}}});expect(mocks.customer.update.mock.calls[0][0].data.role).toBeUndefined();});
+  it('blocks cross-site profile writes',async()=>{expect((await edit(request('profile','PATCH',{firstName:'A',lastName:'B'},'https://attacker.test'))).status).toBe(403);expect(mocks.customer.update).not.toHaveBeenCalled();});
+  it('marks only owned notifications read, without altering delivery timestamps',async()=>{await read(request('notifications','PATCH',{id:'other-notice',userId:'other'}));expect(mocks.notification.updateMany).toHaveBeenCalledWith({where:{id:'other-notice',userId:'customer-user',readAt:null},data:{readAt:expect.any(Date)}});await notifications(request('notifications?userId=other'));expect(mocks.notification.count).toHaveBeenCalledWith({where:{userId:'customer-user',readAt:null}});});
+});

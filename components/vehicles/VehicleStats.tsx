@@ -1,64 +1,29 @@
 'use client';
 
+import { CarFront, CheckCircle2, Navigation, Wrench } from 'lucide-react';
+import { Kpi } from '@/components/admin/kit';
+
 interface VehicleStatsProps {
   total: number;
   available: number;
   onTrip: number;
   maintenance: number;
-  revenue: string;
 }
 
+// Counts of the vehicles currently loaded, by their real status. No revenue figure is
+// shown: the vehicle list carries a base fare, not earned revenue.
 export default function VehicleStats({
   total,
   available,
   onTrip,
   maintenance,
-  revenue,
 }: VehicleStatsProps) {
-  const cards = [
-    {
-      title: 'Total Vehicles',
-      value: total,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
-    },
-    {
-      title: 'Available',
-      value: available,
-      color: 'text-green-600',
-      bg: 'bg-green-50',
-    },
-    {
-      title: 'On Trip',
-      value: onTrip,
-      color: 'text-orange-600',
-      bg: 'bg-orange-50',
-    },
-    {
-      title: 'Maintenance',
-      value: maintenance,
-      color: 'text-red-600',
-      bg: 'bg-red-50',
-    },
-    {
-      title: 'Revenue',
-      value: revenue,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50',
-    },
-  ];
-
   return (
-    <div className="mb-8 grid gap-5 md:grid-cols-5">
-      {cards.map((card) => (
-        <div key={card.title} className={`rounded-xl ${card.bg} p-5 shadow-sm`}>
-          <p className="text-sm text-slate-500">{card.title}</p>
-
-          <h2 className={`mt-3 text-3xl font-bold ${card.color}`}>
-            {card.value}
-          </h2>
-        </div>
-      ))}
+    <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <Kpi icon={CarFront} accent="blue" label="Total vehicles" value={total.toLocaleString('en-IN')} hint="In this view" />
+      <Kpi icon={CheckCircle2} accent="green" label="Available" value={available.toLocaleString('en-IN')} />
+      <Kpi icon={Navigation} accent="amber" label="On trip" value={onTrip.toLocaleString('en-IN')} />
+      <Kpi icon={Wrench} accent="red" label="Maintenance" value={maintenance.toLocaleString('en-IN')} />
     </div>
   );
 }

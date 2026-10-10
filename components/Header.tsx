@@ -1,131 +1,46 @@
-'use client';
-
-import {
-  Bell,
-  Search,
-  Settings,
-  Plus,
-  ChevronDown,
-} from "lucide-react";
-
+"use client";
+import { Bell, Plus, LogOut, Search } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
-export default function Header() {
-  const pathname = usePathname();
-
-  const pageName =
-    pathname === "/"
-      ? "Dashboard"
-      : pathname
-          .split("/")
-          .filter(Boolean)
-          .map(
-            (item) =>
-              item.charAt(0).toUpperCase() + item.slice(1)
-          )
-          .join(" / ");
-
-  return (
-    <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white px-8">
-
-      {/* Left */}
-
-      <div>
-
-        <p className="text-sm text-slate-500">
-          Welcome back 👋
-        </p>
-
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
-          {pageName}
-        </h1>
-
+// Top bar: booking search (the central booking list searches booking number, route and
+// vehicle registration), notifications with the real unread count, and the account chip.
+export default function Header({ unread = 0 }: { unread?: number }) {
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [q, setQ] = useState("");
+  async function signOut() {
+    setBusy(true); setError("");
+    try { await logout(); router.replace("/login"); router.refresh(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Unable to sign out."); }
+    finally { setBusy(false); }
+  }
+  function search(e: FormEvent) {
+    e.preventDefault();
+    const term = q.trim();
+    if (term) router.push(`/bookings?q=${encodeURIComponent(term)}`);
+  }
+  return <header className="relative z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-neutral-200 bg-white pl-14 pr-4 md:px-6">
+    <form onSubmit={search} role="search" className="flex min-w-0 max-w-md flex-1 items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 focus-within:border-red-500">
+      <Search size={15} className="shrink-0 text-neutral-400" />
+      <input aria-label="Search bookings" value={q} onChange={e => setQ(e.target.value)} placeholder="Search bookings by ID, route or vehicle number…" className="!min-h-0 !border-0 !bg-transparent !p-0 !py-2.5 min-w-0 w-full !text-[13px] outline-none" />
+    </form>
+    <div className="flex shrink-0 items-center gap-2">
+      <Link href="/marketplace/booking" className="rg-primary hidden sm:inline-flex"><Plus size={15} /> New booking</Link>
+      <Link href="/notifications" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} className="rg-icon relative">
+        <Bell size={18} />
+        {unread > 0 && <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-[18px] text-white ring-2 ring-white">{unread > 99 ? "99+" : unread}</span>}
+      </Link>
+      <div className="flex items-center gap-2.5 border-l border-neutral-200 pl-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-red-700 text-sm font-bold text-white">{(user?.name || user?.email || "R").slice(0, 1).toUpperCase()}</span>
+        <div className="hidden lg:block"><p className="max-w-40 truncate text-[13px] font-semibold leading-4">{user?.name || user?.email}</p><p className="text-[11px] text-neutral-500">{user?.role === "SUPER_ADMIN" ? "Platform Owner" : user?.role.replaceAll("_", " ")}</p></div>
       </div>
-
-      {/* Right */}
-
-      <div className="flex items-center gap-4">
-
-        {/* Search */}
-
-        <div className="relative hidden lg:block">
-
-          <Search
-            size={18}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-          />
-
-          <input
-            type="text"
-            placeholder="Search bookings, customers..."
-            className="w-80 rounded-xl border border-slate-300 bg-slate-50 py-3 pl-11 pr-4 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-          />
-
-        </div>
-
-        {/* New Booking */}
-
-        <Link
-          href="/bookings/new"
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-        >
-
-          <Plus size={18} />
-
-          New Booking
-
-        </Link>
-
-        {/* Settings */}
-
-        <button className="rounded-xl border border-slate-200 p-3 transition hover:bg-slate-100">
-
-          <Settings size={20} />
-
-        </button>
-
-        {/* Notifications */}
-
-        <button className="relative rounded-xl border border-slate-200 p-3 transition hover:bg-slate-100">
-
-          <Bell size={20} />
-
-          <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-red-500"></span>
-
-        </button>
-
-        {/* Profile */}
-
-        <button className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 transition hover:bg-slate-100">
-
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-sm font-bold text-white">
-
-            A
-
-          </div>
-
-          <div className="hidden text-left xl:block">
-
-            <p className="text-sm font-semibold text-slate-900">
-              Administrator
-            </p>
-
-            <p className="text-xs text-slate-500">
-              Super Admin
-            </p>
-
-          </div>
-
-          <ChevronDown
-            size={18}
-            className="text-slate-500"
-          />
-
-        </button>
-
-      </div>
-
-    </header>
-  );
+      <button type="button" className="rg-icon" onClick={signOut} disabled={busy} aria-label={busy ? "Signing out" : "Sign out"}><LogOut size={17} /></button>
+    </div>
+    {error && <p role="alert" className="absolute right-4 top-full mt-1 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+  </header>;
 }

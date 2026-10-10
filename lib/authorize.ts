@@ -1,16 +1,21 @@
-import { UserRole } from "@prisma/client";
-import { verifyToken } from "./auth-server";
+﻿import { verifyToken } from "./auth-server";
 
-export function authorize(token: string | undefined, roles: UserRole[]) {
+type AuthorizationRole = string;
+
+export function authorize(
+  token: string | undefined,
+  roles: AuthorizationRole[]
+) {
   if (!token) return null;
 
   const user = verifyToken(token);
 
   if (!user) return null;
 
-  if (!roles.includes(user.role as UserRole)) {
+  if (!roles.includes(String(user.role))) {
     return null;
   }
 
   return user;
 }
+

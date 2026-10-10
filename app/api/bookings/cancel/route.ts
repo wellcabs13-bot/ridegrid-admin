@@ -1,45 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextRequest } from "next/server";
+import { requestPermission } from "@/lib/request-access";
+import { Permission } from "@/lib/permissions";
+import { fail, ok } from "@/lib/admin-api";
+import { cancelBooking } from "@/lib/services/admin/BookingAdminService";
 
+// Legacy entry point, kept for compatibility. Uses the central cancellation workflow
+// (status guard, payment/credit handling, history, audit, BOOKING_CANCELLED event).
 export async function POST(req: NextRequest) {
+  const access = await requestPermission(req, Permission.BOOKING_CANCEL);
+  if (access.denied) return access.denied;
   try {
-    const { bookingId, reason, cancelledBy } = await req.json();
-
-    const booking = await prisma.booking.update({
-      where: {
-        id: bookingId,
-      },
-      data: {
-        status: "CANCELLED",
-        cancelReason: reason,
-        cancelledBy,
-        cancelledAt: new Date(),
-      },
-    });
-
-    await prisma.bookingStatusHistory.create({
-      data: {
-        bookingId,
-        currentStatus: "CANCELLED",
-        action: "CANCELLED",
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: booking,
-    });
+    const { bookingId, reason } = await req.json();
+    return ok(await cancelBooking(String(bookingId || ""), access.user!.id, typeof reason === "string" ? reason : ""));
   } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Booking cancellation failed.",
-      },
-      {
-        status: 500,
-      }
-    );
+    return fail(error, "POST /api/bookings/cancel");
   }
 }

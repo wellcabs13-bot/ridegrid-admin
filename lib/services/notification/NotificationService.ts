@@ -1,4 +1,4 @@
-import {
+﻿import {
   NotificationStatus,
   NotificationType,
   Prisma,
@@ -20,31 +20,19 @@ export class NotificationService {
   }
 
   async getByUser(userId: string) {
-    return notificationRepository.findByUser(
-      userId
-    );
+    return notificationRepository.findByUser(userId);
   }
 
   async getUnread(userId: string) {
-    return notificationRepository.findUnread(
-      userId
-    );
+    return notificationRepository.findUnread(userId);
   }
 
-  async getByStatus(
-    status: NotificationStatus
-  ) {
-    return notificationRepository.findByStatus(
-      status
-    );
+  async getByStatus(status: NotificationStatus) {
+    return notificationRepository.findByStatus(status);
   }
 
-  async getByType(
-    type: NotificationType
-  ) {
-    return notificationRepository.findByType(
-      type
-    );
+  async getByType(type: NotificationType) {
+    return notificationRepository.findByType(type);
   }
 
   async create(
@@ -57,22 +45,15 @@ export class NotificationService {
     id: string,
     data: Prisma.NotificationUpdateInput
   ) {
-    return notificationRepository.update(
-      id,
-      data
-    );
+    return notificationRepository.update(id, data);
   }
 
   async markAsRead(id: string) {
-    return notificationRepository.markAsRead(
-      id
-    );
+    return notificationRepository.markAsRead(id);
   }
 
   async markAsSent(id: string) {
-    return notificationRepository.markAsSent(
-      id
-    );
+    return notificationRepository.markAsSent(id);
   }
 
   async send(data: {
@@ -87,8 +68,7 @@ export class NotificationService {
           id: data.userId,
         },
       },
-      notificationType:
-        data.notificationType,
+      notificationType: data.notificationType,
       title: data.title,
       message: data.message,
       status: NotificationStatus.PENDING,
@@ -96,5 +76,4 @@ export class NotificationService {
   }
 }
 
-export const notificationService =
-  new NotificationService();
+export const notificationService = new NotificationService();

@@ -1,41 +1,40 @@
-'use client';
+"use client";
 
-import { Vehicle } from '../../data/vehicles';
-import VehicleRow from './VehicleRow';
+import { Vehicle } from "../../data/vehicles";
+import VehicleRow from "./VehicleRow";
 
 interface VehicleTableProps {
   vehicles: Vehicle[];
   onView?: (vehicle: Vehicle) => void;
+  onEdit?: (vehicle: Vehicle) => void;
+  onDelete?: (vehicle: Vehicle) => void;
+  onVerify?: (vehicle: Vehicle) => void;
+  verifiedMap?: Record<string, boolean>;
 }
 
-export default function VehicleTable({ vehicles, onView }: VehicleTableProps) {
+export default function VehicleTable({
+  vehicles,
+  onView,
+  onEdit,
+  onDelete,
+  onVerify,
+  verifiedMap = {},
+}: VehicleTableProps) {
   return (
-    <div className="overflow-hidden rounded-xl bg-white shadow">
+    <section className="rg-card">
       <div className="overflow-x-auto">
-        <table className="min-w-full">
-          <thead className="bg-slate-100">
-            <tr className="text-left text-sm font-semibold text-slate-700">
-              <th className="px-4 py-4">Registration</th>
-
-              <th className="px-4 py-4">Vehicle</th>
-
-              <th className="px-4 py-4">Vendor</th>
-
-              <th className="px-4 py-4">Driver</th>
-
-              <th className="px-4 py-4">City</th>
-
-              <th className="px-4 py-4 text-center">Trips</th>
-
-              <th className="px-4 py-4">Revenue</th>
-
-              <th className="px-4 py-4">Insurance</th>
-
-              <th className="px-4 py-4">Status</th>
-
-              <th className="px-4 py-4">Availability</th>
-
-              <th className="px-4 py-4">Actions</th>
+        <table className="rg-table min-w-[960px]">
+          <thead>
+            <tr>
+              <th>Vehicle</th>
+              <th>Category</th>
+              <th>Vendor</th>
+              <th>Driver</th>
+              <th>City</th>
+              <th className="text-right">Trips</th>
+              <th>Status</th>
+              <th>Verification</th>
+              <th className="text-right">Actions</th>
             </tr>
           </thead>
 
@@ -46,11 +45,15 @@ export default function VehicleTable({ vehicles, onView }: VehicleTableProps) {
                   key={vehicle.id}
                   vehicle={vehicle}
                   onView={onView}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onVerify={onVerify}
+                  isVerified={verifiedMap[vehicle.id] === true}
                 />
               ))
             ) : (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-slate-500">
+                <td colSpan={9} className="!py-12 text-center text-neutral-500">
                   No vehicles found.
                 </td>
               </tr>
@@ -58,6 +61,6 @@ export default function VehicleTable({ vehicles, onView }: VehicleTableProps) {
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 }

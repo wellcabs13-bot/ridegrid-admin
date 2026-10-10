@@ -1,7 +1,10 @@
+import { staffGuard } from "@/lib/request-access";
+import { Permission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
+  const denied = await staffGuard(request, Permission.CUSTOMER_VIEW); if (denied) return denied;
   const id = request.nextUrl.searchParams.get("id");
 
   if (!id) {
@@ -19,7 +22,7 @@ export async function GET(request: NextRequest) {
       id,
     },
     include: {
-      user: true,
+      user: { select: { id: true, name: true, email: true, mobile: true, role: true, isActive: true, isVerified: true, createdAt: true } },
       bookings: true,
     },
   });

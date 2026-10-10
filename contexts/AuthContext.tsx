@@ -8,7 +8,9 @@ import {
   ReactNode,
 } from 'react';
 
+import { usePathname } from 'next/navigation';
 import { AuthService } from '@/services/auth.service';
+import { isPublicWebsitePath } from '@/lib/website-public/public-paths';
 
 interface User {
   id: string;
@@ -25,7 +27,7 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -61,18 +63,25 @@ export function AuthProvider({
     }
   }
 
+  // Public website pages never read the session, so anonymous visitors there are not
+  // probed (no failing /api/auth/me + refresh on every page). The probe runs as soon as
+  // the user reaches an app area; until then that area sees `loading`.
+  const pathname = usePathname() || "/";
+  const publicPage = isPublicWebsitePath(pathname);
+  const [probed, setProbed] = useState(false);
+
   useEffect(() => {
-    refreshUser();
-  }, []);
+    if (publicPage) { setAuth((a) => (a.loading ? { ...a, loading: false } : a)); return; }
+    void refreshUser().finally(() => setProbed(true));
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refreshUser(); }, 5 * 60 * 1000);
+    const restore = () => { void refreshUser(); };
+    window.addEventListener("focus", restore);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", restore); };
+  }, [publicPage]);
 
   async function login(email: string, password: string) {
-    await AuthService.login({
-      email,
-      password,
-    });
-
     const result = await AuthService.login({
-  email,
+  identifier: email,
   password,
 });
 
@@ -81,6 +90,7 @@ setAuth({
   isAuthenticated: true,
   loading: false,
    });
+    return result.user as User;
   }
 
   async function logout() {
@@ -97,6 +107,7 @@ setAuth({
     <AuthContext.Provider
       value={{
         ...auth,
+        loading: auth.loading || (!publicPage && !probed && !auth.isAuthenticated),
         login,
         logout,
         refreshUser,

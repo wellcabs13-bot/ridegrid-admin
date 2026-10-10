@@ -1,51 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { requestPermission } from "@/lib/request-access";
+import { Permission } from "@/lib/permissions";
 
+// Retired: this endpoint allowed arbitrary status/vendor/fare rewrites. Booking
+// corrections now go through the controlled, audited admin service:
+//   PATCH /api/admin/bookings/{id}   (addresses, same-day pickup time, driver)
+//   POST  /api/admin/bookings/{id}   { action: "cancel" | "archive" | "restore" }
 export async function PUT(req: NextRequest) {
-  try {
-    const body = await req.json();
-
-    const {
-      bookingId,
-      customerId,
-      vendorId,
-      vehicleId,
-      driverId,
-      pickupLocation,
-      dropLocation,
-      pickupDateTime,
-      estimatedFare,
-    } = body;
-
-    const booking = await prisma.booking.update({
-      where: {
-        id: bookingId,
-      },
-      data: {
-        customerId,
-        vendorId,
-        vehicleId,
-        driverId,
-        pickupLocation,
-        dropLocation,
-        pickupDateTime: new Date(pickupDateTime),
-        estimatedFare,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: booking,
-    });
-  } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Booking update failed",
-      },
-      { status: 500 }
-    );
-  }
+  const access = await requestPermission(req, Permission.BOOKING_UPDATE);
+  if (access.denied) return access.denied;
+  return NextResponse.json({ success: false, message: "This endpoint has been retired. Use PATCH /api/admin/bookings/{id}." }, { status: 410 });
 }

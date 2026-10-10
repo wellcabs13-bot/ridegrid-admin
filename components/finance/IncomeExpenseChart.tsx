@@ -1,19 +1,26 @@
 'use client';
 
-export default function IncomeExpenseChart() {
-  const data = [
-    { month: 'Jan', income: 280000, expense: 182000 },
-    { month: 'Feb', income: 315000, expense: 196000 },
-    { month: 'Mar', income: 342000, expense: 214000 },
-    { month: 'Apr', income: 388000, expense: 245000 },
-    { month: 'May', income: 425000, expense: 271000 },
-    { month: 'Jun', income: 462000, expense: 289000 },
-    { month: 'Jul', income: 515000, expense: 304000 },
-  ];
+export interface IncomeExpensePoint {
+  month: string;
+  income: number;
+  expense: number;
+}
 
+interface IncomeExpenseChartProps {
+  data: IncomeExpensePoint[];
+}
+
+export default function IncomeExpenseChart({
+  data,
+}: IncomeExpenseChartProps) {
   const maxValue = Math.max(
-    ...data.flatMap((item) => [item.income, item.expense])
+    ...data.flatMap((item) => [item.income, item.expense]),
+    1
   );
+
+  const totalIncome = data.reduce((sum, item) => sum + item.income, 0);
+  const totalExpense = data.reduce((sum, item) => sum + item.expense, 0);
+  const netProfit = totalIncome - totalExpense;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -25,7 +32,7 @@ export default function IncomeExpenseChart() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Monthly financial comparison
+              Recorded monthly financial comparison
             </p>
           </div>
 
@@ -44,13 +51,13 @@ export default function IncomeExpenseChart() {
       </div>
 
       <div className="p-6">
-        <div className="flex h-80 items-end justify-between gap-5">
-          {data.map((item) => {
-            const incomeHeight = (item.income / maxValue) * 100;
-
-            const expenseHeight = (item.expense / maxValue) * 100;
-
-            return (
+        {data.length === 0 ? (
+          <div className="flex h-80 items-center justify-center text-sm text-slate-500">
+            No financial data available.
+          </div>
+        ) : (
+          <div className="flex h-80 items-end justify-between gap-5">
+            {data.map((item) => (
               <div
                 key={item.month}
                 className="flex flex-1 flex-col items-center"
@@ -58,16 +65,16 @@ export default function IncomeExpenseChart() {
                 <div className="flex h-64 items-end gap-2">
                   <div
                     style={{
-                      height: `${incomeHeight}%`,
+                      height: `${(item.income / maxValue) * 100}%`,
                     }}
-                    className="w-5 rounded-t-lg bg-gradient-to-t from-indigo-700 to-indigo-400 transition-all duration-300 hover:scale-105"
+                    className="w-5 rounded-t-lg bg-gradient-to-t from-indigo-700 to-indigo-400"
                   />
 
                   <div
                     style={{
-                      height: `${expenseHeight}%`,
+                      height: `${(item.expense / maxValue) * 100}%`,
                     }}
-                    className="w-5 rounded-t-lg bg-gradient-to-t from-red-600 to-orange-400 transition-all duration-300 hover:scale-105"
+                    className="w-5 rounded-t-lg bg-gradient-to-t from-red-600 to-orange-400"
                   />
                 </div>
 
@@ -75,28 +82,31 @@ export default function IncomeExpenseChart() {
                   {item.month}
                 </span>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-3 border-t border-slate-200">
         <div className="p-5 text-center">
           <p className="text-sm text-slate-500">Total Income</p>
-
-          <h3 className="mt-2 text-xl font-bold text-indigo-600">₹27.27L</h3>
+          <h3 className="mt-2 text-xl font-bold text-indigo-600">
+            ₹{totalIncome.toLocaleString('en-IN')}
+          </h3>
         </div>
 
         <div className="border-x border-slate-200 p-5 text-center">
           <p className="text-sm text-slate-500">Total Expense</p>
-
-          <h3 className="mt-2 text-xl font-bold text-red-600">₹17.01L</h3>
+          <h3 className="mt-2 text-xl font-bold text-red-600">
+            ₹{totalExpense.toLocaleString('en-IN')}
+          </h3>
         </div>
 
         <div className="p-5 text-center">
           <p className="text-sm text-slate-500">Net Profit</p>
-
-          <h3 className="mt-2 text-xl font-bold text-green-600">₹10.26L</h3>
+          <h3 className="mt-2 text-xl font-bold text-green-600">
+            ₹{netProfit.toLocaleString('en-IN')}
+          </h3>
         </div>
       </div>
     </div>

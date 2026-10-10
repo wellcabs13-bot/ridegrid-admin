@@ -1,67 +1,75 @@
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
-import {
-  authService,
-} from "@/lib/auth/auth";
+import { authService } from "@/lib/auth/auth";
 
-export async function POST(
-  request: NextRequest
-) {
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+};
+
+export async function POST(request: NextRequest) {
   try {
-    const body =
-      await request.json();
+    const body = await request.json();
+
+    // "identifier" is an email address or mobile number; "email" is accepted from older clients.
+    const identifier =
+      typeof body.identifier === "string"
+        ? body.identifier
+        : typeof body.email === "string"
+          ? body.email
+          : "";
 
     if (
-      !body.email ||
+      !identifier.trim() ||
+      typeof body.password !== "string" ||
       !body.password
     ) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Email and password are required.",
+          message: "Email or mobile number and password are required.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    const result =
-      await authService.login({
-        email: body.email,
-        password:
-          body.password,
-        rememberMe:
-          body.rememberMe ??
-          false,
-      });
+    const result = await authService.login({
+      identifier,
+      password: body.password,
+      role: body.role,
+      rememberMe: body.rememberMe ?? false,
+    });
 
-    const response =
-      NextResponse.json(
-        {
-          success: true,
-          data: result,
-        },
-        {
-          status: 200,
-        }
-      );
+    if ("passwordChangeRequired" in result) {
+      return NextResponse.json({
+        success: true,
+        message: "Set a new password to continue.",
+        data: result,
+      });
+    }
+
+    const response = NextResponse.json({
+      success: true,
+      data: result,
+    });
 
     response.cookies.set(
-      "ridegrid-token",
+      "ridegrid_access_token",
       result.accessToken,
       {
-        httpOnly: true,
-        secure:
-          process.env.NODE_ENV ===
-          "production",
-        sameSite: "lax",
-        path: "/",
+        ...cookieOptions,
         maxAge: 60 * 60,
+      }
+    );
+
+    response.cookies.set(
+      "ridegrid_refresh_token",
+      result.refreshToken,
+      {
+        ...cookieOptions,
+        maxAge: 60 * 60 * 24 * 30,
       }
     );
 
@@ -80,9 +88,7 @@ export async function POST(
             ? error.message
             : "Login failed.",
       },
-      {
-        status: 401,
-      }
+      { status: 401 }
     );
   }
 }

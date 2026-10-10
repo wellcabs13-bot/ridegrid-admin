@@ -1,0 +1,85 @@
+/* RideGrid Corporate Travel Portal - light enterprise theme.
+   Scope: .rg-corp wraps the Corporate Admin Portal only (layout + portal dialogs). It deliberately does not
+   use the dark .rg-admin theme shared by Super Admin. Visual authority: corporate-portal-ui-reference.png.
+
+   Type scale: page title 26px / KPI value 24px / section title 15px / body 13.5px / table head 12px / meta 11.5px. */
+.rg-corp {
+  --c-red: #e11d2e; --c-red-dark: #bf1523; --c-red-soft: #fef2f3; --c-red-line: #fbc9ce;
+  --c-ink: #0f172a; --c-text: #1e293b; --c-muted: #64748b; --c-dim: #94a3b8;
+  --c-line: #e8ebf2; --c-line-strong: #d6dbe6; --c-canvas: #f5f6fa; --c-surface: #ffffff; --c-hover: #f8f9fc;
+  --c-green: #16a34a; --c-green-soft: #ecfdf3; --c-amber: #d97706; --c-amber-soft: #fff7e6;
+  --c-blue: #2563eb; --c-blue-soft: #eff5ff; --c-ai: #7c3aed; --c-ai-soft: #f4f0ff;
+  --c-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 6px 20px -10px rgba(15, 23, 42, .10);
+  color: var(--c-text); background-color: var(--c-canvas); font-size: 13.5px; line-height: 1.45;
+  font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased;
+}
+.rg-corp :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--c-red); outline-offset: 2px; }
+.rg-corp button:disabled { cursor: not-allowed; opacity: .55; }
+.rg-corp main { scrollbar-gutter: stable; }
+.rg-corp main::-webkit-scrollbar { width: 10px; height: 10px; }
+.rg-corp main::-webkit-scrollbar-thumb { background: #d3d8e3; border-radius: 8px; border: 2px solid var(--c-canvas); }
+
+/* Surfaces */
+.rg-corp .rg-card { overflow: hidden; border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-surface); box-shadow: var(--c-shadow); }
+.rg-corp .rgc-glass { border: 1px solid var(--c-line); border-radius: 14px; background: linear-gradient(180deg, #fff, #fbfbfd); box-shadow: var(--c-shadow); }
+
+/* Buttons */
+.rg-corp .rg-primary, .rg-corp .rg-secondary, .rg-corp .rg-danger, .rg-corp .rg-success {
+  display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: 40px; padding: 0 1rem;
+  border-radius: 10px; font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap; transition: background .15s, border-color .15s, box-shadow .15s;
+}
+.rg-corp .rg-primary { background: var(--c-red); color: #fff; border: 1px solid var(--c-red); box-shadow: 0 6px 16px -8px rgba(225, 29, 46, .7); }
+.rg-corp .rg-primary:hover:not(:disabled) { background: var(--c-red-dark); border-color: var(--c-red-dark); }
+.rg-corp .rg-secondary { background: #fff; color: var(--c-ink); border: 1px solid var(--c-line-strong); }
+.rg-corp .rg-secondary:hover:not(:disabled) { background: var(--c-hover); border-color: #c3cad9; }
+.rg-corp .rg-danger { background: #fff; color: var(--c-red); border: 1px solid var(--c-red-line); }
+.rg-corp .rg-danger:hover:not(:disabled) { background: var(--c-red-soft); }
+.rg-corp .rg-success { background: var(--c-green); color: #fff; border: 1px solid var(--c-green); }
+.rg-corp .rg-success:hover:not(:disabled) { background: #12803a; }
+.rg-corp .rg-sm { min-height: 32px; padding: 0 .75rem; font-size: 12.5px; border-radius: 8px; }
+.rg-corp .rg-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--c-line-strong); border-radius: 10px; color: var(--c-muted); background: #fff; }
+.rg-corp .rg-icon:hover:not(:disabled) { background: var(--c-hover); color: var(--c-ink); }
+
+/* Inputs */
+.rg-corp .rg-input { min-height: 40px; border: 1px solid var(--c-line-strong); border-radius: 10px; background: #fff; color: var(--c-ink); font-size: 13.5px; }
+/* zero-specificity defaults so utility classes (pl-9, w-auto, w-56) still win */
+:where(.rg-corp .rg-input) { width: 100%; padding: .5rem .75rem; }
+.rg-corp textarea.rg-input { min-height: 84px; }
+.rg-corp .rg-input::placeholder { color: var(--c-dim); }
+.rg-corp .rg-input:focus { border-color: var(--c-red); box-shadow: 0 0 0 3px rgba(225, 29, 46, .12); outline: none; }
+.rg-corp .rg-input:disabled { background: #f3f4f8; color: var(--c-muted); }
+
+/* Tables */
+.rg-corp .rg-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.rg-corp .rg-table th { background: #f8f9fc; color: var(--c-muted); font-size: 12px; font-weight: 600; padding: .6rem 1rem; border-bottom: 1px solid var(--c-line); white-space: nowrap; }
+.rg-corp .rg-table td { padding: .7rem 1rem; border-bottom: 1px solid #f0f2f7; vertical-align: middle; }
+.rg-corp .rg-table tbody tr:hover { background: var(--c-hover); }
+.rg-corp .rg-table tbody tr:last-child td { border-bottom: 0; }
+
+.rg-corp .rg-skip { position: fixed; z-index: 100; top: -100px; left: 1rem; padding: .8rem 1rem; border-radius: 10px; background: #fff; color: var(--c-ink); border: 2px solid var(--c-red); }
+.rg-corp .rg-skip:focus { top: 1rem; }
+
+/* Sidebar */
+.rg-corp .rgc-side { background: #fff; border-right: 1px solid var(--c-line); }
+.rg-corp .rgc-nav-label { padding: 0 .75rem; margin: 0 0 .25rem; font-size: 10.5px; font-weight: 700; letter-spacing: .12em; color: var(--c-dim); text-transform: uppercase; }
+.rg-corp .rgc-nav { display: flex; align-items: center; gap: .7rem; margin: 1px 0; padding: .5rem .75rem; border-radius: 10px; font-size: 13.5px; font-weight: 500; color: #475569; transition: background .12s, color .12s; }
+.rg-corp .rgc-nav:hover { background: #f4f5f9; color: var(--c-ink); }
+.rg-corp .rgc-nav[aria-current=page] { background: var(--c-red); color: #fff; font-weight: 600; box-shadow: 0 8px 18px -10px rgba(225, 29, 46, .8); }
+.rg-corp .rgc-nav[aria-current=page] svg { color: #fff; }
+.rg-corp .rgc-nav svg { color: #7b8499; flex-shrink: 0; }
+
+/* Pill tabs (reference: red filled active tab) */
+.rg-corp .rgc-tabs { display: inline-flex; gap: .25rem; padding: .2rem; border-radius: 12px; background: #f1f3f8; overflow-x: auto; max-width: 100%; }
+.rg-corp .rgc-tab { min-height: 32px; padding: 0 .85rem; border-radius: 9px; font-size: 12.5px; font-weight: 600; color: var(--c-muted); white-space: nowrap; }
+.rg-corp .rgc-tab:hover { color: var(--c-ink); }
+.rg-corp .rgc-tab[aria-selected=true] { background: var(--c-red); color: #fff; box-shadow: 0 6px 14px -8px rgba(225, 29, 46, .8); }
+
+/* Stepper */
+.rg-corp .rgc-step { display: inline-flex; align-items: center; gap: .5rem; font-size: 12.5px; font-weight: 600; color: var(--c-muted); }
+.rg-corp .rgc-step > span { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 999px; background: #eceff5; color: var(--c-muted); font-size: 11.5px; }
+.rg-corp .rgc-step[data-state=active] { color: var(--c-ink); }
+.rg-corp .rgc-step[data-state=active] > span, .rg-corp .rgc-step[data-state=done] > span { background: var(--c-red); color: #fff; }
+.rg-corp .rgc-step[data-state=done] { color: var(--c-ink); }
+
+.rg-corp .rgc-hero { background: radial-gradient(900px 260px at 100% -20%, rgba(225, 29, 46, .08), transparent 60%), #fff; }
+.rg-corp .rgc-ai { border: 1px solid #e6defb; background: linear-gradient(180deg, #faf8ff, #fff); }
