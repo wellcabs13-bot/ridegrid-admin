@@ -1,9 +1,15 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { formatDateTime } from "../../src/utils/when";
 import { TripStatus } from "../../src/components/TripStatus";
-import { Badge, PriceDisplay } from "../../src/components/Premium";
+import {
+  Avatar,
+  Badge,
+  Divider,
+  RouteLine,
+  SectionHeader,
+} from "../../src/components/Premium";
 import { routeParams, shareSummary } from "../../src/utils/routes";
-import { Linking, Text, Share } from "react-native";
+import { Linking, Text, Share, View } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../src/services/api";
@@ -36,16 +42,49 @@ export default function Detail() {
     enabled: !!session && !!id,
   });
   const b = q.data?.bookings[0];
+  const celebrate = !!confirmed && b?.status === "CONFIRMED";
   return (
     <Screen
-      title={
-        confirmed && b?.status === "CONFIRMED"
-          ? "Booking confirmed!"
-          : confirmed
-            ? "Booking received"
-            : "Your booking"
-      }
+      title={confirmed ? (celebrate ? "Booking Confirmed!" : "Booking received") : "Your booking"}
       subtitle={b?.bookingNumber}
+      header={
+        celebrate ? (
+          <View style={{ alignItems: "center", gap: 8, paddingTop: 6 }}>
+            <View
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: 48,
+                backgroundColor: theme.successSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <View
+                style={{
+                  width: 68,
+                  height: 68,
+                  borderRadius: 34,
+                  backgroundColor: theme.success,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="checkmark" size={42} color="white" />
+              </View>
+            </View>
+            <Text
+              accessibilityRole="header"
+              style={[styles.title, { color: theme.success, textAlign: "center" }]}
+            >
+              Booking Confirmed!
+            </Text>
+            <Text style={[styles.subtitle, { textAlign: "center" }]}>
+              Your ride is all set.{b ? ` ${b.pickupLocation} → ${b.dropLocation}` : ""}
+            </Text>
+          </View>
+        ) : undefined
+      }
       onRefresh={() => void q.refetch()}
       refreshing={q.isRefetching}
     >
@@ -58,47 +97,80 @@ export default function Detail() {
         {b && (
           <>
             <Card>
-              {confirmed && b.status === "CONFIRMED" && (
-                <Ionicons
-                  name="checkmark-circle-outline"
-                  size={64}
-                  color={theme.success}
-                  style={{ alignSelf: "center" }}
+              <View style={styles.row}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.heading, { fontSize: 17 }]} numberOfLines={1}>
+                    {b.vehicle.make} {b.vehicle.model}
+                  </Text>
+                  <Text style={styles.small} numberOfLines={1}>
+                    {b.vendor.companyName}
+                    {b.vehicle.registrationNumber ? ` · ${b.vehicle.registrationNumber}` : ""}
+                  </Text>
+                </View>
+                <Badge
+                  text={bookingStatusLabel(b.status)}
+                  tone={bookingTone(b.status).tone}
+                  icon={bookingTone(b.status).icon}
                 />
-              )}
-              <Badge
-                text={bookingStatusLabel(b.status)}
-                tone={bookingTone(b.status).tone}
-                icon={bookingTone(b.status).icon}
+              </View>
+              <Divider />
+              <RouteLine
+                from={b.pickupLocation}
+                to={b.dropLocation}
+                fromCaption="Pickup"
+                toCaption="Drop-off"
               />
-              <Text style={styles.body}>{b.pickupLocation}</Text>
-              <Text style={styles.small}>to</Text>
-              <Text style={styles.body}>{b.dropLocation}</Text>
+              <Divider />
+              <View style={styles.row}>
+                <View style={{ gap: 2 }}>
+                  <Text style={[styles.small, { fontSize: 11.5 }]}>Date &amp; time</Text>
+                  <Text style={[styles.body, { fontWeight: "700" }]}>
+                    {formatDateTime(b.pickupDateTime)} IST
+                  </Text>
+                </View>
+                <View style={{ gap: 2, alignItems: "flex-end" }}>
+                  <Text style={[styles.small, { fontSize: 11.5 }]}>Booking ID</Text>
+                  <Text style={[styles.body, { fontWeight: "700" }]}>{b.bookingNumber}</Text>
+                </View>
+              </View>
               <Text style={styles.small}>
-                {formatDateTime(b.pickupDateTime)}{" "}
-                IST
+                {label(b.tripType)} · {b.tripDays} day(s)
               </Text>
-              <Text style={styles.small}>
-                {label(b.tripType)} / {b.tripDays} day(s)
-              </Text>
-              <PriceDisplay value={b.finalFare ?? b.estimatedFare} />
+              <View
+                style={[
+                  styles.row,
+                  {
+                    backgroundColor: theme.brandSoft,
+                    borderRadius: 14,
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                  },
+                ]}
+              >
+                <Text style={[styles.body, { fontWeight: "700" }]}>Total fare</Text>
+                <Text style={{ color: theme.brand, fontSize: 24, fontWeight: "800", letterSpacing: -0.6 }}>
+                  {money(b.finalFare ?? b.estimatedFare)}
+                </Text>
+              </View>
             </Card>
             <Card>
-              <Text style={styles.heading}>Your ride</Text>
-              <Text style={styles.body}>
-                {b.vehicle.make} {b.vehicle.model} /{" "}
-                {b.vehicle.registrationNumber}
-              </Text>
-              <Text style={styles.small}>{b.vendor.companyName}</Text>
+              <Text style={[styles.heading, { fontSize: 16 }]}>Your driver</Text>
               {b.driver ? (
                 <>
-                  <Text style={styles.body}>
-                    Driver: {b.driver.firstName} {b.driver.lastName}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <Avatar name={`${b.driver.firstName} ${b.driver.lastName}`} size={46} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={[styles.body, { fontWeight: "700" }]}>
+                        {b.driver.firstName} {b.driver.lastName}
+                      </Text>
+                      <Text style={styles.small}>{b.vendor.companyName}</Text>
+                    </View>
+                  </View>
                   {b.driver.user.mobile && (
                     <Button
                       title="Call driver"
-                      secondary
+                      icon="call"
+                      outline
                       onPress={() =>
                         void Linking.openURL(
                           `tel:${b.driver!.user.mobile!.replace(/[^+\d]/g, "")}`,
@@ -129,16 +201,29 @@ export default function Detail() {
               </Card>
             )}
             <TripStatus booking={b} />
-            <Button
-              title="Share trip"
-              secondary
-              onPress={() => {
-                void Share.share({ message: shareSummary(b) }).catch(() => {});
-              }}
-            />
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="Share trip"
+                  icon="share-outline"
+                  outline
+                  onPress={() => {
+                    void Share.share({ message: shareSummary(b) }).catch(() => {});
+                  }}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="My trips"
+                  secondary
+                  onPress={() => router.push("/(tabs)/trips")}
+                />
+              </View>
+            </View>
             {b.rebook && (
               <Button
                 title="Quick rebook"
+                icon="repeat"
                 onPress={() =>
                   router.push({
                     pathname: "/search",
@@ -147,24 +232,16 @@ export default function Detail() {
                 }
               />
             )}
-            <Button
-              title="View My Trips"
-              secondary
-              onPress={() => router.push("/(tabs)/trips")}
-            />
-            <Button
-              title="Safety & support"
-              secondary
-              onPress={() => router.push("/safety")}
-            />
             <Card>
-              <Text style={styles.heading}>Payment status</Text>
+              <Text style={[styles.heading, { fontSize: 16 }]}>Payment status</Text>
               {b.transactions.length ? (
                 b.transactions.map((t) => (
-                  <Text key={t.id} style={styles.body}>
-                    {label(t.paymentMethod)} / {label(t.paymentStatus)} /{" "}
-                    {money(t.amount)}
-                  </Text>
+                  <View key={t.id} style={styles.row}>
+                    <Text style={styles.body}>
+                      {label(t.paymentMethod)} · {label(t.paymentStatus)}
+                    </Text>
+                    <Text style={[styles.body, { fontWeight: "700" }]}>{money(t.amount)}</Text>
+                  </View>
                 ))
               ) : (
                 <Text style={styles.small}>
@@ -172,22 +249,35 @@ export default function Detail() {
                 </Text>
               )}
             </Card>
-            {b.priceSnapshot && <Fare value={b.priceSnapshot} />}
+            {b.priceSnapshot && (
+              <>
+                <SectionHeader title="Fare breakdown" icon="receipt" />
+                <Fare value={b.priceSnapshot} />
+              </>
+            )}
             <Card>
-              <Text style={styles.heading}>Booking updates</Text>
+              <Text style={[styles.heading, { fontSize: 16 }]}>Booking updates</Text>
               {b.statusHistory.map((s, i) => (
-                <Text key={i} style={styles.small}>
-                  {label(s.currentStatus)} /{" "}
-                  {new Date(s.createdAt).toLocaleString()}
-                </Text>
+                <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <Ionicons name="ellipse" size={8} color={theme.brand} />
+                  <Text style={[styles.small, { flex: 1 }]}>
+                    {label(s.currentStatus)} · {formatDateTime(s.createdAt)}
+                  </Text>
+                </View>
               ))}
             </Card>
+            <Button
+              title="Safety & support"
+              secondary
+              icon="shield-checkmark-outline"
+              onPress={() => router.push("/safety")}
+            />
             <Button
               title="Get help with this booking"
               secondary
               onPress={() => router.push("/support")}
             />
-            <Text style={styles.small}>
+            <Text style={[styles.small, { textAlign: "center" }]}>
               Contact support for cancellation requests. Eligibility is
               determined under your booking terms.
             </Text>

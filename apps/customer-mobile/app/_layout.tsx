@@ -15,6 +15,7 @@ export default function Layout() {
             <Stack
               screenOptions={{
                 headerTitle: "RideGrid",
+                headerTitleStyle: { fontWeight: "800", fontSize: 17 },
                 headerShadowVisible: false,
                 headerStyle: { backgroundColor: theme.paper },
                 headerTintColor: theme.ink,

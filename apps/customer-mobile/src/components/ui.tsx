@@ -25,33 +25,35 @@ export const theme = {
     android: "sans-serif",
     default: "Arial",
   }),
-  ink: "#0F172A",
-  muted: "#667085",
-  brand: "#E31B23",
-  brandDark: "#B8121A",
-  brandSoft: "#FDECEC",
-  purple: "#6D28D9",
+  ink: "#0E1116",
+  muted: "#6B7280",
+  brand: "#E5192B",
+  brandDark: "#B90F1E",
+  brandSoft: "#FDECEE",
+  purple: "#7C3AED",
+  blue: "#2563EB",
   gold: "#B7791F",
-  success: "#15803D",
+  success: "#16A34A",
+  successSoft: "#E8F7EE",
   surface: "#FFFFFF",
-  paper: "#F4F5F8",
-  field: "#F7F8FA",
-  line: "#E6E8EE",
-  radius: 20,
+  paper: "#FFFFFF",
+  field: "#F6F7F9",
+  line: "#ECEEF2",
+  radius: 18,
   spacing: 16,
 };
 // One soft elevation used by every card so the whole app feels consistent.
 export const shadow = {
   shadowColor: "#101828",
-  shadowOpacity: 0.08,
-  shadowRadius: 14,
+  shadowOpacity: 0.07,
+  shadowRadius: 16,
   shadowOffset: { width: 0, height: 6 },
   elevation: 3,
 } as const;
 export const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.paper },
   content: {
-    padding: 20,
+    padding: 18,
     paddingBottom: 40,
     gap: 16,
     width: "100%",
@@ -60,22 +62,22 @@ export const styles = StyleSheet.create({
   },
   title: {
     fontFamily: theme.font,
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "800",
     color: theme.ink,
     letterSpacing: -0.6,
-    lineHeight: 34,
+    lineHeight: 32,
   },
   subtitle: {
     fontFamily: theme.font,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     color: theme.muted,
   },
   card: {
     backgroundColor: theme.surface,
-    padding: 18,
-    borderRadius: 20,
+    padding: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: theme.line,
     gap: 12,
@@ -107,10 +109,10 @@ export const styles = StyleSheet.create({
     gap: 12,
   },
   button: {
-    minHeight: 54,
+    minHeight: 52,
     paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 16,
+    paddingVertical: 13,
+    borderRadius: 14,
     backgroundColor: theme.brand,
     alignItems: "center",
     justifyContent: "center",
@@ -139,27 +141,33 @@ export const styles = StyleSheet.create({
   error: { color: "#DC2626", fontSize: 14, lineHeight: 20 },
   chip: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    minHeight: 44,
+    paddingVertical: 8,
+    minHeight: 40,
     justifyContent: "center",
-    borderRadius: 24,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: theme.line,
     backgroundColor: theme.surface,
   },
   chipActive: { backgroundColor: theme.brand, borderColor: theme.brand },
 });
+// `footer` pins a call-to-action under the scrolling content (listing, review).
+// `header` replaces the plain title block when a screen draws its own heading.
 export function Screen({
   title,
   subtitle,
   children,
   refreshing,
   onRefresh,
+  footer,
+  header,
 }: React.PropsWithChildren<{
   title: string;
   subtitle?: string;
   refreshing?: boolean;
   onRefresh?: () => void;
+  footer?: React.ReactNode;
+  header?: React.ReactNode;
 }>) {
   const { online } = useApp();
   return (
@@ -186,14 +194,31 @@ export function Screen({
               You are offline. Saved information may be out of date.
             </Text>
           )}
-          <View style={{ gap: 6 }}>
-            <Text accessibilityRole="header" style={styles.title}>
-              {title}
-            </Text>
-            {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-          </View>
+          {header ?? (
+            <View style={{ gap: 4 }}>
+              <Text accessibilityRole="header" style={styles.title}>
+                {title}
+              </Text>
+              {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+            </View>
+          )}
           {children}
         </ScrollView>
+        {footer && (
+          <View
+            style={{
+              paddingHorizontal: 18,
+              paddingTop: 12,
+              paddingBottom: 12,
+              gap: 8,
+              backgroundColor: theme.surface,
+              borderTopWidth: 1,
+              borderTopColor: theme.line,
+            }}
+          >
+            {footer}
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -201,11 +226,16 @@ export function Screen({
 export const Card = ({ children }: React.PropsWithChildren) => (
   <View style={styles.card}>{children}</View>
 );
+// secondary: white button with a hairline border. outline: white button with a red
+// border and red text (the reference's "Sign In" / "View Details"). compact: the small
+// red "Book Now" size used inside list cards.
 export function Button({
   title,
   onPress,
   disabled = false,
   secondary = false,
+  outline = false,
+  compact = false,
   busy = false,
   icon,
 }: {
@@ -213,9 +243,13 @@ export function Button({
   onPress: () => void;
   disabled?: boolean;
   secondary?: boolean;
+  outline?: boolean;
+  compact?: boolean;
   busy?: boolean;
   icon?: React.ComponentProps<typeof Ionicons>["name"];
 }) {
+  const plain = secondary || outline;
+  const textColor = outline ? theme.brand : secondary ? theme.ink : "white";
   return (
     <Pressable
       accessibilityRole="button"
@@ -225,38 +259,39 @@ export function Button({
       disabled={disabled || busy}
       style={({ pressed }) => [
         styles.button,
-        secondary
+        compact && { minHeight: 40, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12 },
+        plain
           ? {
               backgroundColor: theme.surface,
-              borderWidth: 1,
-              borderColor: theme.line,
+              borderWidth: outline ? 1.5 : 1,
+              borderColor: outline ? theme.brand : theme.line,
             }
           : {
               shadowColor: theme.brand,
               shadowOpacity: 0.28,
               shadowRadius: 12,
               shadowOffset: { width: 0, height: 6 },
-              elevation: 4,
+              elevation: compact ? 2 : 4,
             },
         pressed && { transform: [{ scale: 0.98 }], opacity: 0.92 },
         (disabled || busy) && { opacity: 0.5 },
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={secondary ? theme.brand : "white"} />
+        <ActivityIndicator color={plain ? theme.brand : "white"} />
       ) : (
         <>
           <Text
-            style={[styles.buttonText, secondary && { color: theme.ink }]}
+            style={[
+              styles.buttonText,
+              { color: textColor },
+              compact && { fontSize: 14 },
+            ]}
           >
             {title}
           </Text>
           {icon && (
-            <Ionicons
-              name={icon}
-              size={18}
-              color={secondary ? theme.ink : "white"}
-            />
+            <Ionicons name={icon} size={compact ? 15 : 18} color={textColor} />
           )}
         </>
       )}
@@ -303,12 +338,34 @@ export const Loading = () => (
     <Text style={styles.small}>Loading your latest information...</Text>
   </Card>
 );
-export function Empty({ title, body }: { title: string; body: string }) {
+export function Empty({
+  title,
+  body,
+  icon = "sparkles-outline",
+  children,
+}: React.PropsWithChildren<{
+  title: string;
+  body: string;
+  icon?: React.ComponentProps<typeof Ionicons>["name"];
+}>) {
   return (
-    <Card>
-      <Text style={styles.heading}>{title}</Text>
-      <Text style={styles.subtitle}>{body}</Text>
-    </Card>
+    <View style={[styles.card, { alignItems: "center", paddingVertical: 28 }]}>
+      <View
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          backgroundColor: theme.brandSoft,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name={icon} size={28} color={theme.brand} />
+      </View>
+      <Text style={[styles.heading, { textAlign: "center" }]}>{title}</Text>
+      <Text style={[styles.subtitle, { textAlign: "center" }]}>{body}</Text>
+      {children && <View style={{ alignSelf: "stretch", gap: 10, marginTop: 4 }}>{children}</View>}
+    </View>
   );
 }
 export function SignedIn({ children }: React.PropsWithChildren) {
@@ -318,13 +375,13 @@ export function SignedIn({ children }: React.PropsWithChildren) {
   ) : session ? (
     <>{children}</>
   ) : (
-    <Card>
-      <Text style={styles.heading}>Your journeys, together.</Text>
-      <Text style={styles.subtitle}>
-        Sign in to manage bookings and your account.
-      </Text>
+    <Empty
+      icon="person-circle-outline"
+      title="Your journeys, together."
+      body="Sign in to manage bookings and your account."
+    >
       <Button title="Sign in" onPress={() => router.push("/login")} />
-    </Card>
+    </Empty>
   );
 }
 export function Chips({

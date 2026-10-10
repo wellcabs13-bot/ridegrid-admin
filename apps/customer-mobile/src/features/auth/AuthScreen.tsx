@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { ImageBackground, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { ImageBackground, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Brand } from "../../components/Premium";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -10,6 +11,7 @@ import {
   Button,
   ErrorText,
   styles,
+  theme,
 } from "../../components/ui";
 import { post, setSession } from "../../services/api";
 import type { Session } from "../../types";
@@ -17,7 +19,8 @@ import { useApp } from "../../state/Providers";
 export function AuthScreen({ reset = false }: { reset?: boolean }) {
   const params = useLocalSearchParams<{ token?: string }>();
   const { online } = useApp();
-  const [mode, setMode] = useState(reset ? "reset" : "login");
+  // "welcome" is the splash with Create account / Sign in; the forms sit behind it.
+  const [mode, setMode] = useState(reset ? "reset" : "welcome");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -105,6 +108,77 @@ export function AuthScreen({ reset = false }: { reset?: boolean }) {
         : mode === "reset"
           ? "Set a new password"
           : "Welcome back";
+  if (mode === "welcome")
+    return (
+      <ImageBackground
+        source={require("../../../assets/journey-night.webp")}
+        resizeMode="cover"
+        style={{ flex: 1, backgroundColor: "#0A0F1C" }}
+      >
+        <LinearGradient
+          colors={["#0A0F1CCC", "#0A0F1C55", "#0A0F1CE6", "#0A0F1CFA"]}
+          locations={[0, 0.35, 0.68, 1]}
+          style={{ flex: 1 }}
+        >
+          <SafeAreaView style={{ flex: 1, paddingHorizontal: 24, paddingBottom: 12 }}>
+            <View style={{ alignItems: "center", paddingTop: 36 }}>
+              <Brand large light tagline />
+            </View>
+            <View style={{ flex: 1 }} />
+            <View style={{ gap: 10, paddingBottom: 6 }}>
+              <Text
+                style={{
+                  color: "white",
+                  fontSize: 32,
+                  fontWeight: "800",
+                  lineHeight: 38,
+                  letterSpacing: -0.8,
+                  textAlign: "center",
+                }}
+              >
+                Your Next Ride{"\n"}Is a Better Ride
+              </Text>
+              <Text style={{ color: "#D5D9E2", fontSize: 14.5, lineHeight: 21, textAlign: "center" }}>
+                Book exact cars from trusted vendors with verified drivers and transparent fares.
+              </Text>
+            </View>
+            <View style={{ gap: 12, marginTop: 20 }}>
+              <Button title="Create Account" onPress={() => change("register")} />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Sign In"
+                onPress={() => change("login")}
+                style={({ pressed }) => [
+                  styles.button,
+                  {
+                    backgroundColor: "#FFFFFF",
+                    borderWidth: 1.5,
+                    borderColor: "#FFFFFF",
+                  },
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                ]}
+              >
+                <Text style={[styles.buttonText, { color: theme.ink }]}>Sign In</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Continue browsing without an account"
+                onPress={() => router.replace("/(tabs)")}
+                hitSlop={8}
+                style={{ alignItems: "center", paddingVertical: 8 }}
+              >
+                <Text style={{ color: "#D5D9E2", fontSize: 14, fontWeight: "700" }}>
+                  Continue browsing
+                </Text>
+              </Pressable>
+              <Text style={{ color: "#9AA1B2", fontSize: 11.5, lineHeight: 16, textAlign: "center" }}>
+                By continuing, you agree to our Terms of Service and Privacy Policy.
+              </Text>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
+      </ImageBackground>
+    );
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.screen}>
       <KeyboardAvoidingView
@@ -114,19 +188,38 @@ export function AuthScreen({ reset = false }: { reset?: boolean }) {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}>
           <ImageBackground source={require("../../../assets/journey-night.webp")} style={{ overflow: "hidden" }}>
             <LinearGradient
-              colors={["#0B1220F0", "#0B1220CC", "#0B1220F5"]}
+              colors={["#0A0F1CF0", "#0A0F1CCC", "#0A0F1CF5"]}
               style={{ paddingTop: 64, paddingHorizontal: 24, paddingBottom: 56, gap: 14 }}
             >
-              <Brand large light />
-              <Text style={{ color: "white", fontSize: 26, fontWeight: "800", lineHeight: 32, letterSpacing: -0.5 }}>
-                Exact Cars. Real Drivers. Better Rides.
-              </Text>
-              <Text style={{ color: "#CBD5E1", fontSize: 14, lineHeight: 20 }}>
-                Choose the exact car, the exact driver and a transparent fare.
-              </Text>
+              <Brand large light tagline />
             </LinearGradient>
           </ImageBackground>
-          <View style={[styles.content, { marginTop: -32, gap: 16 }]}>
+          <View
+            style={[
+              styles.content,
+              {
+                marginTop: -28,
+                gap: 16,
+                backgroundColor: theme.surface,
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                paddingTop: 24,
+                flexGrow: 1,
+              },
+            ]}
+          >
+            {mode !== "reset" && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+                onPress={() => change("welcome")}
+                hitSlop={10}
+                style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }}
+              >
+                <Ionicons name="chevron-back" size={18} color={theme.muted} />
+                <Text style={{ color: theme.muted, fontWeight: "600", fontSize: 13.5 }}>Back</Text>
+              </Pressable>
+            )}
             <View style={{ gap: 4 }}>
               <Text accessibilityRole="header" style={styles.title}>
                 {titleText}
@@ -196,16 +289,16 @@ export function AuthScreen({ reset = false }: { reset?: boolean }) {
         )}
         <ErrorText error={error} />
         {!!message && (
-          <Text accessibilityLiveRegion="polite" style={styles.body}>
+          <Text accessibilityLiveRegion="polite" style={[styles.body, { color: theme.success, fontWeight: "600" }]}>
             {message}
           </Text>
         )}
         <Button
           title={
             mode === "login"
-              ? "Sign in"
+              ? "Sign In"
               : mode === "register"
-                ? "Create account"
+                ? "Create Account"
                 : mode === "forgot"
                   ? "Request reset link"
                   : "Update password"
@@ -217,15 +310,21 @@ export function AuthScreen({ reset = false }: { reset?: boolean }) {
         {mode === "login" ? (
           <>
             <Button
-              title="Create account"
-              secondary
+              title="Create Account"
+              outline
               onPress={() => change("register")}
             />
-            <Button
-              title="Forgot password"
-              secondary
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Forgot password"
               onPress={() => change("forgot")}
-            />
+              hitSlop={8}
+              style={{ alignItems: "center", paddingVertical: 4 }}
+            >
+              <Text style={{ color: theme.brand, fontWeight: "700", fontSize: 14 }}>
+                Forgot password?
+              </Text>
+            </Pressable>
           </>
         ) : (
           <Button

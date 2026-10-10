@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Platform, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Button, Field, styles } from "./ui";
+import { Button, Field } from "./ui";
+import { FieldBox } from "./Select";
 import { formatDate, formatTime } from "../utils/when";
 // Treat picker values as calendar fields, not instants. The quote boundary converts
 // the chosen fields to Asia/Kolkata; a device timezone never changes the trip day.
@@ -40,17 +41,14 @@ export function JourneyDate({
   const shown = value ? (mode === "date" ? formatDate(value) : formatTime(value)) : "";
   return (
     <View style={{ gap: 7 }}>
-      <Text style={styles.small}>{label}</Text>
-      <Pressable
-        accessibilityRole="button"
+      <FieldBox
+        label={label}
+        icon={mode === "date" ? "calendar-outline" : "time-outline"}
+        value={shown}
+        placeholder={mode === "date" ? "Select date" : "Select time"}
         accessibilityLabel={`${label}: ${shown || "not selected"}`}
         onPress={() => setOpen(true)}
-        style={[styles.input, { justifyContent: "center" }]}
-      >
-        <Text style={[styles.body, !shown && { opacity: 0.6 }]}>
-          {shown || (mode === "date" ? "Select date" : "Select time")}
-        </Text>
-      </Pressable>
+      />
       {open && (
         <>
           <DateTimePicker

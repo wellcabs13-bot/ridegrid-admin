@@ -1,7 +1,7 @@
 import { Tabs, router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Brand } from "../../src/components/Premium";
+import { Avatar, Brand } from "../../src/components/Premium";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../src/services/api";
@@ -14,7 +14,7 @@ const TABS: { name: string; title: string; icon: Icon; active: Icon; hidden?: bo
   { name: "book", title: "Book", icon: "search-outline", active: "search" },
   { name: "trips", title: "Trips", icon: "car-outline", active: "car" },
   { name: "notifications", title: "Updates", icon: "notifications-outline", active: "notifications" },
-  { name: "account", title: "Account", icon: "person-outline", active: "person" },
+  { name: "account", title: "Profile", icon: "person-outline", active: "person" },
   { name: "wallet", title: "Wallet", icon: "wallet-outline", active: "wallet", hidden: true },
 ];
 export default function Layout() {
@@ -31,59 +31,68 @@ export default function Layout() {
       screenOptions={{
         headerTitle: "",
         headerLeft: () => (
-          <View style={{ marginLeft: 20 }}>
+          <View style={{ marginLeft: 18 }}>
             <Brand />
           </View>
         ),
         headerRight: () => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open account"
-            onPress={() => router.push("/(tabs)/account")}
-            style={{
-              width: 44,
-              height: 44,
-              marginRight: 12,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: theme.ink,
-                width: 34,
-                height: 34,
-                borderRadius: 17,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+          <View style={{ flexDirection: "row", alignItems: "center", marginRight: 14, gap: 4 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open updates"
+              onPress={() => router.push("/(tabs)/notifications")}
+              style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
             >
-              <Text style={{ color: "white", fontWeight: "700" }}>
-                {session?.user.name?.slice(0, 1).toUpperCase() || "R"}
-              </Text>
-            </View>
-          </Pressable>
+              <Ionicons name="notifications-outline" size={24} color={theme.ink} />
+              {!!inbox.data?.unread && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 9,
+                    right: 9,
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: theme.brand,
+                    borderWidth: 2,
+                    borderColor: theme.surface,
+                  }}
+                />
+              )}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open account"
+              onPress={() => router.push("/(tabs)/account")}
+              style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
+            >
+              <Avatar name={session?.user.name || "R"} size={36} />
+            </Pressable>
+          </View>
         ),
         headerShadowVisible: false,
         headerStyle: { backgroundColor: theme.paper },
         headerTintColor: theme.ink,
+        sceneStyle: { backgroundColor: theme.paper },
         tabBarActiveTintColor: theme.brand,
-        tabBarInactiveTintColor: "#98A2B3",
+        tabBarInactiveTintColor: "#9AA1AE",
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
           borderTopColor: theme.line,
           borderTopWidth: 1,
+          borderTopLeftRadius: 22,
+          borderTopRightRadius: 22,
           paddingTop: 8,
-          height: 62 + insets.bottom,
+          height: 64 + insets.bottom,
           paddingBottom: Math.max(insets.bottom, 8),
-          elevation: 12,
+          elevation: 16,
           shadowColor: "#101828",
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
+          shadowOpacity: 0.1,
+          shadowRadius: 14,
           shadowOffset: { width: 0, height: -4 },
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
       }}
     >
       {TABS.map((t) => (

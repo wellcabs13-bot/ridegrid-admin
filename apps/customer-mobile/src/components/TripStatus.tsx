@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Card, Button, ErrorText, styles, theme } from "./ui";
-import { Badge } from "./Premium";
+import { Badge, RouteLine } from "./Premium";
 import { api } from "../services/api";
 import { useApp } from "../state/Providers";
 import { bookingTone, label } from "../utils/journey";
@@ -54,42 +54,29 @@ export function TripStatus({ booking: b }: { booking: Booking }) {
     : [];
   return (
     <Card>
-      <Text style={styles.heading}>Trip status</Text>
-      <Badge
-        text={label(q.data?.trip?.status || q.data?.status || b.status)}
-        tone={bookingTone(q.data?.status || b.status).tone}
-        icon={bookingTone(q.data?.status || b.status).icon}
-      />
+      <View style={styles.row}>
+        <Text style={[styles.heading, { fontSize: 16 }]}>Trip status</Text>
+        <Badge
+          text={label(q.data?.trip?.status || q.data?.status || b.status)}
+          tone={bookingTone(q.data?.status || b.status).tone}
+          icon={bookingTone(q.data?.status || b.status).icon}
+        />
+      </View>
       <LinearGradient
-        colors={[theme.surface, theme.paper]}
-        style={{ padding: 20, gap: 10, borderRadius: 14 }}
+        colors={[theme.field, theme.surface]}
+        style={{ padding: 16, gap: 12, borderRadius: 14 }}
       >
-        <Text style={[styles.small, { letterSpacing: 1.5 }]}>
+        <Text style={[styles.small, { letterSpacing: 1.5, fontWeight: "700" }]}>
           ROUTE OVERVIEW
         </Text>
-        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-          <Ionicons name="radio-button-on" color={theme.brand} size={22} />
-          <Text style={[styles.body, { flex: 1 }]}>{b.pickupLocation}</Text>
-        </View>
-        <View
-          style={{
-            borderLeftColor: theme.brand,
-            borderLeftWidth: 2,
-            borderStyle: "dashed",
-            height: 38,
-            marginLeft: 10,
-          }}
-        />
-        <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-          <Ionicons name="location" color={theme.gold} size={22} />
-          <Text style={[styles.body, { flex: 1 }]}>{b.dropLocation}</Text>
-        </View>
+        <RouteLine from={b.pickupLocation} to={b.dropLocation} />
         <Text style={styles.small}>
           Route overview, not a live vehicle location.
         </Text>
       </LinearGradient>
       <Button
         secondary
+        icon="map-outline"
         title="Open route in Maps"
         onPress={() =>
           void Linking.openURL(
@@ -105,12 +92,15 @@ export function TripStatus({ booking: b }: { booking: Booking }) {
       {milestones
         .filter(([, time]) => time)
         .map(([name, time]) => (
-          <View key={name} style={{ gap: 3 }}>
-            <Text style={styles.body}>✓ {name}</Text>
-            <Text style={styles.small}>
-              {formatDateTime(time!)}{" "}
-              IST
-            </Text>
+          <View key={name} style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+            <Ionicons name="checkmark-circle" size={20} color={theme.success} />
+            <View style={{ flex: 1, gap: 1 }}>
+              <Text style={[styles.body, { fontWeight: "600" }]}>{name}</Text>
+              <Text style={styles.small}>
+                {formatDateTime(time!)}{" "}
+                IST
+              </Text>
+            </View>
           </View>
         ))}
       <ErrorText error={q.error} />

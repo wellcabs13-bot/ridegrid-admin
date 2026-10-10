@@ -1,6 +1,15 @@
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Badge, MenuRow, QuickAction, SectionHeader, TrustRow } from "../../components/Premium";
+import {
+  Badge,
+  Divider,
+  IconDisc,
+  QuickAction,
+  RouteLine,
+  SectionHeader,
+  SegmentTabs,
+  TrustRow,
+} from "../../components/Premium";
 import { theme, shadow } from "../../components/ui";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -20,8 +29,9 @@ import {
 } from "../../components/ui";
 import { api } from "../../services/api";
 import { readOptions, writeOptions } from "../../storage/cache";
+import { routeParams } from "../../utils/routes";
 import { bookingGroup, bookingStatusLabel, bookingTone, calendarDays, journeyLabel, label, pickupISO } from "../../utils/journey";
-import type { BookingPage, Config, Journey, Option, Search, Service } from "../../types";
+import type { BookingPage, Config, Journey, Option, SavedRoute, Search, Service } from "../../types";
 import { useApp } from "../../state/Providers";
 import { Select } from "../../components/Select";
 import { JourneyDate } from "../../components/JourneyDate";
@@ -63,6 +73,14 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
   const upcoming = (recent.data?.bookings || [])
     .filter((b) => ["Upcoming", "Active"].includes(bookingGroup(b.status)))
     .sort((a, b) => Date.parse(a.pickupDateTime) - Date.parse(b.pickupDateTime))[0];
+  // Routes the customer saved from results; the same API as the Saved Routes screen.
+  const saved = useQuery({
+    queryKey: ["saved-routes", session?.user.id],
+    enabled: !!session && !searchOnly,
+    queryFn: ({ signal }) =>
+      api<{ routes: SavedRoute[] }>("/api/mobile/routes", { signal }),
+  });
+  const savedRoutes = (saved.data?.routes || []).slice(0, 3);
   const [service, setService] = useState<Journey>(
     params.serviceType === "AIRPORT"
       ? "AIRPORT"
@@ -183,17 +201,43 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
       setError((e as Error).message);
     }
   }
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const firstName = session?.user.name?.split(" ")[0];
+  const journeyIcon = (v: Journey) =>
+    v === "ROUNDTRIP"
+      ? "repeat"
+      : v === "LOCAL"
+        ? "time"
+        : v === "AIRPORT"
+          ? "airplane"
+          : "car";
+  const journeyTint = (v: Journey) =>
+    v === "AIRPORT" ? theme.blue : v === "LOCAL" ? theme.success : v === "ROUNDTRIP" ? theme.purple : theme.brand;
   return (
     <Screen
-      title={
-        searchOnly
-          ? "Book your ride"
-          : `Hello${session?.user.name ? `, ${session.user.name.split(" ")[0]}` : ", traveller"}`
-      }
-      subtitle={
-        searchOnly
-          ? "Search exact cars from verified drivers and vendors."
-          : "Let's ride better today."
+      title={searchOnly ? "Book Your Ride" : "Home"}
+      header={
+        searchOnly ? (
+          <View style={{ gap: 4 }}>
+            <Text accessibilityRole="header" style={styles.title}>
+              Book Your Ride
+            </Text>
+            <Text style={styles.subtitle}>
+              Search for exact cars from verified drivers and vendors.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ gap: 2 }}>
+            <Text style={[styles.subtitle, { fontSize: 15 }]}>
+              {greeting}
+              {firstName ? `, ${firstName}` : ""}
+            </Text>
+            <Text accessibilityRole="header" style={[styles.title, { fontSize: 28, lineHeight: 34 }]}>
+              Let's Ride Better Today!
+            </Text>
+          </View>
+        )
       }
       onRefresh={() => void q.refetch()}
       refreshing={q.isRefetching}
@@ -202,74 +246,72 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
         <>
           <ImageBackground
             source={require("../../../assets/journey-night.webp")}
-            imageStyle={{ borderRadius: 24 }}
-            style={{ overflow: "hidden", borderRadius: 24, ...shadow }}
+            imageStyle={{ borderRadius: 22 }}
+            style={{ overflow: "hidden", borderRadius: 22, ...shadow }}
           >
             <LinearGradient
-              colors={["#0B1220F2", "#0B1220B3", "#0B122066"]}
+              colors={["#0A0F1CF5", "#0A0F1CCC", "#0A0F1C55"]}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
-              style={{ padding: 22, gap: 14 }}
+              style={{ padding: 20, gap: 10 }}
             >
-              <Badge text="EXACT CARS · REAL DRIVERS" tone="cyan" icon="shield-checkmark" />
-              <Text
-                style={{
-                  color: "white",
-                  fontSize: 28,
-                  fontWeight: "800",
-                  lineHeight: 34,
-                  letterSpacing: -0.6,
-                  maxWidth: 260,
-                }}
-              >
-                Your next ride is a better ride.
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 15,
+                    backgroundColor: theme.brand,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="sparkles" size={16} color="white" />
+                </View>
+                <Text style={{ color: "white", fontSize: 18, fontWeight: "800", letterSpacing: -0.3 }}>
+                  RideGuide Planner
+                </Text>
+              </View>
+              <Text style={{ color: "#D9DDE6", fontSize: 13.5, lineHeight: 19, maxWidth: 250 }}>
+                Plan smarter. Compare exact cars, drivers and transparent fares in one place.
               </Text>
-              <Text style={{ color: "#CBD5E1", fontSize: 14, lineHeight: 20, maxWidth: 260 }}>
-                Choose the exact car, the exact driver and a transparent fare.
-              </Text>
-              <View style={{ alignSelf: "flex-start", minWidth: 200 }}>
+              <View style={{ alignSelf: "flex-start", marginTop: 4 }}>
                 <Button
-                  title="Book a ride"
+                  compact
+                  title="Plan my trip"
                   icon="arrow-forward"
-                  onPress={() => router.push("/(tabs)/book")}
+                  onPress={() => router.push("/assistant")}
                 />
               </View>
             </LinearGradient>
           </ImageBackground>
           {!!journeys.length && (
-            <View style={{ gap: 12 }}>
-              <SectionHeader title="Where to?" caption="Pick the kind of journey" />
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                {journeys.map((v) => (
-                  <QuickAction
-                    key={v}
-                    title={journeyLabel(v)}
-                    icon={
-                      v === "ROUNDTRIP"
-                        ? "repeat-outline"
-                        : v === "LOCAL"
-                          ? "time-outline"
-                          : v === "AIRPORT"
-                            ? "airplane-outline"
-                            : "navigate-outline"
-                    }
-                    onPress={() =>
-                      router.push({
-                        pathname: "/search",
-                        params: {
-                          serviceType: v === "AIRPORT" ? "AIRPORT" : v === "LOCAL" ? "LOCAL" : "OUTSTATION",
-                          tripType: v === "ROUNDTRIP" ? "ROUNDTRIP" : "ONEWAY",
-                        },
-                      })
-                    }
-                  />
-                ))}
-              </View>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              {journeys.map((v) => (
+                <QuickAction
+                  key={v}
+                  title={
+                    v === "ONE_WAY" ? "Book a Ride" : v === "AIRPORT" ? "Airport Ride" : v === "LOCAL" ? "Hourly / Local" : journeyLabel(v)
+                  }
+                  tint={journeyTint(v)}
+                  icon={journeyIcon(v)}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/search",
+                      params: {
+                        serviceType: v === "AIRPORT" ? "AIRPORT" : v === "LOCAL" ? "LOCAL" : "OUTSTATION",
+                        tripType: v === "ROUNDTRIP" ? "ROUNDTRIP" : "ONEWAY",
+                      },
+                    })
+                  }
+                />
+              ))}
             </View>
           )}
           {upcoming && (
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: 10 }}>
               <SectionHeader
+                icon="car-sport"
                 title={upcoming.status === "TRIP_STARTED" ? "Trip in progress" : "Upcoming ride"}
                 action="All trips"
                 onAction={() => router.push("/(tabs)/trips")}
@@ -283,19 +325,17 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
                 style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
               >
                 <View style={styles.row}>
+                  <Text style={[styles.body, { fontWeight: "700" }]}>
+                    {formatDateTime(upcoming.pickupDateTime)}
+                  </Text>
                   <Badge
                     text={bookingStatusLabel(upcoming.status)}
                     tone={bookingTone(upcoming.status).tone}
                     icon={bookingTone(upcoming.status).icon}
                   />
-                  <Text style={styles.small}>{formatDateTime(upcoming.pickupDateTime)} IST</Text>
                 </View>
-                <Text style={styles.heading} numberOfLines={1}>
-                  {upcoming.pickupLocation}
-                </Text>
-                <Text style={styles.small} numberOfLines={1}>
-                  to {upcoming.dropLocation}
-                </Text>
+                <RouteLine from={upcoming.pickupLocation} to={upcoming.dropLocation} />
+                <Divider />
                 <View style={styles.row}>
                   <Text style={[styles.body, { fontWeight: "600", flex: 1 }]} numberOfLines={1}>
                     {upcoming.vehicle.make} {upcoming.vehicle.model}
@@ -304,6 +344,57 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
                   <Ionicons name="chevron-forward" size={18} color={theme.muted} />
                 </View>
               </Pressable>
+            </View>
+          )}
+          {!!session && (
+            <View style={{ gap: 10 }}>
+              <SectionHeader
+                icon="bookmark"
+                title="Saved routes"
+                action={savedRoutes.length ? "See all" : undefined}
+                onAction={() => router.push("/saved-routes")}
+              />
+              {savedRoutes.length ? (
+                <Card>
+                  {savedRoutes.map((r, i) => (
+                    <View key={r.id} style={{ gap: 12 }}>
+                      {i > 0 && <Divider />}
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Check fares for ${r.pickupCity}`}
+                        onPress={() =>
+                          router.push({ pathname: "/search", params: routeParams(r) })
+                        }
+                        style={({ pressed }) => ({
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 12,
+                          opacity: pressed ? 0.7 : 1,
+                        })}
+                      >
+                        <IconDisc name="navigate" size={40} />
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text style={[styles.body, { fontWeight: "700" }]} numberOfLines={1}>
+                            {r.pickupCity} → {r.dropCity.replaceAll("|", ", ") || r.packageName}
+                          </Text>
+                          <Text style={[styles.small, { fontSize: 12 }]}>
+                            {label(r.category)} ·{" "}
+                            {r.serviceType === "LOCAL" ? "Local" : r.tripType === "ROUNDTRIP" ? "Round trip" : "One-way"}
+                          </Text>
+                        </View>
+                        <Badge text="Check fares" />
+                      </Pressable>
+                    </View>
+                  ))}
+                </Card>
+              ) : saved.isPending ? null : (
+                <View style={[styles.card, { flexDirection: "row", alignItems: "center", gap: 12 }]}>
+                  <IconDisc name="bookmark-outline" size={40} />
+                  <Text style={[styles.small, { flex: 1 }]}>
+                    Save a route from your search results and it will wait for you here.
+                  </Text>
+                </View>
+              )}
             </View>
           )}
           <Card>
@@ -316,20 +407,6 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
               ]}
             />
           </Card>
-          <Card>
-            <MenuRow
-              icon="compass-outline"
-              title="RideGuide"
-              subtitle="Guided trip planning with real RideGrid information"
-              onPress={() => router.push("/assistant")}
-            />
-            <MenuRow
-              icon="bookmark-outline"
-              title="Your saved routes"
-              subtitle="Return to a favourite. Find a fresh fare."
-              onPress={() => router.push("/saved-routes")}
-            />
-          </Card>
         </>
       )}
       {searchOnly &&
@@ -337,13 +414,13 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
           <Loading />
         ) : !journeys.length ? (
           <Empty
+            icon="map-outline"
             title="No routes available"
             body="Current marketplace options will appear here when available."
           />
         ) : (
-          <Card>
-            
-            <Chips
+          <>
+            <SegmentTabs
               values={journeys}
               value={service}
               format={journeyLabel}
@@ -356,104 +433,120 @@ export function Home({ searchOnly = false }: { searchOnly?: boolean }) {
                 setCategory("");
               }}
             />
-            {airport && (
-              <Chips
-                values={["PICKUP", "DROP"]}
-                value={direction}
-                format={(v) => (v === "PICKUP" ? "Pickup from airport" : "Drop to airport")}
-                onChange={(v) => setDirection(v as "PICKUP" | "DROP")}
-              />
-            )}
-            <Select
-              label={airport ? "Airport city" : "Pickup city"}
-              values={cities}
-              value={pickup}
-              onChange={(v) => {
-                setPickup(v);
-                setDrop("");
-                setVisits([]);
-                setPkg("");
-                setCategory("");
-              }}
-            />
-            {service === "ONE_WAY" && (
-              <Select
-                label="Destination"
-                values={destinations}
-                value={drop}
-                onChange={(v) => {
-                  setDrop(v);
-                  setCategory("");
-                }}
-              />
-            )}
-            {service === "ROUNDTRIP" && (
-              <Select
-                label="Cities to visit"
-                multiple
-                values={destinations}
-                value={visits.join("|")}
-                onChange={(v) => {
-                  setVisits(v.split("|").filter(Boolean));
-                  setCategory("");
-                }}
-              />
-            )}
-            {service === "LOCAL" && (
-              <Select
-                label="Local package"
-                values={unique(from.map((o) => o.packageName))}
-                value={pkg}
-                onChange={(v) => {
-                  setPkg(v);
-                  setCategory("");
-                }}
-              />
-            )}
-            {airport ? (
-              <Text style={styles.small}>
-                Airport cars appear as vendors publish airport fares for your city.
-              </Text>
-            ) : (
-              <>
-                <Text style={styles.small}>Vehicle category</Text>
-                <Chips
-                  values={categories}
-                  value={category}
-                  format={label}
-                  onChange={setCategory}
+            <Card>
+              {airport && (
+                <SegmentTabs
+                  values={["PICKUP", "DROP"]}
+                  value={direction}
+                  format={(v) => (v === "PICKUP" ? "Pickup from airport" : "Drop to airport")}
+                  onChange={(v) => setDirection(v as "PICKUP" | "DROP")}
                 />
-              </>
-            )}
-            <JourneyDate
-              label={airport ? "Pickup date" : "Departure date"}
-              value={date}
-              onChange={setDate}
-            />
-            {service === "ROUNDTRIP" ? (
-              <>
-                <JourneyDate
-                  label="Return date"
-                  value={end}
-                  onChange={setEnd}
+              )}
+              <Select
+                icon="radio-button-on"
+                label={airport ? "Airport city" : "Pickup location"}
+                values={cities}
+                value={pickup}
+                onChange={(v) => {
+                  setPickup(v);
+                  setDrop("");
+                  setVisits([]);
+                  setPkg("");
+                  setCategory("");
+                }}
+              />
+              {service === "ONE_WAY" && (
+                <Select
+                  icon="location"
+                  label="Drop-off location"
+                  values={destinations}
+                  value={drop}
+                  onChange={(v) => {
+                    setDrop(v);
+                    setCategory("");
+                  }}
                 />
-                <Text style={styles.small}>
-                  {duration.days
-                    ? `${duration.days} calendar days · Pickup at 12:00 IST`
-                    : "Choose both dates · Pickup at 12:00 IST"}
-                </Text>
-              </>
-            ) : (
+              )}
+              {service === "ROUNDTRIP" && (
+                <Select
+                  icon="location"
+                  label="Cities to visit"
+                  multiple
+                  values={destinations}
+                  value={visits.join("|")}
+                  onChange={(v) => {
+                    setVisits(v.split("|").filter(Boolean));
+                    setCategory("");
+                  }}
+                />
+              )}
+              {service === "LOCAL" && (
+                <Select
+                  icon="time"
+                  label="Local package"
+                  values={unique(from.map((o) => o.packageName))}
+                  value={pkg}
+                  onChange={(v) => {
+                    setPkg(v);
+                    setCategory("");
+                  }}
+                />
+              )}
               <JourneyDate
-                label="Pickup time (India time)"
-                mode="time"
-                value={time}
-                onChange={setTime}
+                label={airport ? "Pickup date" : "Departure date"}
+                value={date}
+                onChange={setDate}
               />
-            )}
-            <ErrorText error={error} />
-            <Button title="Search exact cars" icon="search" onPress={search} disabled={!online} />
-          </Card>
+              {service === "ROUNDTRIP" ? (
+                <>
+                  <JourneyDate
+                    label="Return date"
+                    value={end}
+                    onChange={setEnd}
+                  />
+                  <Text style={styles.small}>
+                    {duration.days
+                      ? `${duration.days} calendar days · Pickup at 12:00 IST`
+                      : "Choose both dates · Pickup at 12:00 IST"}
+                  </Text>
+                </>
+              ) : (
+                <JourneyDate
+                  label="Pickup time (India time)"
+                  mode="time"
+                  value={time}
+                  onChange={setTime}
+                />
+              )}
+              {airport ? (
+                <Text style={styles.small}>
+                  Airport cars appear as vendors publish airport fares for your city.
+                </Text>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  <Text style={[styles.small, { fontWeight: "600", color: theme.ink }]}>
+                    Vehicle category
+                  </Text>
+                  <Chips
+                    values={categories}
+                    value={category}
+                    format={label}
+                    onChange={setCategory}
+                  />
+                </View>
+              )}
+              <ErrorText error={error} />
+              <Button title="Search Exact Cars" icon="arrow-forward" onPress={search} disabled={!online} />
+            </Card>
+            <TrustRow
+              items={[
+                ["shield-checkmark-outline", "Verified drivers"],
+                ["business-outline", "Trusted vendors"],
+                ["receipt-outline", "Transparent fares"],
+                ["lock-closed-outline", "Secure booking"],
+              ]}
+            />
+          </>
         ))}
       <ErrorText error={q.error} />
       {q.isError && (

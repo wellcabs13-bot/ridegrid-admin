@@ -1,5 +1,5 @@
-import { Badge } from "../../src/components/Premium";
-import { FlatList, Text, View } from "react-native";
+import { Badge, IconDisc } from "../../src/components/Premium";
+import { FlatList, Pressable, Text, View } from "react-native";
 import {
   useInfiniteQuery,
   useMutation,
@@ -10,13 +10,13 @@ import { api } from "../../src/services/api";
 import { useApp } from "../../src/state/Providers";
 import type { NoticePage } from "../../src/types";
 import {
-  Card,
   Button,
   Empty,
   ErrorText,
   Loading,
   SignedIn,
   styles,
+  theme,
 } from "../../src/components/ui";
 export default function Inbox() {
   const { session, online } = useApp();
@@ -44,6 +44,7 @@ export default function Inbox() {
       ]);
     },
   });
+  const unread = q.data?.pages[0].unread;
   return (
     <View style={styles.screen}>
       <SignedIn>
@@ -53,15 +54,19 @@ export default function Inbox() {
           keyExtractor={(n) => n.id}
           refreshing={q.isRefetching}
           onRefresh={() => void q.refetch()}
-          ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           ListHeaderComponent={
             <View style={{ gap: 12 }}>
-              <Text style={styles.title}>Your updates</Text>
-              <Text style={styles.subtitle}>
-                {q.data
-                  ? `${q.data.pages[0].unread} unread`
-                  : "Booking and account updates"}
-              </Text>
+              <View style={{ gap: 4 }}>
+                <Text style={styles.title}>Updates</Text>
+                <Text style={styles.subtitle}>
+                  {q.data
+                    ? unread
+                      ? `${unread} unread`
+                      : "You're all caught up"
+                    : "Booking and account updates"}
+                </Text>
+              </View>
               {!online && (
                 <ErrorText error="Offline. Showing previously loaded updates." />
               )}
@@ -76,45 +81,82 @@ export default function Inbox() {
               <Loading />
             ) : (
               <Empty
+                icon="notifications-outline"
                 title="You're all caught up"
                 body="Notifications from RideGrid will appear here."
               />
             )
           }
-          renderItem={({ item: n }) => (
-            <Card>
-              {!n.readAt && (
-                <Badge text="NEW UPDATE" icon="notifications-outline" />
-              )}
-              <Text style={styles.heading}>{n.title}</Text>
-              <Text style={styles.body}>{n.message}</Text>
-              <Text style={styles.small}>
-                {new Date(n.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST
-              </Text>
-              {n.target?.type === "booking" && (
-                <Button
-                  title={`Open booking ${n.target.bookingNumber}`}
-                  onPress={() => {
-                    if (!n.readAt && online) mark.mutate(n.id);
-                    router.push({ pathname: "/bookings/[id]", params: { id: n.target!.id } });
-                  }}
-                />
-              )}
-              {!n.readAt && (
-                <Button
-                  title="Mark as read"
-                  secondary
-                  disabled={!online}
-                  busy={mark.isPending}
-                  onPress={() => mark.mutate(n.id)}
-                />
-              )}
-            </Card>
-          )}
+          renderItem={({ item: n }) => {
+            const booking = n.target?.type === "booking" ? n.target : null;
+            const isNew = !n.readAt;
+            return (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  booking ? `${n.title}. Open booking ${booking.bookingNumber}` : n.title
+                }
+                onPress={() => {
+                  if (isNew && online) mark.mutate(n.id);
+                  if (booking)
+                    router.push({ pathname: "/bookings/[id]", params: { id: booking.id } });
+                }}
+                style={({ pressed }) => [
+                  styles.card,
+                  { flexDirection: "row", gap: 12, padding: 14 },
+                  isNew && { borderColor: `${theme.brand}40`, backgroundColor: "#FFFAFA" },
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                <IconDisc name={booking ? "car" : "notifications"} size={42} />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Text style={[styles.body, { fontWeight: "700", flex: 1 }]}>{n.title}</Text>
+                    {isNew && (
+                      <View
+                        style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: theme.brand }}
+                      />
+                    )}
+                  </View>
+                  <Text style={[styles.body, { color: theme.muted, fontSize: 14, lineHeight: 20 }]}>
+                    {n.message}
+                  </Text>
+                  <Text style={[styles.small, { fontSize: 12 }]}>
+                    {new Date(n.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST
+                  </Text>
+                  {(booking || isNew) && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 2 }}>
+                      {booking && <Badge text={`Open booking ${booking.bookingNumber}`} icon="arrow-forward" />}
+                      {isNew && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Mark as read"
+                          disabled={!online || mark.isPending}
+                          hitSlop={8}
+                          onPress={() => mark.mutate(n.id)}
+                        >
+                          <Text
+                            style={{
+                              color: online ? theme.muted : "#C2C7D0",
+                              fontSize: 12.5,
+                              fontWeight: "700",
+                            }}
+                          >
+                            Mark as read
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
+                </View>
+              </Pressable>
+            );
+          }}
           ListFooterComponent={
             q.hasNextPage ? (
               <Button
                 title="Load older updates"
+                secondary
                 busy={q.isFetchingNextPage}
                 onPress={() => void q.fetchNextPage()}
               />
